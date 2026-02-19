@@ -1,0 +1,219 @@
+/* 전역 스타일 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', '맑은 고딕', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 스크롤바 스타일 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* 다크 모드 스크롤바 */
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* 선택 색상 */
+::selection {
+  background: rgba(24, 144, 255, 0.3);
+}
+
+/* 애니메이션 */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 유틸리티 클래스 */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.slide-in-left {
+  animation: slideInLeft 0.3s ease-out;
+}
+
+.slide-in-up {
+  animation: slideInUp 0.3s ease-out;
+}
+
+/* Ant Design 커스텀 */
+.ant-layout {
+  min-height: 100vh;
+}
+
+.ant-layout-sider {
+  transition: all 0.2s;
+}
+
+.ant-menu-item {
+  transition: all 0.2s;
+}
+
+.ant-card {
+  transition: box-shadow 0.3s;
+}
+
+.ant-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 대시보드 카드 스타일 */
+.dashboard-card {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.dashboard-card .ant-card-head {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.dashboard-card .ant-statistic-title {
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.dashboard-card .ant-statistic-content {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+/* 테이블 스타일 */
+.ant-table-wrapper {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* 버튼 그룹 */
+.button-group {
+  display: flex;
+  gap: 8px;
+}
+
+/* 페이지 헤더 */
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.page-header .subtitle {
+  color: rgba(0, 0, 0, 0.45);
+  margin-top: 4px;
+}
+
+/* 레이아웃 스크롤 */
+.ant-layout-sider {
+  overflow: auto;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  left: 0;
+}
+
+.ant-layout-sider .ant-menu {
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* 컨텐츠 영역 스크롤 */
+.content-wrapper {
+  flex: 1;
+  overflow: auto;
+  padding: 24px;
+}
+
+/* 테이블 가로 스크롤 */
+.ant-table-wrapper {
+  overflow-x: auto;
+}
+
+.ant-table {
+  min-width: 100%;
+}
+
+/* 폼 영역 스크롤 */
+.scrollable-form {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 8px;
+}
+
+/* 모달 내부 스크롤 */
+.ant-modal-body {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+/* 리스트 스크롤 */
+.scrollable-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* 카드 내부 스크롤 */
+.scrollable-card .ant-card-body {
+  max-height: 500px;
+  overflow-y: auto;
+}

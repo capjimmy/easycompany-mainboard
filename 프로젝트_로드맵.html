@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>EasyCompany - 프로젝트 로드맵 & 모듈 상호작용 설계</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Malgun Gothic', -apple-system, sans-serif;
+    background: #f8f9fa;
+    color: #333;
+    line-height: 1.7;
+    padding: 40px;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+
+  h1 {
+    font-size: 28px;
+    text-align: center;
+    margin-bottom: 8px;
+    color: #1a1a2e;
+  }
+  .subtitle {
+    text-align: center;
+    color: #888;
+    margin-bottom: 40px;
+    font-size: 14px;
+  }
+
+  /* 섹션 */
+  .section {
+    background: white;
+    border-radius: 12px;
+    padding: 32px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .section h2 {
+    font-size: 20px;
+    color: #1a1a2e;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #667eea;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section h2 .badge {
+    background: #667eea;
+    color: white;
+    font-size: 12px;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-weight: normal;
+  }
+  .section h3 {
+    font-size: 16px;
+    color: #444;
+    margin: 16px 0 10px;
+  }
+
+  /* 현재 상태 표 */
+  .status-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+  }
+  .status-table th {
+    background: #f1f3f5;
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 13px;
+    color: #555;
+    border-bottom: 2px solid #dee2e6;
+  }
+  .status-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+  }
+  .done { color: #52c41a; font-weight: 600; }
+  .progress { color: #fa8c16; font-weight: 600; }
+  .todo { color: #999; }
+
+  /* 모듈 카드 */
+  .module-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 16px 0;
+  }
+  .module-card {
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    padding: 20px;
+    background: #fafafa;
+  }
+  .module-card.highlight {
+    border-color: #667eea;
+    background: #f5f3ff;
+  }
+  .module-card h4 {
+    font-size: 15px;
+    color: #333;
+    margin-bottom: 8px;
+  }
+  .module-card ul {
+    list-style: none;
+    padding: 0;
+  }
+  .module-card li {
+    font-size: 13px;
+    color: #666;
+    padding: 3px 0;
+    padding-left: 16px;
+    position: relative;
+  }
+  .module-card li::before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: #667eea;
+  }
+
+  /* 상호작용 다이어그램 */
+  .interaction-diagram {
+    background: #1a1a2e;
+    border-radius: 12px;
+    padding: 32px;
+    margin: 16px 0;
+    color: white;
+  }
+  .interaction-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin: 10px 0;
+    flex-wrap: wrap;
+  }
+  .node {
+    background: rgba(102, 126, 234, 0.2);
+    border: 1px solid rgba(102, 126, 234, 0.5);
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    text-align: center;
+    min-width: 110px;
+  }
+  .node.core {
+    background: rgba(102, 126, 234, 0.5);
+    border-color: #667eea;
+    font-weight: 600;
+  }
+  .node.active {
+    background: rgba(82, 196, 26, 0.3);
+    border-color: #52c41a;
+  }
+  .arrow {
+    color: #667eea;
+    font-size: 20px;
+  }
+  .arrow-down {
+    text-align: center;
+    color: #667eea;
+    font-size: 20px;
+    margin: 6px 0;
+  }
+  .diagram-label {
+    text-align: center;
+    font-size: 12px;
+    color: rgba(255,255,255,0.5);
+    margin-top: 4px;
+  }
+
+  /* 로드맵 타임라인 */
+  .timeline {
+    position: relative;
+    padding-left: 30px;
+    margin: 16px 0;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e8e8e8;
+  }
+  .timeline-item {
+    position: relative;
+    margin-bottom: 24px;
+  }
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -24px;
+    top: 6px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #667eea;
+  }
+  .timeline-item.completed::before { background: #52c41a; }
+  .timeline-item.current::before {
+    background: #fa8c16;
+    box-shadow: 0 0 0 4px rgba(250, 140, 22, 0.2);
+  }
+  .timeline-week {
+    font-size: 12px;
+    color: #888;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .timeline-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+    margin: 4px 0;
+  }
+  .timeline-desc {
+    font-size: 13px;
+    color: #666;
+  }
+
+  /* 데이터 흐름 */
+  .data-flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+  }
+  .data-box {
+    background: white;
+    border: 2px solid #667eea;
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    text-align: center;
+  }
+  .data-box.local { border-color: #52c41a; }
+  .data-box.server { border-color: #1890ff; }
+  .data-box.hybrid { border-color: #fa8c16; }
+  .data-arrow {
+    font-size: 24px;
+    color: #667eea;
+  }
+
+  /* 핵심 원칙 */
+  .principle-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    margin: 16px 0;
+  }
+  .principle-card {
+    background: linear-gradient(135deg, #667eea10, #764ba210);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+  }
+  .principle-card .number {
+    font-size: 32px;
+    font-weight: 700;
+    color: #667eea;
+    margin-bottom: 8px;
+  }
+  .principle-card .label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 6px;
+  }
+  .principle-card .desc {
+    font-size: 12px;
+    color: #888;
+  }
+
+  /* 체크리스트 */
+  .checklist {
+    list-style: none;
+    padding: 0;
+  }
+  .checklist li {
+    padding: 8px 0;
+    padding-left: 28px;
+    position: relative;
+    font-size: 14px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .checklist li::before {
+    position: absolute;
+    left: 0;
+    font-size: 16px;
+  }
+  .checklist li.check::before { content: '✅'; }
+  .checklist li.current::before { content: '🔧'; }
+  .checklist li.next::before { content: '⬜'; }
+
+  /* 상호작용 테이블 */
+  .interaction-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 13px;
+  }
+  .interaction-table th {
+    background: #667eea;
+    color: white;
+    padding: 10px;
+    text-align: center;
+  }
+  .interaction-table td {
+    padding: 10px;
+    border: 1px solid #e8e8e8;
+    text-align: center;
+    vertical-align: top;
+  }
+  .interaction-table td.yes { background: #f6ffed; color: #52c41a; font-weight: 600; }
+  .interaction-table td.partial { background: #fff7e6; color: #fa8c16; font-weight: 600; }
+
+  @media print {
+    body { background: white; padding: 20px; }
+    .section { box-shadow: none; border: 1px solid #ddd; page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>EasyCompany 프로젝트 로드맵</h1>
+<p class="subtitle">업무 효율화 솔루션 · 개발 방향 및 모듈 상호작용 설계 · v1.0</p>
+
+<!-- ========== 1. 현재 상태 ========== -->
+<div class="section">
+  <h2>1. 현재 진행 상태 <span class="badge">STATUS</span></h2>
+
+  <table class="status-table">
+    <thead>
+      <tr>
+        <th style="width:30%">구성 요소</th>
+        <th style="width:15%">상태</th>
+        <th>세부 내용</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>메인보드 프레임</strong></td>
+        <td class="done">완료 ✓</td>
+        <td>Electron + React + TypeScript + Ant Design 기반 데스크톱 앱</td>
+      </tr>
+      <tr>
+        <td><strong>로그인 / 인증</strong></td>
+        <td class="done">완료 ✓</td>
+        <td>bcrypt 해시 인증, 세션 유지, 로그아웃</td>
+      </tr>
+      <tr>
+        <td><strong>사용자 관리</strong></td>
+        <td class="done">완료 ✓</td>
+        <td>생성 / 수정 / 삭제 / 활성화·비활성화</td>
+      </tr>
+      <tr>
+        <td><strong>권한 시스템</strong></td>
+        <td class="done">완료 ✓</td>
+        <td>3단계 역할(슈퍼관리자/관리자/일반사원), 메뉴별 CRUD 권한</td>
+      </tr>
+      <tr>
+        <td><strong>대시보드 (뼈대)</strong></td>
+        <td class="done">완료 ✓</td>
+        <td>통계 카드, 최근 계약, 다가오는 일정 (더미 데이터)</td>
+      </tr>
+      <tr>
+        <td><strong>다크/라이트 테마</strong></td>
+        <td class="done">완료 ✓</td>
+        <td>시스템 설정 연동, 수동 전환 지원</td>
+      </tr>
+      <tr>
+        <td><strong>계약관리 모듈</strong></td>
+        <td class="todo">미착수</td>
+        <td>계약관리, 월별현황, 변경이력, 외주관리</td>
+      </tr>
+      <tr>
+        <td><strong>재무/회계 모듈</strong></td>
+        <td class="todo">미착수</td>
+        <td>미수금, 미지급금, 보증금, 청구/입금</td>
+      </tr>
+      <tr>
+        <td><strong>인사/총무 모듈</strong></td>
+        <td class="todo">미착수</td>
+        <td>직원명부, 연차관리, 생일관리, 법인차량</td>
+      </tr>
+      <tr>
+        <td><strong>프로젝트 모듈</strong></td>
+        <td class="todo">미착수</td>
+        <td>프로젝트현황판, 일정관리</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ========== 2. 모듈 상호작용 ========== -->
+<div class="section">
+  <h2>2. 모듈 간 상호작용 맵 <span class="badge">CORE</span></h2>
+
+  <p style="color:#666; margin-bottom:16px;">
+    각 모듈은 독립적으로 동작하되, 아래와 같이 데이터를 공유합니다.
+    모듈을 하나씩 추가해도 기존 모듈에 자동으로 연결됩니다.
+  </p>
+
+  <div class="interaction-diagram">
+    <div class="diagram-label">[ 메인보드 - 모듈 상호작용 구조 ]</div>
+    <br>
+
+    <div class="interaction-row">
+      <div class="node active">메인보드<br><small>로그인 · 권한 · 테마</small></div>
+    </div>
+    <div class="arrow-down">▼ 권한 정보 전달 ▼</div>
+
+    <div class="interaction-row">
+      <div class="node core">대시보드<br><small>모든 모듈 요약</small></div>
+    </div>
+    <div class="arrow-down">▼ 섹션별 데이터 수집 ▼</div>
+
+    <div class="interaction-row">
+      <div class="node">계약관리</div>
+      <span class="arrow">⟷</span>
+      <div class="node">재무/회계</div>
+      <span class="arrow">⟷</span>
+      <div class="node">프로젝트</div>
+    </div>
+    <div class="arrow-down">▲▼</div>
+    <div class="interaction-row">
+      <div class="node">인사/총무</div>
+    </div>
+  </div>
+
+  <h3>모듈 간 데이터 연결 상세</h3>
+
+  <table class="interaction-table">
+    <thead>
+      <tr>
+        <th>연결</th>
+        <th>방향</th>
+        <th>공유 데이터</th>
+        <th>예시</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>계약 → 재무</strong></td>
+        <td>→</td>
+        <td class="yes">계약금액, 결제조건</td>
+        <td>계약 등록 시 미수금 자동 생성</td>
+      </tr>
+      <tr>
+        <td><strong>재무 → 계약</strong></td>
+        <td>→</td>
+        <td class="yes">입금 상태</td>
+        <td>입금 완료 시 계약 상태 변경</td>
+      </tr>
+      <tr>
+        <td><strong>계약 → 프로젝트</strong></td>
+        <td>→</td>
+        <td class="yes">계약명, 기간, 범위</td>
+        <td>계약 확정 시 프로젝트 자동 생성</td>
+      </tr>
+      <tr>
+        <td><strong>프로젝트 → 계약</strong></td>
+        <td>→</td>
+        <td class="partial">진행률</td>
+        <td>프로젝트 완료 시 검수 요청</td>
+      </tr>
+      <tr>
+        <td><strong>인사 → 프로젝트</strong></td>
+        <td>→</td>
+        <td class="yes">담당자 정보</td>
+        <td>직원을 프로젝트에 배정</td>
+      </tr>
+      <tr>
+        <td><strong>인사 → 계약</strong></td>
+        <td>→</td>
+        <td class="partial">담당 영업자</td>
+        <td>계약 담당자 지정</td>
+      </tr>
+      <tr>
+        <td><strong>재무 → 인사</strong></td>
+        <td>→</td>
+        <td class="partial">급여/비용</td>
+        <td>직원별 비용 집계 (향후)</td>
+      </tr>
+      <tr>
+        <td><strong>모든 모듈 → 대시보드</strong></td>
+        <td>→</td>
+        <td class="yes">요약 통계</td>
+        <td>각 모듈의 핵심 지표를 대시보드 섹션에 표시</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ========== 3. 개발 로드맵 ========== -->
+<div class="section">
+  <h2>3. 개발 로드맵 (9주) <span class="badge">ROADMAP</span></h2>
+
+  <div class="timeline">
+    <div class="timeline-item completed">
+      <div class="timeline-week">1주차 (완료)</div>
+      <div class="timeline-title">메인보드 + 로그인 + 권한</div>
+      <div class="timeline-desc">
+        Electron 앱 프레임, 로그인 페이지, 사용자 관리, 권한 설정, 대시보드 뼈대, 다크/라이트 테마
+      </div>
+    </div>
+
+    <div class="timeline-item current">
+      <div class="timeline-week">2주차 (현재)</div>
+      <div class="timeline-title">회사 관리 + 데이터 구조 확립</div>
+      <div class="timeline-desc">
+        회사(멀티테넌트) CRUD, 공통 데이터 모델 정립, 로컬↔서버 데이터 레이어 설계
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="timeline-week">3~4주차</div>
+      <div class="timeline-title">계약관리 모듈</div>
+      <div class="timeline-desc">
+        계약 CRUD, 월별현황 차트, 계약변경이력 관리, 외주관리<br>
+        <strong>→ 재무 모듈과 연동 포인트 설계 (계약 → 미수금 자동 생성)</strong>
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="timeline-week">5~6주차</div>
+      <div class="timeline-title">재무/회계 모듈</div>
+      <div class="timeline-desc">
+        미수금/미지급금 관리, 보증금 관리, 청구/입금 처리<br>
+        <strong>→ 계약 모듈에서 데이터 수신, 입금 시 계약 상태 반영</strong>
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="timeline-week">7주차</div>
+      <div class="timeline-title">인사/총무 모듈</div>
+      <div class="timeline-desc">
+        직원명부, 연차관리, 생일관리, 법인차량 관리<br>
+        <strong>→ 프로젝트/계약의 담당자 정보 연동</strong>
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="timeline-week">8주차</div>
+      <div class="timeline-title">프로젝트 모듈 + 대시보드 완성</div>
+      <div class="timeline-desc">
+        프로젝트현황판, 일정관리, 대시보드 실데이터 연결<br>
+        <strong>→ 계약/인사 모듈에서 데이터 수신, 대시보드 전체 모듈 집계</strong>
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="timeline-week">9주차</div>
+      <div class="timeline-title">통합 테스트 + 버그 수정 + 배포 준비</div>
+      <div class="timeline-desc">
+        전체 모듈 통합 테스트, 모듈 간 데이터 흐름 검증, 성능 최적화, 배포 패키징
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 4. 데이터 마이그레이션 전략 ========== -->
+<div class="section">
+  <h2>4. 데이터 전략: 로컬 → 서버 <span class="badge">DATA</span></h2>
+
+  <div class="data-flow">
+    <div class="data-box local">로컬 저장<br><small>electron-store (JSON)</small></div>
+    <div class="data-arrow">→</div>
+    <div class="data-box hybrid">하이브리드<br><small>로컬 + API 동기화</small></div>
+    <div class="data-arrow">→</div>
+    <div class="data-box server">서버 전환<br><small>AWS Lightsail + PostgreSQL</small></div>
+  </div>
+
+  <h3>단계별 전환 전략</h3>
+
+  <table class="status-table">
+    <thead>
+      <tr>
+        <th>단계</th>
+        <th>시점</th>
+        <th>데이터 저장 위치</th>
+        <th>설명</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Phase 1</strong></td>
+        <td>현재 ~ 4주차</td>
+        <td>100% 로컬</td>
+        <td>electron-store (JSON) 기반 로컬 데이터. 빠른 개발 집중.</td>
+      </tr>
+      <tr>
+        <td><strong>Phase 2</strong></td>
+        <td>5 ~ 7주차</td>
+        <td>로컬 + 서버 동기화</td>
+        <td>데이터 서비스 레이어 추가. 로컬에 캐시, 서버에 백업/동기화.</td>
+      </tr>
+      <tr>
+        <td><strong>Phase 3</strong></td>
+        <td>8주차 ~</td>
+        <td>서버 중심</td>
+        <td>PostgreSQL 서버를 메인 DB로 전환. 로컬은 오프라인 캐시만.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>모듈화 핵심: 데이터 서비스 추상화</h3>
+  <p style="color:#666; font-size:14px; margin:10px 0;">
+    모든 모듈은 <code>DataService</code> 인터페이스를 통해 데이터에 접근합니다.
+    이렇게 하면 저장소가 로컬→서버로 바뀌어도 모듈 코드를 수정할 필요가 없습니다.
+  </p>
+  <pre style="background:#f5f5f5; padding:16px; border-radius:8px; font-size:13px; overflow-x:auto;">
+// 모든 모듈이 사용하는 통일된 인터페이스
+interface DataService&lt;T&gt; {
+  getAll(): Promise&lt;T[]&gt;
+  getById(id: string): Promise&lt;T | null&gt;
+  create(data: Omit&lt;T, 'id'&gt;): Promise&lt;T&gt;
+  update(id: string, data: Partial&lt;T&gt;): Promise&lt;T&gt;
+  delete(id: string): Promise&lt;boolean&gt;
+}
+
+// Phase 1: 로컬 구현
+class LocalContractService implements DataService&lt;Contract&gt; { ... }
+
+// Phase 2: 하이브리드 (로컬 캐시 + 서버 동기화)
+class HybridContractService implements DataService&lt;Contract&gt; { ... }
+
+// Phase 3: 서버 직접 통신
+class ServerContractService implements DataService&lt;Contract&gt; { ... }
+  </pre>
+</div>
+
+<!-- ========== 5. 모듈별 설계 ========== -->
+<div class="section">
+  <h2>5. 모듈별 핵심 설계 <span class="badge">MODULES</span></h2>
+
+  <div class="module-grid">
+    <div class="module-card highlight">
+      <h4>📋 계약관리 (3~4주차)</h4>
+      <ul>
+        <li><strong>계약 CRUD</strong>: 거래처, 계약명, 금액, 기간, 상태</li>
+        <li><strong>월별현황</strong>: 차트 (매출 추이, 계약 건수)</li>
+        <li><strong>변경이력</strong>: 계약 수정 시 자동 이력 저장</li>
+        <li><strong>외주관리</strong>: 하도급 계약, 외주비 관리</li>
+        <li style="color:#667eea; font-weight:600;">→ 재무: 계약 등록 시 미수금 자동 생성</li>
+        <li style="color:#667eea; font-weight:600;">→ 프로젝트: 계약 확정 시 프로젝트 자동 생성</li>
+      </ul>
+    </div>
+
+    <div class="module-card highlight">
+      <h4>💰 재무/회계 (5~6주차)</h4>
+      <ul>
+        <li><strong>미수금관리</strong>: 계약별 청구 금액 vs 입금 금액</li>
+        <li><strong>미지급금관리</strong>: 외주비, 경비 미지급 관리</li>
+        <li><strong>보증금관리</strong>: 입찰보증금, 계약보증금 등</li>
+        <li><strong>청구/입금</strong>: 세금계산서 발행, 입금 확인</li>
+        <li style="color:#667eea; font-weight:600;">← 계약: 계약 정보에서 미수금 데이터 수신</li>
+        <li style="color:#667eea; font-weight:600;">→ 계약: 입금 완료 시 계약 상태 업데이트</li>
+      </ul>
+    </div>
+
+    <div class="module-card">
+      <h4>👥 인사/총무 (7주차)</h4>
+      <ul>
+        <li><strong>직원명부</strong>: 기본정보, 부서, 직급, 연락처</li>
+        <li><strong>연차관리</strong>: 연차 부여/사용/잔여 현황</li>
+        <li><strong>생일관리</strong>: 직원/거래처 생일 알림</li>
+        <li><strong>법인차량</strong>: 차량 정보, 보험, 운행일지</li>
+        <li style="color:#667eea; font-weight:600;">→ 계약/프로젝트: 담당자 정보 제공</li>
+      </ul>
+    </div>
+
+    <div class="module-card">
+      <h4>📊 프로젝트 (8주차)</h4>
+      <ul>
+        <li><strong>프로젝트현황판</strong>: 진행률, 일정, 담당자</li>
+        <li><strong>일정관리</strong>: 캘린더 뷰, 마일스톤</li>
+        <li style="color:#667eea; font-weight:600;">← 계약: 계약 확정 시 프로젝트 자동 생성</li>
+        <li style="color:#667eea; font-weight:600;">← 인사: 담당자 배정 정보 수신</li>
+        <li style="color:#667eea; font-weight:600;">→ 계약: 완료 시 검수 요청 트리거</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 6. 핵심 설계 원칙 ========== -->
+<div class="section">
+  <h2>6. 핵심 설계 원칙 <span class="badge">PRINCIPLES</span></h2>
+
+  <div class="principle-grid">
+    <div class="principle-card">
+      <div class="number">01</div>
+      <div class="label">모듈 독립성</div>
+      <div class="desc">각 모듈은 독립적으로 개발·배포 가능. 모듈 추가 시 기존 코드 수정 최소화.</div>
+    </div>
+    <div class="principle-card">
+      <div class="number">02</div>
+      <div class="label">이벤트 기반 연동</div>
+      <div class="desc">모듈 간 데이터 공유는 이벤트/콜백으로 처리. 직접 참조 없이 느슨한 결합.</div>
+    </div>
+    <div class="principle-card">
+      <div class="number">03</div>
+      <div class="label">데이터 추상화</div>
+      <div class="desc">DataService 인터페이스로 저장소 추상화. 로컬→서버 전환 시 모듈 코드 변경 불필요.</div>
+    </div>
+  </div>
+
+  <h3>모듈 추가 절차 (개발자 가이드)</h3>
+  <ol style="padding-left:20px; color:#666; font-size:14px; line-height:2;">
+    <li><code>src/renderer/pages/[모듈명]/</code> 폴더 생성 → 페이지 컴포넌트 개발</li>
+    <li><code>src/shared/constants/menu.ts</code> → MENU_STRUCTURE에 메뉴 항목 추가</li>
+    <li><code>src/renderer/App.tsx</code> → Route 추가</li>
+    <li><code>src/main/ipc/[모듈명].ipc.ts</code> → IPC 핸들러 추가</li>
+    <li><code>src/main/database/index.ts</code> → 데이터 스키마 추가</li>
+    <li><code>src/main/index.ts</code> → IPC 핸들러 등록</li>
+    <li>대시보드에 해당 모듈 섹션 추가</li>
+  </ol>
+</div>
+
+<!-- ========== 7. 다음 스텝 ========== -->
+<div class="section">
+  <h2>7. 다음 단계 체크리스트 <span class="badge">NEXT</span></h2>
+
+  <ul class="checklist">
+    <li class="check">메인보드 프레임 (Electron + React)</li>
+    <li class="check">로그인 / 인증 시스템</li>
+    <li class="check">사용자 관리 (CRUD)</li>
+    <li class="check">권한 설정 (역할 기반 + 메뉴별 CRUD)</li>
+    <li class="check">대시보드 뼈대 (더미 데이터)</li>
+    <li class="check">다크/라이트 테마</li>
+    <li class="current">회사 관리 (멀티테넌트) + 데이터 모델 확립</li>
+    <li class="next">계약관리 모듈 개발</li>
+    <li class="next">재무/회계 모듈 개발 + 계약 연동</li>
+    <li class="next">인사/총무 모듈 개발</li>
+    <li class="next">프로젝트 모듈 개발 + 전체 연동</li>
+    <li class="next">대시보드 실데이터 연결</li>
+    <li class="next">데이터 서버 전환 (로컬 → AWS)</li>
+    <li class="next">통합 테스트 + 배포</li>
+  </ul>
+</div>
+
+<!-- 푸터 -->
+<div style="text-align:center; color:#aaa; font-size:12px; margin-top:30px; padding-bottom:40px;">
+  EasyCompany 프로젝트 로드맵 · 작성일: 2026-01-27 · KOC
+</div>
+
+</div>
+</body>
+</html>
