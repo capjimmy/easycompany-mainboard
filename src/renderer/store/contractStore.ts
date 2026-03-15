@@ -7,6 +7,7 @@ interface ContractFilters {
   startDate?: string;
   endDate?: string;
   year?: number;
+  company_id?: string;
 }
 
 interface ContractState {
@@ -50,10 +51,11 @@ export const useContractStore = create<ContractState>((set, get) => ({
   filters: {},
 
   fetchContracts: async (userId: string, filters?: ContractFilters) => {
-    set({ isLoading: true, error: null });
+    const effectiveFilters = filters !== undefined ? filters : get().filters;
+    set({ isLoading: true, error: null, filters: effectiveFilters });
 
     try {
-      const result = await window.electronAPI.contracts.getAll(userId, filters || get().filters);
+      const result = await window.electronAPI.contracts.getAll(userId, effectiveFilters);
 
       if (result.success) {
         set({ contracts: result.contracts, isLoading: false });

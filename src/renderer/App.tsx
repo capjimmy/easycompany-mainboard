@@ -116,7 +116,7 @@ const App: React.FC = () => {
                 </ProtectedRoute>
               }
             >
-              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route index element={<DefaultRedirect />} />
               <Route path="dashboard" element={<Dashboard />} />
 
               {/* 관리 */}
@@ -180,6 +180,16 @@ const App: React.FC = () => {
       </AntApp>
     </ConfigProvider>
   );
+};
+
+// 역할 기반 기본 페이지 리다이렉트
+const DefaultRedirect: React.FC = () => {
+  const { user } = useAuthStore();
+  // 사원/부서장은 대시보드 접근 불가 → 프로젝트 현황으로
+  if (user?.role === 'department_manager' || user?.role === 'employee') {
+    return <Navigate to="/project/dashboard" replace />;
+  }
+  return <Navigate to="/dashboard" replace />;
 };
 
 // 준비 중 컴포넌트

@@ -8,6 +8,7 @@ export const MENU_STRUCTURE: MenuItem[] = [
     icon: 'HomeOutlined',
     children: [
       { key: 'dashboard', label: '대시보드', icon: 'DashboardOutlined', path: '/dashboard', roles: ['super_admin', 'company_admin'] },
+      { key: 'project-status', label: '프로젝트 현황', icon: 'FundProjectionScreenOutlined', path: '/project/dashboard' },
       { key: 'search', label: '통합검색', icon: 'SearchOutlined', path: '/search' },
       { key: 'ai-search', label: 'AI 검색', icon: 'RobotOutlined', path: '/ai-search', roles: ['super_admin', 'company_admin'] },
     ],
@@ -96,6 +97,7 @@ export const DEFAULT_PERMISSIONS = {
   // 슈퍼관리자: 모든 시스템 접근 (KOC)
   super_admin: {
     dashboard: { view: true, create: true, edit: true, delete: true },
+    'project-status': { view: true, create: true, edit: true, delete: true },
     search: { view: true, create: true, edit: true, delete: true },
     'ai-search': { view: true, create: true, edit: true, delete: true },
     'quote-list': { view: true, create: true, edit: true, delete: true },
@@ -129,6 +131,7 @@ export const DEFAULT_PERMISSIONS = {
   // 회사 관리자: 회사 내 모든 기능 + 권한 설정
   company_admin: {
     dashboard: { view: true, create: true, edit: true, delete: true },
+    'project-status': { view: true, create: true, edit: true, delete: true },
     search: { view: true, create: true, edit: true, delete: true },
     'ai-search': { view: true, create: true, edit: true, delete: true },
     'quote-list': { view: true, create: true, edit: true, delete: true },
@@ -161,6 +164,7 @@ export const DEFAULT_PERMISSIONS = {
   // 부서 관리자: 부서 내 모든 기능
   department_manager: {
     dashboard: { view: true, create: true, edit: true, delete: false },
+    'project-status': { view: true, create: true, edit: true, delete: false },
     search: { view: true, create: true, edit: true, delete: false },
     'ai-search': { view: true, create: true, edit: false, delete: false },
     'quote-list': { view: true, create: true, edit: true, delete: false },
@@ -190,6 +194,7 @@ export const DEFAULT_PERMISSIONS = {
   // 사원: 기본 권한 (회사 관리자가 조정)
   employee: {
     dashboard: { view: true, create: false, edit: false, delete: false },
+    'project-status': { view: true, create: false, edit: false, delete: false },
     search: { view: true, create: false, edit: false, delete: false },
     'ai-search': { view: true, create: false, edit: false, delete: false },
     'quote-list': { view: true, create: true, edit: false, delete: false },

@@ -85,7 +85,9 @@ const ContractList: React.FC = () => {
     setProgressFilter(undefined);
     setDateRange(null);
     if (user?.id) {
-      fetchContracts(user.id, {});
+      const filters: any = {};
+      if (user.role === 'super_admin' && selectedCompanyId) filters.company_id = selectedCompanyId;
+      fetchContracts(user.id, filters);
     }
   };
 

@@ -6,6 +6,7 @@ interface QuoteFilters {
   search?: string;
   startDate?: string;
   endDate?: string;
+  company_id?: string;
 }
 
 interface QuoteState {
@@ -42,10 +43,11 @@ export const useQuoteStore = create<QuoteState>((set, get) => ({
   filters: {},
 
   fetchQuotes: async (userId: string, filters?: QuoteFilters) => {
-    set({ isLoading: true, error: null });
+    const effectiveFilters = filters !== undefined ? filters : get().filters;
+    set({ isLoading: true, error: null, filters: effectiveFilters });
 
     try {
-      const result = await window.electronAPI.quotes.getAll(userId, filters || get().filters);
+      const result = await window.electronAPI.quotes.getAll(userId, effectiveFilters);
 
       if (result.success) {
         set({ quotes: result.quotes, isLoading: false });

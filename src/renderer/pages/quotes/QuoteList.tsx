@@ -83,7 +83,9 @@ const QuoteList: React.FC = () => {
     setStatusFilter(undefined);
     setDateRange(null);
     if (user?.id) {
-      fetchQuotes(user.id, {});
+      const filters: any = {};
+      if (user.role === 'super_admin' && selectedCompanyId) filters.company_id = selectedCompanyId;
+      fetchQuotes(user.id, filters);
     }
   };
 
