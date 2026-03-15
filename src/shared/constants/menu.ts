@@ -9,6 +9,7 @@ export const MENU_STRUCTURE: MenuItem[] = [
     children: [
       { key: 'dashboard', label: '대시보드', icon: 'DashboardOutlined', path: '/dashboard' },
       { key: 'search', label: '통합검색', icon: 'SearchOutlined', path: '/search' },
+      { key: 'ai-search', label: 'AI 검색', icon: 'RobotOutlined', path: '/ai-search' },
     ],
   },
   {
@@ -21,6 +22,7 @@ export const MENU_STRUCTURE: MenuItem[] = [
       { key: 'monthly', label: '월별현황', icon: 'BarChartOutlined', path: '/contracts/monthly' },
       { key: 'history', label: '계약변경이력', icon: 'HistoryOutlined', path: '/contracts/history' },
       { key: 'subcontract', label: '외주관리', icon: 'TeamOutlined', path: '/contracts/subcontract' },
+      { key: 'client-list', label: '거래처관리', icon: 'TeamOutlined', path: '/clients' },
     ],
   },
   // 재무/회계 메뉴 - 추후 활성화 예정
@@ -35,18 +37,16 @@ export const MENU_STRUCTURE: MenuItem[] = [
   //     { key: 'billing', label: '청구/입금', icon: 'TransactionOutlined', path: '/finance/billing' },
   //   ],
   // },
-  // 인사/총무 메뉴 - 추후 활성화 예정
-  // {
-  //   key: 'hr',
-  //   label: '인사/총무',
-  //   icon: 'UserOutlined',
-  //   children: [
-  //     { key: 'employees', label: '직원명부', icon: 'TeamOutlined', path: '/hr/employees' },
-  //     { key: 'leave', label: '연차관리', icon: 'CalendarOutlined', path: '/hr/leave' },
-  //     { key: 'birthday', label: '생일관리', icon: 'GiftOutlined', path: '/hr/birthday' },
-  //     { key: 'vehicles', label: '법인차량', icon: 'CarOutlined', path: '/hr/vehicles' },
-  //   ],
-  // },
+  {
+    key: 'hr',
+    label: '인사/총무',
+    icon: 'UserOutlined',
+    children: [
+      { key: 'leave', label: '연차 신청', icon: 'CalendarOutlined', path: '/hr/leave' },
+      { key: 'leave-admin', label: '연차 승인관리', icon: 'FormOutlined', path: '/hr/leave-admin', roles: ['super_admin', 'company_admin', 'department_manager'] },
+      { key: 'certificates', label: '증명서 발급', icon: 'SafetyCertificateOutlined', path: '/hr/certificates' },
+    ],
+  },
   {
     key: 'calendar',
     label: '캘린더',
@@ -63,6 +63,7 @@ export const MENU_STRUCTURE: MenuItem[] = [
     icon: 'ProjectOutlined',
     children: [
       { key: 'project-board', label: '프로젝트현황판', icon: 'AppstoreOutlined', path: '/project/board' },
+      { key: 'project-dashboard', label: '프로젝트 현황', icon: 'FundProjectionScreenOutlined', path: '/project/dashboard' },
       { key: 'project-timeline', label: '일정관리', icon: 'CalendarOutlined', path: '/project/timeline' },
     ],
   },
@@ -70,10 +71,10 @@ export const MENU_STRUCTURE: MenuItem[] = [
     key: 'admin',
     label: '관리',
     icon: 'SettingOutlined',
-    roles: ['super_admin', 'company_admin'],
+    roles: ['super_admin', 'company_admin', 'department_manager'],
     children: [
       { key: 'user-manage', label: '사용자관리', icon: 'UserSwitchOutlined', path: '/admin/users', roles: ['super_admin', 'company_admin'] },
-      { key: 'department-manage', label: '부서관리', icon: 'ApartmentOutlined', path: '/admin/departments', roles: ['super_admin', 'company_admin'] },
+      { key: 'department-manage', label: '부서관리', icon: 'ApartmentOutlined', path: '/admin/departments', roles: ['super_admin', 'company_admin', 'department_manager'] },
       { key: 'permission-manage', label: '권한설정', icon: 'LockOutlined', path: '/admin/permissions', roles: ['super_admin', 'company_admin'] },
       { key: 'company-manage', label: '회사관리', icon: 'BankOutlined', path: '/admin/companies', roles: ['super_admin'] },
     ],
@@ -85,7 +86,7 @@ export const MENU_STRUCTURE: MenuItem[] = [
     children: [
       { key: 'settings', label: '설정', icon: 'SettingOutlined', path: '/settings' },
       { key: 'price-settings', label: '양식 설정', icon: 'FormOutlined', path: '/settings/price', roles: ['super_admin', 'company_admin'] },
-      { key: 'doc-templates', label: '문서 템플릿', icon: 'FileAddOutlined', path: '/settings/templates', roles: ['super_admin', 'company_admin', 'department_admin'] },
+      { key: 'doc-templates', label: '문서 템플릿', icon: 'FileAddOutlined', path: '/settings/templates', roles: ['super_admin', 'company_admin', 'department_manager'] },
       { key: 'backup', label: '백업관리', icon: 'CloudUploadOutlined', path: '/settings/backup' },
     ],
   },
@@ -97,7 +98,9 @@ export const DEFAULT_PERMISSIONS = {
   super_admin: {
     dashboard: { view: true, create: true, edit: true, delete: true },
     search: { view: true, create: true, edit: true, delete: true },
+    'ai-search': { view: true, create: true, edit: true, delete: true },
     'quote-list': { view: true, create: true, edit: true, delete: true },
+    'client-list': { view: true, create: true, edit: true, delete: true },
     'contract-list': { view: true, create: true, edit: true, delete: true },
     monthly: { view: true, create: true, edit: true, delete: true },
     history: { view: true, create: true, edit: true, delete: true },
@@ -110,8 +113,11 @@ export const DEFAULT_PERMISSIONS = {
     leave: { view: true, create: true, edit: true, delete: true },
     birthday: { view: true, create: true, edit: true, delete: true },
     vehicles: { view: true, create: true, edit: true, delete: true },
+    messenger: { view: true, create: true, edit: true, delete: true },
     'project-board': { view: true, create: true, edit: true, delete: true },
+    'project-dashboard': { view: true, create: true, edit: true, delete: true },
     'project-timeline': { view: true, create: true, edit: true, delete: true },
+    'meeting-room': { view: true, create: true, edit: true, delete: true },
     'user-manage': { view: true, create: true, edit: true, delete: true },
     'department-manage': { view: true, create: true, edit: true, delete: true },
     'permission-manage': { view: true, create: true, edit: true, delete: true },
@@ -125,7 +131,9 @@ export const DEFAULT_PERMISSIONS = {
   company_admin: {
     dashboard: { view: true, create: true, edit: true, delete: true },
     search: { view: true, create: true, edit: true, delete: true },
+    'ai-search': { view: true, create: true, edit: true, delete: true },
     'quote-list': { view: true, create: true, edit: true, delete: true },
+    'client-list': { view: true, create: true, edit: true, delete: true },
     'contract-list': { view: true, create: true, edit: true, delete: true },
     monthly: { view: true, create: true, edit: true, delete: true },
     history: { view: true, create: true, edit: true, delete: true },
@@ -138,8 +146,11 @@ export const DEFAULT_PERMISSIONS = {
     leave: { view: true, create: true, edit: true, delete: true },
     birthday: { view: true, create: true, edit: true, delete: true },
     vehicles: { view: true, create: true, edit: true, delete: true },
+    messenger: { view: true, create: true, edit: true, delete: true },
     'project-board': { view: true, create: true, edit: true, delete: true },
+    'project-dashboard': { view: true, create: true, edit: true, delete: true },
     'project-timeline': { view: true, create: true, edit: true, delete: true },
+    'meeting-room': { view: true, create: true, edit: true, delete: true },
     'user-manage': { view: true, create: true, edit: true, delete: true },
     'department-manage': { view: true, create: true, edit: true, delete: true },
     'permission-manage': { view: true, create: true, edit: true, delete: true },
@@ -149,10 +160,12 @@ export const DEFAULT_PERMISSIONS = {
     backup: { view: true, create: true, edit: false, delete: false },
   },
   // 부서 관리자: 부서 내 모든 기능
-  department_admin: {
+  department_manager: {
     dashboard: { view: true, create: true, edit: true, delete: false },
     search: { view: true, create: true, edit: true, delete: false },
+    'ai-search': { view: true, create: true, edit: false, delete: false },
     'quote-list': { view: true, create: true, edit: true, delete: false },
+    'client-list': { view: true, create: true, edit: true, delete: false },
     'contract-list': { view: true, create: true, edit: true, delete: false },
     monthly: { view: true, create: false, edit: false, delete: false },
     history: { view: true, create: false, edit: false, delete: false },
@@ -165,20 +178,30 @@ export const DEFAULT_PERMISSIONS = {
     leave: { view: true, create: true, edit: true, delete: false },
     birthday: { view: true, create: false, edit: false, delete: false },
     vehicles: { view: true, create: true, edit: true, delete: false },
+    messenger: { view: true, create: true, edit: true, delete: false },
     'project-board': { view: true, create: true, edit: true, delete: false },
+    'project-dashboard': { view: true, create: true, edit: true, delete: false },
     'project-timeline': { view: true, create: true, edit: true, delete: false },
+    'meeting-room': { view: true, create: true, edit: true, delete: false },
     settings: { view: true, create: false, edit: true, delete: false },
     'doc-templates': { view: true, create: true, edit: true, delete: true },
+    'department-manage': { view: true, create: false, edit: false, delete: false },
+    'leave-admin': { view: true, create: true, edit: true, delete: false },
   },
   // 사원: 기본 권한 (회사 관리자가 조정)
   employee: {
     dashboard: { view: true, create: false, edit: false, delete: false },
     search: { view: true, create: false, edit: false, delete: false },
+    'ai-search': { view: true, create: false, edit: false, delete: false },
     'quote-list': { view: true, create: true, edit: false, delete: false },
+    'client-list': { view: true, create: true, edit: false, delete: false },
     'contract-list': { view: true, create: true, edit: false, delete: false },
     monthly: { view: true, create: false, edit: false, delete: false },
+    messenger: { view: true, create: true, edit: false, delete: false },
     'project-board': { view: true, create: false, edit: false, delete: false },
+    'project-dashboard': { view: true, create: false, edit: false, delete: false },
     'project-timeline': { view: true, create: false, edit: false, delete: false },
+    'meeting-room': { view: true, create: true, edit: false, delete: false },
     leave: { view: true, create: true, edit: false, delete: false },
     settings: { view: true, create: false, edit: false, delete: false },
   },
@@ -188,6 +211,6 @@ export const DEFAULT_PERMISSIONS = {
 export const ROLE_LABELS: Record<string, string> = {
   super_admin: '슈퍼관리자',
   company_admin: '회사 관리자',
-  department_admin: '부서 관리자',
+  department_manager: '부서 관리자',
   employee: '사원',
 };

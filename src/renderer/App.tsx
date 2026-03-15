@@ -11,6 +11,7 @@ import AppLayout from './components/layout/AppLayout';
 import Dashboard from './pages/home/Dashboard';
 import UserManagement from './pages/admin/UserManagement';
 import PermissionManagement from './pages/admin/PermissionManagement';
+import PermissionMatrix from './pages/admin/PermissionMatrix';
 import DepartmentManagement from './pages/admin/DepartmentManagement';
 import CompanyManagement from './pages/admin/CompanyManagement';
 import Settings from './pages/settings/Settings';
@@ -27,6 +28,17 @@ import OutsourcingManagement from './pages/contracts/OutsourcingManagement';
 import ContractCalendar from './pages/calendar/ContractCalendar';
 import HRCalendar from './pages/calendar/HRCalendar';
 import SpaceCalendar from './pages/calendar/SpaceCalendar';
+import SearchPage from './pages/search/SearchPage';
+import AISearchPage from './pages/search/AISearchPage';
+import ProjectBoard from './pages/project/ProjectBoard';
+import ProjectTimeline from './pages/project/ProjectTimeline';
+import ClientList from './pages/clients/ClientList';
+import ClientDetail from './pages/clients/ClientDetail';
+import MessengerPage from './pages/messenger/MessengerPage';
+import LeavePage from './pages/hr/LeavePage';
+import LeaveAdminPage from './pages/hr/LeaveAdminPage';
+import CertificatePage from './pages/hr/CertificatePage';
+import ProjectDashboard from './pages/projects/ProjectDashboard';
 import NotFound from './pages/NotFound';
 
 // 테마 설정
@@ -111,6 +123,7 @@ const App: React.FC = () => {
               <Route path="admin/users" element={<UserManagement />} />
               <Route path="admin/departments" element={<DepartmentManagement />} />
               <Route path="admin/permissions" element={<PermissionManagement />} />
+              <Route path="admin/permissions/matrix" element={<PermissionMatrix />} />
               <Route path="admin/companies" element={<CompanyManagement />} />
 
               {/* 설정 */}
@@ -125,6 +138,10 @@ const App: React.FC = () => {
               <Route path="quotes/:id" element={<QuoteForm />} />
               <Route path="quotes/:id/edit" element={<QuoteForm />} />
 
+              {/* 거래처 */}
+              <Route path="clients" element={<ClientList />} />
+              <Route path="clients/:id" element={<ClientDetail />} />
+
               {/* 계약서 */}
               <Route path="contracts" element={<ContractList />} />
               <Route path="contracts/new" element={<ContractForm />} />
@@ -134,15 +151,25 @@ const App: React.FC = () => {
               <Route path="contracts/history" element={<ContractHistory />} />
               <Route path="contracts/subcontract" element={<OutsourcingManagement />} />
 
+              {/* 메신저 */}
+              <Route path="messenger" element={<MessengerPage />} />
+
               {/* 캘린더 */}
               <Route path="calendar/contracts" element={<ContractCalendar />} />
               <Route path="calendar/hr" element={<HRCalendar />} />
               <Route path="calendar/spaces" element={<SpaceCalendar />} />
 
-              {/* 준비 중 페이지들 */}
-              <Route path="search" element={<ComingSoon title="통합검색" />} />
+              {/* 검색 */}
+              <Route path="search" element={<SearchPage />} />
+              <Route path="ai-search" element={<AISearchPage />} />
+              {/* 인사/총무 */}
+              <Route path="hr/leave" element={<LeavePage />} />
+              <Route path="hr/leave-admin" element={<LeaveAdminPage />} />
+              <Route path="hr/certificates" element={<CertificatePage />} />
               <Route path="finance/*" element={<ComingSoon title="재무/회계" />} />
-              <Route path="hr/*" element={<ComingSoon title="인사/총무" />} />
+              <Route path="project/board" element={<ProjectBoard />} />
+              <Route path="project/dashboard" element={<ProjectDashboard />} />
+              <Route path="project/timeline" element={<ProjectTimeline />} />
               <Route path="project/*" element={<ComingSoon title="프로젝트" />} />
             </Route>
 

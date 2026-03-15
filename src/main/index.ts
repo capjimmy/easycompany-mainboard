@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 import { initDatabase } from './database';
 import { registerAuthHandlers } from './ipc/auth.ipc';
@@ -10,6 +10,24 @@ import { registerPriceSettingsHandlers } from './ipc/priceSettings.ipc';
 import { registerQuoteHandlers } from './ipc/quote.ipc';
 import { registerContractHandlers } from './ipc/contract.ipc';
 import { registerDocumentTemplateHandlers } from './ipc/documentTemplate.ipc';
+import { registerFileExplorerHandlers } from './ipc/fileExplorer.ipc';
+import { registerOutsourcingHandlers } from './ipc/outsourcing.ipc';
+import { registerSearchHandlers } from './ipc/search.ipc';
+import { registerAISearchHandlers } from './ipc/aiSearch.ipc';
+import { registerClientHandlers } from './ipc/client.ipc';
+import { registerMessengerHandlers, setupMessengerRealtime } from './ipc/messenger.ipc';
+import { registerNotificationHandlers } from './ipc/notification.ipc';
+import { registerLeaveHandlers } from './ipc/leave.ipc';
+import { registerMeetingHandlers } from './ipc/meeting.ipc';
+import { registerSubtaskHandlers } from './ipc/subtask.ipc';
+import { registerPaymentConditionHandlers } from './ipc/payment.ipc';
+import { registerEmailHandlers } from './ipc/email.ipc';
+import { registerOCRHandlers } from './ipc/ocr.ipc';
+import { registerCertificateHandlers } from './ipc/certificate.ipc';
+import { registerFolderScanIPC } from './ipc/folderScan.ipc';
+import { registerExportIPC } from './ipc/export.ipc';
+import { registerLinkingHandlers } from './ipc/linking.ipc';
+import { initAutoUpdater } from './services/autoUpdater';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -32,14 +50,14 @@ function createMainWindow(): void {
     height: 900,
     minWidth: 1200,
     minHeight: 700,
-    title: 'EasyCompany - 업무 효율화 솔루션',
+    title: '건설경제연구원',
     icon: path.join(__dirname, '../../assets/icon.png'),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
-    frame: true,
+    frame: false,
     show: false,
   });
 
@@ -52,6 +70,7 @@ function createMainWindow(): void {
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
   mainWindow.once('ready-to-show', () => {
+    mainWindow?.maximize();
     mainWindow?.show();
   });
 
@@ -59,6 +78,16 @@ function createMainWindow(): void {
     mainWindow = null;
   });
 }
+
+// 창 제어 IPC 핸들러
+ipcMain.handle('window:minimize', () => mainWindow?.minimize());
+ipcMain.handle('window:maximize', () => {
+  if (mainWindow?.isMaximized()) mainWindow.unmaximize();
+  else mainWindow?.maximize();
+});
+ipcMain.handle('window:close', () => mainWindow?.close());
+ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized());
+ipcMain.handle('app:getVersion', () => app.getVersion());
 
 app.whenReady().then(() => {
   // 1. 데이터베이스 초기화
@@ -74,9 +103,34 @@ app.whenReady().then(() => {
   registerQuoteHandlers();
   registerContractHandlers();
   registerDocumentTemplateHandlers();
+  registerFileExplorerHandlers();
+  registerOutsourcingHandlers();
+  registerSearchHandlers();
+  registerAISearchHandlers();
+  registerClientHandlers();
+  registerMessengerHandlers();
+  registerNotificationHandlers();
+  registerLeaveHandlers();
+  registerMeetingHandlers();
+  registerSubtaskHandlers();
+  registerPaymentConditionHandlers();
+  registerEmailHandlers();
+  registerOCRHandlers();
+  registerCertificateHandlers();
+  registerFolderScanIPC();
+  registerExportIPC();
+  registerLinkingHandlers();
 
-  // 3. 메인 윈도우 생성
+  // 3. 메신저 Realtime 구독
+  setupMessengerRealtime(() => mainWindow);
+
+  // 4. 메인 윈도우 생성
   createMainWindow();
+
+  // 5. 자동 업데이트 초기화
+  if (mainWindow) {
+    initAutoUpdater(mainWindow);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

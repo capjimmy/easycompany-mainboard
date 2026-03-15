@@ -23,3 +23,14 @@ npm-debug.log*
 
 # Electron store data
 userData/
+
+# Temp / test files
+temp_extract/
+*.hwpx
+src/main/database/allContracts.json
+src/main/database/allQuotes.json
+
+# HTML reports
+progress_report.html
+project-progress.html
+프로젝트_로드맵.html

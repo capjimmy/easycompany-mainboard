@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Modal, Checkbox, List, Button, Progress, message, Typography, Tag, Space, Empty, Switch, Tooltip, Alert
+  Modal, Checkbox, Button, Progress, message, Typography, Space, Divider, Tag
 } from 'antd';
 import {
-  FileWordOutlined, FileExcelOutlined, FilePdfOutlined, FileOutlined,
-  CheckCircleOutlined, LoadingOutlined, RobotOutlined, ThunderboltOutlined
+  FileTextOutlined, CheckCircleOutlined, LoadingOutlined,
+  FileDoneOutlined, AuditOutlined, SolutionOutlined,
+  AccountBookOutlined, CalculatorOutlined, FileProtectOutlined
 } from '@ant-design/icons';
 
 import { useAuthStore } from '../../store/authStore';
@@ -17,14 +18,67 @@ declare global {
   }
 }
 
-interface DocumentTemplate {
-  id: string;
-  name: string;
-  description?: string;
-  department_name?: string;
-  file_type: string;
-  original_filename: string;
+// 문서 타입 정의 (견적서 제외)
+interface DocTypeItem {
+  key: string;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+  phase: string; // 계약 단계
 }
+
+const DOCUMENT_TYPES: DocTypeItem[] = [
+  {
+    key: 'contract',
+    label: '계약서',
+    description: '계약서 2부 (발주자/수급자 각 1부 보관)',
+    icon: <FileProtectOutlined style={{ color: '#1890ff', fontSize: 22 }} />,
+    phase: '계약체결',
+  },
+  {
+    key: 'commencement',
+    label: '착수계',
+    description: '착수 신고서 (용역 착수 시 제출)',
+    icon: <FileDoneOutlined style={{ color: '#52c41a', fontSize: 22 }} />,
+    phase: '착수',
+  },
+  {
+    key: 'task_plan',
+    label: '과업수행계획서',
+    description: '과업 수행 계획서 (수행방법, 인력, 일정)',
+    icon: <SolutionOutlined style={{ color: '#722ed1', fontSize: 22 }} />,
+    phase: '착수',
+  },
+  {
+    key: 'completion',
+    label: '준공계',
+    description: '준공 신고서 (용역 완료 시 제출)',
+    icon: <AuditOutlined style={{ color: '#fa8c16', fontSize: 22 }} />,
+    phase: '완료',
+  },
+  {
+    key: 'invoice',
+    label: '청구서(대금청구서)',
+    description: '대금 청구서 (기성/잔금 청구 시)',
+    icon: <AccountBookOutlined style={{ color: '#f5222d', fontSize: 22 }} />,
+    phase: '청구',
+  },
+  {
+    key: 'settlement',
+    label: '정산 세부내역',
+    description: '정산 세부내역서 (최종 정산 시)',
+    icon: <CalculatorOutlined style={{ color: '#13c2c2', fontSize: 22 }} />,
+    phase: '정산',
+  },
+];
+
+const PHASE_COLORS: Record<string, string> = {
+  '계약체결': 'blue',
+  '착수': 'green',
+  '완료': 'orange',
+  '청구': 'red',
+  '정산': 'cyan',
+};
 
 interface DocumentGenerateModalProps {
   visible: boolean;
@@ -34,21 +88,6 @@ interface DocumentGenerateModalProps {
   onGenerated?: () => void;
 }
 
-const getFileIcon = (fileType: string) => {
-  switch (fileType?.toLowerCase()) {
-    case 'docx':
-    case 'doc':
-      return <FileWordOutlined style={{ color: '#2b579a', fontSize: 20 }} />;
-    case 'xlsx':
-    case 'xls':
-      return <FileExcelOutlined style={{ color: '#217346', fontSize: 20 }} />;
-    case 'pdf':
-      return <FilePdfOutlined style={{ color: '#d63031', fontSize: 20 }} />;
-    default:
-      return <FileOutlined style={{ color: '#666', fontSize: 20 }} />;
-  }
-};
-
 const DocumentGenerateModal: React.FC<DocumentGenerateModalProps> = ({
   visible,
   contractId,
@@ -57,143 +96,77 @@ const DocumentGenerateModal: React.FC<DocumentGenerateModalProps> = ({
   onGenerated,
 }) => {
   const { user } = useAuthStore();
-  const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [currentTemplate, setCurrentTemplate] = useState('');
+  const [currentDoc, setCurrentDoc] = useState('');
   const [completed, setCompleted] = useState(false);
-  const [useAI, setUseAI] = useState(true);
-  const [hasApiKey, setHasApiKey] = useState(false);
-
-  useEffect(() => {
-    if (visible && user?.id) {
-      loadTemplates();
-      checkApiKey();
-    }
-  }, [visible, user?.id]);
-
-  const checkApiKey = async () => {
-    if (!user?.id) return;
-    try {
-      const result = await window.electronAPI.ai.getApiKeyStatus(user.id);
-      if (result.success) {
-        setHasApiKey(result.hasKey);
-        if (!result.hasKey) {
-          setUseAI(false);
-        }
-      }
-    } catch (err) {
-      setHasApiKey(false);
-      setUseAI(false);
-    }
-  };
+  const [generatedCount, setGeneratedCount] = useState(0);
 
   useEffect(() => {
     if (!visible) {
-      // 모달 닫힐 때 상태 초기화
-      setSelectedIds([]);
+      setSelectedKeys([]);
       setProgress(0);
-      setCurrentTemplate('');
+      setCurrentDoc('');
       setCompleted(false);
       setGenerating(false);
+      setGeneratedCount(0);
     }
   }, [visible]);
 
-  const loadTemplates = async () => {
-    if (!user?.id) return;
-
-    setLoading(true);
-    try {
-      const result = await window.electronAPI.documentTemplates.getAccessible(user.id);
-      if (result.success) {
-        setTemplates(result.templates || []);
-      } else {
-        message.error(result.error || '템플릿 목록을 불러올 수 없습니다.');
-      }
-    } catch (err) {
-      message.error('템플릿 목록을 불러오는 중 오류가 발생했습니다.');
-    } finally {
-      setLoading(false);
-    }
+  const handleToggle = (key: string) => {
+    setSelectedKeys(prev =>
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    );
   };
 
   const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedIds(templates.map(t => t.id));
-    } else {
-      setSelectedIds([]);
-    }
-  };
-
-  const handleSelectTemplate = (templateId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedIds([...selectedIds, templateId]);
-    } else {
-      setSelectedIds(selectedIds.filter(id => id !== templateId));
-    }
+    setSelectedKeys(checked ? DOCUMENT_TYPES.map(d => d.key) : []);
   };
 
   const handleGenerate = async () => {
-    if (!user?.id || selectedIds.length === 0) return;
+    if (!user?.id || selectedKeys.length === 0) return;
 
     setGenerating(true);
     setProgress(0);
     setCompleted(false);
 
-    // 시뮬레이션된 진행률 (있어보이게)
-    const totalSteps = selectedIds.length;
-    let currentStep = 0;
-
-    // AI 모드일 때는 더 느리게 진행 (실제 API 호출 시간 고려)
-    const progressSpeed = useAI ? 50 : 100;
-
+    // 부드러운 진행률 애니메이션
+    let currentProgress = 0;
     const progressInterval = setInterval(() => {
-      // 현재 단계 내에서 부드러운 진행
-      setProgress(prev => {
-        const stepProgress = (currentStep / totalSteps) * 100;
-        const nextStepProgress = ((currentStep + 1) / totalSteps) * 100;
-        const increment = useAI ? 0.5 : 2;
-        const targetProgress = Math.min(prev + increment, nextStepProgress - 5);
-        return Math.min(targetProgress, 95);
-      });
-    }, progressSpeed);
+      currentProgress = Math.min(currentProgress + 2, 90);
+      setProgress(currentProgress);
+    }, 100);
 
     try {
-      for (let i = 0; i < selectedIds.length; i++) {
-        currentStep = i;
-        const template = templates.find(t => t.id === selectedIds[i]);
-        setCurrentTemplate(useAI ? `AI 분석 중: ${template?.name}` : template?.name || '문서');
-
-        // AI 모드 또는 일반 모드로 생성
-        if (useAI) {
-          await window.electronAPI.documents.generateWithAI(user.id, contractId, [selectedIds[i]]);
-        } else {
-          await window.electronAPI.documents.generate(user.id, contractId, [selectedIds[i]]);
-        }
-
-        // 완료된 단계 진행률 업데이트
-        setProgress(((i + 1) / totalSteps) * 100);
-
-        // 약간의 딜레이 (UX 개선)
-        await new Promise(resolve => setTimeout(resolve, useAI ? 500 : 300));
-      }
+      const result = await window.electronAPI.documents.generateHwpx(
+        user.id,
+        contractId,
+        selectedKeys
+      );
 
       clearInterval(progressInterval);
-      setProgress(100);
-      setCurrentTemplate('');
-      setCompleted(true);
 
-      const aiMsg = useAI ? ' (AI 분석 완료)' : '';
-      message.success(`${selectedIds.length}개의 문서가 생성되었습니다.${aiMsg}`);
+      if (result.success || (result.documents && result.documents.length > 0)) {
+        setProgress(100);
+        setCompleted(true);
+        setGeneratedCount(result.documents?.length || 0);
+        message.success(`${result.documents?.length || 0}개의 문서가 생성되었습니다. (.hwpx)`);
 
-      if (onGenerated) {
-        onGenerated();
+        if (onGenerated) {
+          onGenerated();
+        }
+      } else {
+        setProgress(0);
+        message.error(result.error || '문서 생성에 실패했습니다.');
       }
 
+      if (result.errors && result.errors.length > 0) {
+        result.errors.forEach((err: string) => message.warning(err));
+      }
     } catch (err: any) {
       clearInterval(progressInterval);
+      setProgress(0);
       message.error(err.message || '문서 생성 중 오류가 발생했습니다.');
     } finally {
       setGenerating(false);
@@ -210,7 +183,10 @@ const DocumentGenerateModal: React.FC<DocumentGenerateModalProps> = ({
     <Modal
       title={
         <div>
-          <Title level={5} style={{ margin: 0 }}>문서 생성</Title>
+          <Title level={5} style={{ margin: 0 }}>
+            <FileTextOutlined style={{ marginRight: 8 }} />
+            문서 생성 (HWPX)
+          </Title>
           {contractNumber && (
             <Text type="secondary" style={{ fontSize: 12 }}>
               계약번호: {contractNumber}
@@ -220,7 +196,7 @@ const DocumentGenerateModal: React.FC<DocumentGenerateModalProps> = ({
       }
       open={visible}
       onCancel={handleClose}
-      width={600}
+      width={620}
       maskClosable={!generating}
       closable={!generating}
       footer={
@@ -236,36 +212,42 @@ const DocumentGenerateModal: React.FC<DocumentGenerateModalProps> = ({
             <Button
               type="primary"
               onClick={handleGenerate}
-              disabled={selectedIds.length === 0 || generating}
+              disabled={selectedKeys.length === 0 || generating}
               loading={generating}
             >
-              {generating ? '생성 중...' : `선택한 문서 생성 (${selectedIds.length})`}
+              {generating ? '생성 중...' : `선택한 문서 생성 (${selectedKeys.length})`}
             </Button>
           </Space>
         )
       }
     >
-      {generating ? (
+      {generating || completed ? (
         <div style={{ textAlign: 'center', padding: '40px 0' }}>
           <Progress
             type="circle"
             percent={Math.round(progress)}
             status={completed ? 'success' : 'active'}
             strokeColor={{
-              '0%': '#108ee9',
-              '100%': '#87d068',
+              '0%': '#7c3aed',
+              '100%': '#52c41a',
             }}
           />
           <div style={{ marginTop: 24 }}>
             {completed ? (
-              <Text type="success" strong style={{ fontSize: 16 }}>
-                <CheckCircleOutlined /> 문서 생성이 완료되었습니다!
-              </Text>
+              <div>
+                <Text type="success" strong style={{ fontSize: 16 }}>
+                  <CheckCircleOutlined /> {generatedCount}개 문서 생성 완료!
+                </Text>
+                <br />
+                <Text type="secondary" style={{ fontSize: 13, marginTop: 8, display: 'block' }}>
+                  한글(HWP)에서 열어 확인하세요
+                </Text>
+              </div>
             ) : (
               <>
                 <LoadingOutlined style={{ marginRight: 8 }} />
                 <Text style={{ fontSize: 14 }}>
-                  {currentTemplate} 생성 중...
+                  HWPX 문서 생성 중...
                 </Text>
               </>
             )}
@@ -273,122 +255,75 @@ const DocumentGenerateModal: React.FC<DocumentGenerateModalProps> = ({
         </div>
       ) : (
         <>
-          {templates.length === 0 ? (
-            <Empty
-              description={
-                <div>
-                  <Text>등록된 문서 템플릿이 없습니다.</Text>
-                  <br />
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    부서장에게 템플릿 등록을 요청하세요.
-                  </Text>
-                </div>
-              }
-            />
-          ) : (
-            <>
-              {/* AI 모드 토글 */}
-              <div style={{
-                marginBottom: 16,
-                padding: '12px 16px',
-                backgroundColor: useAI ? '#f0f5ff' : '#f5f5f5',
-                borderRadius: 8,
-                border: useAI ? '1px solid #adc6ff' : '1px solid #d9d9d9',
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Space>
-                    <RobotOutlined style={{ fontSize: 18, color: useAI ? '#1890ff' : '#999' }} />
-                    <div>
-                      <Text strong style={{ color: useAI ? '#1890ff' : undefined }}>
-                        AI 문서 분석
-                      </Text>
-                      <br />
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        계약 정보를 AI가 분석하여 문서 내용을 자동 생성합니다
-                      </Text>
-                    </div>
-                  </Space>
-                  <Tooltip title={!hasApiKey ? 'API 키가 설정되지 않았습니다. 설정에서 등록하세요.' : ''}>
-                    <Switch
-                      checked={useAI}
-                      onChange={setUseAI}
-                      disabled={!hasApiKey}
-                      checkedChildren={<ThunderboltOutlined />}
-                      unCheckedChildren="OFF"
-                    />
-                  </Tooltip>
-                </div>
-                {!hasApiKey && (
-                  <Alert
-                    type="warning"
-                    message="AI 기능을 사용하려면 설정에서 OpenAI API 키를 등록하세요."
-                    style={{ marginTop: 8 }}
-                    showIcon
-                  />
-                )}
-              </div>
+          <div style={{
+            marginBottom: 16,
+            padding: '10px 16px',
+            backgroundColor: '#f0f5ff',
+            borderRadius: 8,
+            border: '1px solid #adc6ff',
+          }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              계약 데이터를 기반으로 <strong>한글(HWPX)</strong> 양식 문서를 자동 생성합니다.
+              생성된 문서는 한컴오피스에서 편집할 수 있습니다.
+            </Text>
+          </div>
 
-              <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Checkbox
-                  indeterminate={selectedIds.length > 0 && selectedIds.length < templates.length}
-                  checked={selectedIds.length === templates.length}
-                  onChange={(e) => handleSelectAll(e.target.checked)}
-                >
-                  전체 선택
-                </Checkbox>
-                <Text type="secondary">
-                  {selectedIds.length}개 선택됨
-                </Text>
-              </div>
+          <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Checkbox
+              indeterminate={selectedKeys.length > 0 && selectedKeys.length < DOCUMENT_TYPES.length}
+              checked={selectedKeys.length === DOCUMENT_TYPES.length}
+              onChange={(e) => handleSelectAll(e.target.checked)}
+            >
+              전체 선택
+            </Checkbox>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {selectedKeys.length}개 선택됨
+            </Text>
+          </div>
 
-              <List
-                loading={loading}
-                dataSource={templates}
-                style={{ maxHeight: 400, overflow: 'auto' }}
-                renderItem={(template) => (
-                  <List.Item
-                    style={{
-                      padding: '12px 16px',
-                      cursor: 'pointer',
-                      backgroundColor: selectedIds.includes(template.id) ? '#e6f7ff' : undefined,
-                      borderRadius: 8,
-                      marginBottom: 8,
-                      border: '1px solid #f0f0f0',
+          <div style={{ maxHeight: 420, overflow: 'auto' }}>
+            {DOCUMENT_TYPES.map((docType) => (
+              <div
+                key={docType.key}
+                style={{
+                  padding: '14px 16px',
+                  cursor: 'pointer',
+                  backgroundColor: selectedKeys.includes(docType.key) ? '#f0f5ff' : '#fff',
+                  borderRadius: 10,
+                  marginBottom: 8,
+                  border: selectedKeys.includes(docType.key)
+                    ? '1.5px solid #7c3aed'
+                    : '1px solid #f0f0f0',
+                  transition: 'all 0.2s',
+                }}
+                onClick={() => handleToggle(docType.key)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <Checkbox
+                    checked={selectedKeys.includes(docType.key)}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      handleToggle(docType.key);
                     }}
-                    onClick={() => handleSelectTemplate(template.id, !selectedIds.includes(template.id))}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                      <Checkbox
-                        checked={selectedIds.includes(template.id)}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          handleSelectTemplate(template.id, e.target.checked);
-                        }}
-                        style={{ marginRight: 12 }}
-                      />
-                      {getFileIcon(template.file_type)}
-                      <div style={{ marginLeft: 12, flex: 1 }}>
-                        <div>
-                          <Text strong>{template.name}</Text>
-                          <Tag color="blue" style={{ marginLeft: 8 }}>
-                            {template.department_name || '전사'}
-                          </Tag>
-                        </div>
-                        {template.description && (
-                          <Text type="secondary" style={{ fontSize: 12 }}>
-                            {template.description}
-                          </Text>
-                        )}
-                      </div>
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        .{template.file_type}
-                      </Text>
+                    style={{ marginRight: 12 }}
+                  />
+                  {docType.icon}
+                  <div style={{ marginLeft: 12, flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Text strong>{docType.label}</Text>
+                      <Tag color={PHASE_COLORS[docType.phase]} style={{ fontSize: 11 }}>
+                        {docType.phase}
+                      </Tag>
+                      <Tag style={{ fontSize: 10, color: '#999' }}>.hwpx</Tag>
                     </div>
-                  </List.Item>
-                )}
-              />
-            </>
-          )}
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {docType.description}
+                    </Text>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </>
       )}
     </Modal>

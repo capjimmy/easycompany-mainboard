@@ -12,6 +12,7 @@ import {
   Popconfirm,
   Typography,
   Descriptions,
+  Spin,
 } from 'antd';
 import {
   PlusOutlined,
@@ -28,13 +29,11 @@ interface Company {
   id: string;
   name: string;
   business_number: string;
-  representative: string;
   address: string;
   phone: string;
-  email: string;
-  user_count: number;
+  user_count?: number;
+  department_count?: number;
   created_at: string;
-  status: 'active' | 'inactive';
 }
 
 const CompanyManagement: React.FC = () => {
@@ -47,43 +46,43 @@ const CompanyManagement: React.FC = () => {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [form] = Form.useForm();
 
-  // 회사 목록 조회 (더미 데이터)
   const fetchCompanies = async () => {
+    if (!user?.id) return;
     setLoading(true);
-    // TODO: API 연동 시 실제 데이터로 교체
-    const dummyData: Company[] = [
-      {
-        id: '1',
-        name: '이지컨설턴트',
-        business_number: '123-45-67890',
-        representative: '홍길동',
-        address: '서울시 강남구 테헤란로 123',
-        phone: '02-1234-5678',
-        email: 'contact@easyconsultant.co.kr',
-        user_count: 25,
-        created_at: '2024-01-01',
-        status: 'active',
-      },
-      {
-        id: '2',
-        name: '테스트회사',
-        business_number: '987-65-43210',
-        representative: '김철수',
-        address: '서울시 서초구 서초대로 456',
-        phone: '02-9876-5432',
-        email: 'test@testcompany.co.kr',
-        user_count: 10,
-        created_at: '2024-06-01',
-        status: 'active',
-      },
-    ];
-    setCompanies(dummyData);
-    setLoading(false);
+    try {
+      const result = await window.electronAPI.companies.getAll(user.id);
+      if (result.success && result.companies) {
+        // 각 회사별 사용자 수 조회
+        const companiesWithCounts = await Promise.all(
+          result.companies.map(async (c: any) => {
+            let userCount = 0;
+            let deptCount = 0;
+            try {
+              const usersResult = await window.electronAPI.companies.getUsers(user.id, c.id);
+              if (usersResult.success) userCount = usersResult.users?.length || 0;
+              const deptsResult = await window.electronAPI.companies.getDepartments(user.id, c.id);
+              if (deptsResult.success) deptCount = deptsResult.departments?.length || 0;
+            } catch (_) {}
+            return {
+              ...c,
+              user_count: userCount,
+              department_count: deptCount,
+            };
+          })
+        );
+        setCompanies(companiesWithCounts);
+      }
+    } catch (err) {
+      console.error('Failed to load companies:', err);
+      message.error('회사 목록을 불러오지 못했습니다.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchCompanies();
-  }, []);
+  }, [user?.id]);
 
   const handleAdd = () => {
     setEditingCompany(null);
@@ -93,7 +92,12 @@ const CompanyManagement: React.FC = () => {
 
   const handleEdit = (record: Company) => {
     setEditingCompany(record);
-    form.setFieldsValue(record);
+    form.setFieldsValue({
+      name: record.name,
+      business_number: record.business_number,
+      address: record.address,
+      phone: record.phone,
+    });
     setModalVisible(true);
   };
 
@@ -103,33 +107,47 @@ const CompanyManagement: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    // TODO: API 연동
-    setCompanies(companies.filter((c) => c.id !== id));
-    message.success('회사가 삭제되었습니다.');
+    if (!user?.id) return;
+    try {
+      const result = await window.electronAPI.companies.delete(user.id, id);
+      if (result.success) {
+        message.success('회사가 삭제되었습니다.');
+        await fetchCompanies();
+      } else {
+        message.error(result.error || '삭제에 실패했습니다.');
+      }
+    } catch (err) {
+      console.error('Failed to delete company:', err);
+      message.error('삭제 중 오류가 발생했습니다.');
+    }
   };
 
   const handleSubmit = async (values: any) => {
-    if (editingCompany) {
-      // 수정
-      setCompanies(
-        companies.map((c) =>
-          c.id === editingCompany.id ? { ...c, ...values } : c
-        )
-      );
-      message.success('회사 정보가 수정되었습니다.');
-    } else {
-      // 추가
-      const newCompany: Company = {
-        id: Date.now().toString(),
-        ...values,
-        user_count: 0,
-        created_at: new Date().toISOString().split('T')[0],
-        status: 'active',
-      };
-      setCompanies([...companies, newCompany]);
-      message.success('회사가 추가되었습니다.');
+    if (!user?.id) return;
+    try {
+      if (editingCompany) {
+        const result = await window.electronAPI.companies.update(user.id, editingCompany.id, values);
+        if (result.success) {
+          message.success('회사 정보가 수정되었습니다.');
+          setModalVisible(false);
+          await fetchCompanies();
+        } else {
+          message.error(result.error || '수정에 실패했습니다.');
+        }
+      } else {
+        const result = await window.electronAPI.companies.create(user.id, values);
+        if (result.success) {
+          message.success('회사가 추가되었습니다.');
+          setModalVisible(false);
+          await fetchCompanies();
+        } else {
+          message.error(result.error || '추가에 실패했습니다.');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to save company:', err);
+      message.error('저장 중 오류가 발생했습니다.');
     }
-    setModalVisible(false);
   };
 
   const columns = [
@@ -149,30 +167,28 @@ const CompanyManagement: React.FC = () => {
       dataIndex: 'business_number',
       key: 'business_number',
       width: 150,
+      render: (v: string) => v || '-',
     },
     {
-      title: '대표자',
-      dataIndex: 'representative',
-      key: 'representative',
-      width: 100,
+      title: '전화번호',
+      dataIndex: 'phone',
+      key: 'phone',
+      width: 150,
+      render: (v: string) => v || '-',
     },
     {
       title: '사용자 수',
       dataIndex: 'user_count',
       key: 'user_count',
       width: 100,
-      render: (count: number) => <Tag color="blue">{count}명</Tag>,
+      render: (count: number) => <Tag color="blue">{count || 0}명</Tag>,
     },
     {
-      title: '상태',
-      dataIndex: 'status',
-      key: 'status',
+      title: '부서 수',
+      dataIndex: 'department_count',
+      key: 'department_count',
       width: 100,
-      render: (status: string) => (
-        <Tag color={status === 'active' ? 'green' : 'red'}>
-          {status === 'active' ? '활성' : '비활성'}
-        </Tag>
-      ),
+      render: (count: number) => <Tag color="green">{count || 0}개</Tag>,
     },
     {
       title: '관리',
@@ -185,20 +201,24 @@ const CompanyManagement: React.FC = () => {
             icon={<EyeOutlined />}
             onClick={() => handleView(record)}
           />
-          <Button
-            type="text"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
-          />
-          <Popconfirm
-            title="회사 삭제"
-            description="이 회사를 삭제하시겠습니까? 모든 관련 데이터가 삭제됩니다."
-            onConfirm={() => handleDelete(record.id)}
-            okText="삭제"
-            cancelText="취소"
-          >
-            <Button type="text" danger icon={<DeleteOutlined />} />
-          </Popconfirm>
+          {(user?.role === 'super_admin' || (user?.role === 'company_admin' && user?.company_id === record.id)) && (
+            <Button
+              type="text"
+              icon={<EditOutlined />}
+              onClick={() => handleEdit(record)}
+            />
+          )}
+          {user?.role === 'super_admin' && (
+            <Popconfirm
+              title="회사 삭제"
+              description="이 회사를 삭제하시겠습니까? 모든 관련 데이터가 삭제됩니다."
+              onConfirm={() => handleDelete(record.id)}
+              okText="삭제"
+              cancelText="취소"
+            >
+              <Button type="text" danger icon={<DeleteOutlined />} />
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -251,17 +271,8 @@ const CompanyManagement: React.FC = () => {
           <Form.Item
             name="business_number"
             label="사업자등록번호"
-            rules={[{ required: true, message: '사업자등록번호를 입력하세요' }]}
           >
             <Input placeholder="000-00-00000" />
-          </Form.Item>
-
-          <Form.Item
-            name="representative"
-            label="대표자"
-            rules={[{ required: true, message: '대표자명을 입력하세요' }]}
-          >
-            <Input placeholder="대표자명" />
           </Form.Item>
 
           <Form.Item
@@ -276,13 +287,6 @@ const CompanyManagement: React.FC = () => {
             label="전화번호"
           >
             <Input placeholder="02-0000-0000" />
-          </Form.Item>
-
-          <Form.Item
-            name="email"
-            label="이메일"
-          >
-            <Input placeholder="company@example.com" />
           </Form.Item>
 
           <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
@@ -311,17 +315,13 @@ const CompanyManagement: React.FC = () => {
         {selectedCompany && (
           <Descriptions column={1} bordered>
             <Descriptions.Item label="회사명">{selectedCompany.name}</Descriptions.Item>
-            <Descriptions.Item label="사업자등록번호">{selectedCompany.business_number}</Descriptions.Item>
-            <Descriptions.Item label="대표자">{selectedCompany.representative}</Descriptions.Item>
-            <Descriptions.Item label="주소">{selectedCompany.address}</Descriptions.Item>
-            <Descriptions.Item label="전화번호">{selectedCompany.phone}</Descriptions.Item>
-            <Descriptions.Item label="이메일">{selectedCompany.email}</Descriptions.Item>
-            <Descriptions.Item label="등록 사용자 수">{selectedCompany.user_count}명</Descriptions.Item>
-            <Descriptions.Item label="생성일">{selectedCompany.created_at}</Descriptions.Item>
-            <Descriptions.Item label="상태">
-              <Tag color={selectedCompany.status === 'active' ? 'green' : 'red'}>
-                {selectedCompany.status === 'active' ? '활성' : '비활성'}
-              </Tag>
+            <Descriptions.Item label="사업자등록번호">{selectedCompany.business_number || '-'}</Descriptions.Item>
+            <Descriptions.Item label="주소">{selectedCompany.address || '-'}</Descriptions.Item>
+            <Descriptions.Item label="전화번호">{selectedCompany.phone || '-'}</Descriptions.Item>
+            <Descriptions.Item label="등록 사용자 수">{selectedCompany.user_count || 0}명</Descriptions.Item>
+            <Descriptions.Item label="부서 수">{selectedCompany.department_count || 0}개</Descriptions.Item>
+            <Descriptions.Item label="생성일">
+              {selectedCompany.created_at ? new Date(selectedCompany.created_at).toLocaleDateString('ko-KR') : '-'}
             </Descriptions.Item>
           </Descriptions>
         )}

@@ -2,14 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Card, Typography, Button, Form, Input, InputNumber, DatePicker, Select,
-  Table, Space, Divider, message, Spin, Row, Col
+  Table, Space, Divider, message, Spin, Row, Col, AutoComplete, Modal, Empty, Tag
 } from 'antd';
-import { PlusOutlined, DeleteOutlined, ArrowLeftOutlined, SaveOutlined, BulbOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, ArrowLeftOutlined, SaveOutlined, BulbOutlined, PaperClipOutlined, FolderOpenOutlined, ScanOutlined, LinkOutlined, DisconnectOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 import { useAuthStore } from '../../store/authStore';
 import { useQuoteStore } from '../../store/quoteStore';
 import RecommendationPopover from '../../components/common/RecommendationPopover';
+import DocumentAttachment from '../../components/documents/DocumentAttachment';
+import QuoteAmountHistory from './QuoteAmountHistory';
 import type { LaborGrade, ExpenseCategory } from '../../../shared/types';
 
 const { Title, Text } = Typography;
@@ -61,6 +63,15 @@ const QuoteForm: React.FC = () => {
   const [watchedRecipient, setWatchedRecipient] = useState('');
   const [watchedService, setWatchedService] = useState('');
   const [activeCompanyId, setActiveCompanyId] = useState<string | null>(null);
+  const [clientCompanyOptions, setClientCompanyOptions] = useState<{ value: string; label: string }[]>([]);
+  const [allClientCompanies, setAllClientCompanies] = useState<{ name: string }[]>([]);
+  const [scanning, setScanning] = useState(false);
+  const [folderScanning, setFolderScanning] = useState(false);
+  const [linkedContract, setLinkedContract] = useState<any>(null);
+  const [linkModalVisible, setLinkModalVisible] = useState(false);
+  const [linkSearchText, setLinkSearchText] = useState('');
+  const [linkSearchResults, setLinkSearchResults] = useState<any[]>([]);
+  const [linkSearchLoading, setLinkSearchLoading] = useState(false);
 
   // 합계 계산
   const laborTotal = laborItems.reduce((sum, item) => sum + item.subtotal, 0);
@@ -97,6 +108,41 @@ const QuoteForm: React.FC = () => {
     initCompanyId();
   }, [user?.id, user?.company_id, user?.role]);
 
+  // 거래처 목록 로드 (AutoComplete 용)
+  useEffect(() => {
+    const fetchClientCompanies = async () => {
+      if (!user?.id) return;
+      try {
+        const result = await window.electronAPI.clients.getAll(user.id);
+        if (result.success && result.clients) {
+          setAllClientCompanies(result.clients.map((c: any) => ({ name: c.name })));
+          setClientCompanyOptions(
+            result.clients.map((c: any) => ({ value: c.name, label: c.name }))
+          );
+        }
+      } catch (err) {
+        console.error('Failed to fetch client companies:', err);
+      }
+    };
+    fetchClientCompanies();
+  }, [user?.id]);
+
+  // 수신처 AutoComplete 검색 필터
+  const handleRecipientSearch = (searchText: string) => {
+    if (!searchText) {
+      setClientCompanyOptions(
+        allClientCompanies.map((c) => ({ value: c.name, label: c.name }))
+      );
+      return;
+    }
+    const filtered = allClientCompanies.filter((c) =>
+      c.name.toLowerCase().includes(searchText.toLowerCase())
+    );
+    setClientCompanyOptions(
+      filtered.map((c) => ({ value: c.name, label: c.name }))
+    );
+  };
+
   // 수정 모드일 때 견적서 로드
   useEffect(() => {
     if (user?.id && isEdit && id) {
@@ -111,6 +157,9 @@ const QuoteForm: React.FC = () => {
         recipient_contact: currentQuote.recipient_contact,
         recipient_phone: currentQuote.recipient_phone,
         recipient_email: currentQuote.recipient_email,
+        recipient_department: currentQuote.recipient_department,
+        recipient_address: currentQuote.recipient_address,
+        project_period_months: currentQuote.project_period_months,
         title: currentQuote.title,
         service_name: currentQuote.service_name,
         quote_date: currentQuote.quote_date ? dayjs(currentQuote.quote_date) : dayjs(),
@@ -499,6 +548,158 @@ const QuoteForm: React.FC = () => {
     },
   ];
 
+  // 원본 파일 열기
+  const handleOpenOriginal = async () => {
+    if (!currentQuote?.source_file_path) {
+      message.warning('이 견적서에는 원본 파일 경로 정보가 없습니다.');
+      return;
+    }
+    try {
+      const result = await window.electronAPI.settings.openOriginalFile(currentQuote.source_file_path);
+      if (!result.success) {
+        message.error(result.error);
+      }
+    } catch (err) {
+      message.error('원본 파일 열기에 실패했습니다.');
+    }
+  };
+
+  // 문서 스캔 (OCR)
+  const handleOCRScan = async () => {
+    if (!user?.id) return;
+    setScanning(true);
+    try {
+      const result = await window.electronAPI.ocr.processImage(user.id, '', 'quote');
+      if (result.error === 'canceled') {
+        // 사용자가 취소
+      } else if (result.success && result.data) {
+        const data = result.data;
+        // 추출된 데이터로 폼 자동 채우기
+        const formValues: any = {};
+        if (data.recipient_company) formValues.recipient_company = data.recipient_company;
+        if (data.recipient_contact) formValues.recipient_contact = data.recipient_contact;
+        if (data.recipient_phone) formValues.recipient_phone = data.recipient_phone;
+        if (data.recipient_email) formValues.recipient_email = data.recipient_email;
+        if (data.service_name) formValues.service_name = data.service_name;
+        if (data.title) formValues.title = data.title;
+        if (data.quote_date) formValues.quote_date = dayjs(data.quote_date);
+        if (data.notes) formValues.notes = data.notes;
+
+        form.setFieldsValue(formValues);
+
+        if (data.recipient_company) setWatchedRecipient(data.recipient_company);
+        if (data.service_name) setWatchedService(data.service_name);
+
+        message.success('문서에서 정보가 추출되었습니다. 내용을 확인해주세요.');
+      } else if (result.rawText) {
+        message.info('문서를 인식했지만 구조화된 데이터로 변환하지 못했습니다.');
+      } else if (result.error && result.error !== 'canceled') {
+        message.error(result.error);
+      }
+    } catch (err) {
+      message.error('문서 스캔 중 오류가 발생했습니다.');
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  // 폴더 불러오기
+  const handleFolderImport = async () => {
+    setFolderScanning(true);
+    try {
+      const result = await window.electronAPI.folderScan.scanFolder('quote');
+      if (result.error === 'canceled') {
+        // user cancelled
+      } else if (result.success && result.data) {
+        const data = result.data;
+        const formValues: any = {};
+        if (data.recipient_company) formValues.recipient_company = data.recipient_company;
+        if (data.recipient_contact) formValues.recipient_contact = data.recipient_contact;
+        if (data.recipient_phone) formValues.recipient_phone = data.recipient_phone;
+        if (data.recipient_email) formValues.recipient_email = data.recipient_email;
+        if (data.service_name) formValues.service_name = data.service_name;
+        if (data.title) formValues.title = data.title;
+        if (data.quote_date) formValues.quote_date = dayjs(data.quote_date);
+        if (data.notes) formValues.notes = data.notes;
+        form.setFieldsValue(formValues);
+        if (data.recipient_company) setWatchedRecipient(data.recipient_company);
+        if (data.service_name) setWatchedService(data.service_name);
+        message.success(`폴더에서 ${result.scannedFiles}개 파일을 분석하여 정보를 추출했습니다.`);
+      } else if (result.error) {
+        message.error(result.error);
+      }
+    } catch (err) {
+      message.error('폴더 스캔 중 오류가 발생했습니다.');
+    } finally {
+      setFolderScanning(false);
+    }
+  };
+
+  // 연결된 계약서 로드
+  useEffect(() => {
+    if (isEdit && id && user?.id) {
+      loadLinkedContract();
+    }
+  }, [isEdit, id, user?.id]);
+
+  const loadLinkedContract = async () => {
+    if (!user?.id || !id) return;
+    try {
+      const result = await window.electronAPI.linking.getLinkedContract(user.id, id);
+      if (result.success) {
+        setLinkedContract(result.contract);
+      }
+    } catch (err) {
+      console.error('Failed to load linked contract:', err);
+    }
+  };
+
+  const handleSearchContracts = async () => {
+    if (!user?.id) return;
+    setLinkSearchLoading(true);
+    try {
+      const result = await window.electronAPI.linking.searchContracts(user.id, linkSearchText);
+      if (result.success) {
+        setLinkSearchResults(result.contracts || []);
+      }
+    } catch (err) {
+      console.error('Failed to search contracts:', err);
+    } finally {
+      setLinkSearchLoading(false);
+    }
+  };
+
+  const handleLinkContract = async (contractId: string) => {
+    if (!user?.id || !id) return;
+    try {
+      const result = await window.electronAPI.linking.linkQuoteToContract(user.id, id, contractId);
+      if (result.success) {
+        message.success('계약서가 연결되었습니다.');
+        setLinkModalVisible(false);
+        loadLinkedContract();
+      } else {
+        message.error(result.error || '연결에 실패했습니다.');
+      }
+    } catch (err) {
+      message.error('연결 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleUnlinkContract = async () => {
+    if (!user?.id || !id || !linkedContract) return;
+    try {
+      const result = await window.electronAPI.linking.unlinkQuoteFromContract(user.id, id, linkedContract.id);
+      if (result.success) {
+        message.success('연결이 해제되었습니다.');
+        setLinkedContract(null);
+      } else {
+        message.error(result.error || '연결 해제에 실패했습니다.');
+      }
+    } catch (err) {
+      message.error('연결 해제 중 오류가 발생했습니다.');
+    }
+  };
+
   if (isLoading && isEdit) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -518,14 +719,38 @@ const QuoteForm: React.FC = () => {
             </Title>
           </div>
         </div>
-        <Button
-          type="primary"
-          icon={<SaveOutlined />}
-          loading={submitting}
-          onClick={() => form.submit()}
-        >
-          저장
-        </Button>
+        <Space>
+          <Button
+            icon={<FolderOpenOutlined />}
+            onClick={handleFolderImport}
+            loading={folderScanning}
+          >
+            폴더 불러오기
+          </Button>
+          <Button
+            icon={<ScanOutlined />}
+            onClick={handleOCRScan}
+            loading={scanning}
+          >
+            문서 스캔
+          </Button>
+          {isEdit && currentQuote?.source_file_path && (
+            <Button
+              icon={<FolderOpenOutlined />}
+              onClick={handleOpenOriginal}
+            >
+              원본열기
+            </Button>
+          )}
+          <Button
+            type="primary"
+            icon={<SaveOutlined />}
+            loading={submitting}
+            onClick={() => form.submit()}
+          >
+            저장
+          </Button>
+        </Space>
       </div>
 
       <Form
@@ -559,9 +784,12 @@ const QuoteForm: React.FC = () => {
                 label="수신처 (회사명)"
                 rules={[{ required: true, message: '수신처를 입력해주세요.' }]}
               >
-                <Input
+                <AutoComplete
+                  options={clientCompanyOptions}
+                  onSearch={handleRecipientSearch}
+                  onChange={(value) => setWatchedRecipient(value)}
                   placeholder="견적서를 받을 회사/기관명"
-                  onChange={(e) => setWatchedRecipient(e.target.value)}
+                  filterOption={false}
                 />
               </Form.Item>
             </Col>
@@ -573,14 +801,27 @@ const QuoteForm: React.FC = () => {
           </Row>
 
           <Row gutter={16}>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item name="recipient_phone" label="연락처">
                 <Input placeholder="전화번호" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item name="recipient_email" label="이메일">
                 <Input placeholder="이메일" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="recipient_department" label="수신 부서/팀">
+                <Input placeholder="수신 부서 또는 팀명" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item name="recipient_address" label="수신처 주소">
+                <Input placeholder="수신처 주소" />
               </Form.Item>
             </Col>
           </Row>
@@ -618,6 +859,11 @@ const QuoteForm: React.FC = () => {
             <Col span={8}>
               <Form.Item name="valid_until" label="유효기간">
                 <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="project_period_months" label="예상 기간 (개월)">
+                <InputNumber style={{ width: '100%' }} min={1} placeholder="개월 수" />
               </Form.Item>
             </Col>
           </Row>
@@ -737,6 +983,110 @@ const QuoteForm: React.FC = () => {
           </Form.Item>
         </Card>
       </Form>
+
+      {/* 계약서 연결 */}
+      <Card
+        title={
+          <Space>
+            <LinkOutlined />
+            <span>연결된 계약서</span>
+          </Space>
+        }
+        style={{ marginBottom: 16 }}
+        extra={
+          isEdit && id && (
+            <Button
+              size="small"
+              icon={<SearchOutlined />}
+              onClick={() => { setLinkModalVisible(true); handleSearchContracts(); }}
+            >
+              계약서 검색/연결
+            </Button>
+          )
+        }
+      >
+        {linkedContract ? (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Space direction="vertical" size={0}>
+              <Text strong>{linkedContract.contract_number}</Text>
+              <Text type="secondary">{linkedContract.client_company} - {linkedContract.service_name}</Text>
+              <Text type="secondary">총액: {linkedContract.total_amount?.toLocaleString()}원</Text>
+            </Space>
+            <Button
+              type="text"
+              danger
+              icon={<DisconnectOutlined />}
+              onClick={handleUnlinkContract}
+            >
+              연결해제
+            </Button>
+          </div>
+        ) : (
+          <Empty description="연결된 계약서가 없습니다" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        )}
+      </Card>
+
+      {/* 계약서 검색 모달 */}
+      <Modal
+        title="계약서 검색 및 연결"
+        open={linkModalVisible}
+        onCancel={() => setLinkModalVisible(false)}
+        footer={null}
+        width={700}
+      >
+        <Space style={{ marginBottom: 16, width: '100%' }}>
+          <Input
+            placeholder="계약번호, 발주처, 용역명 검색"
+            value={linkSearchText}
+            onChange={(e) => setLinkSearchText(e.target.value)}
+            onPressEnter={handleSearchContracts}
+            style={{ width: 400 }}
+          />
+          <Button type="primary" onClick={handleSearchContracts} loading={linkSearchLoading}>
+            검색
+          </Button>
+        </Space>
+        <Table
+          dataSource={linkSearchResults}
+          rowKey="id"
+          size="small"
+          pagination={false}
+          columns={[
+            { title: '계약번호', dataIndex: 'contract_number', width: 120 },
+            { title: '발주처', dataIndex: 'client_company', ellipsis: true },
+            { title: '용역명', dataIndex: 'service_name', ellipsis: true },
+            { title: '총액', dataIndex: 'total_amount', width: 130, render: (v: number) => `${(v||0).toLocaleString()}원` },
+            { title: '', key: 'action', width: 80, render: (_: any, record: any) => (
+              <Button size="small" type="primary" onClick={() => handleLinkContract(record.id)}>연결</Button>
+            )},
+          ]}
+        />
+      </Modal>
+
+      {/* 문서 첨부 (수정 모드에서만) */}
+      {isEdit && id && user?.id && (
+        <Card
+          title={
+            <Space>
+              <PaperClipOutlined />
+              <span>문서 첨부</span>
+            </Space>
+          }
+          style={{ marginBottom: 16 }}
+        >
+          <DocumentAttachment
+            parentType="quote"
+            parentId={id}
+            userId={user.id}
+            serviceName={watchedService || form.getFieldValue('service_name')}
+          />
+        </Card>
+      )}
+
+      {/* 금액 변경 이력 (수정 모드에서만) */}
+      {isEdit && id && user?.id && (
+        <QuoteAmountHistory quoteId={id} userId={user.id} />
+      )}
     </div>
   );
 };

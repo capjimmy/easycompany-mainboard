@@ -4,6 +4,7 @@ import * as bcrypt from 'bcryptjs';
 import * as fs from 'fs';
 import * as path from 'path';
 import { app } from 'electron';
+import { getSampleQuotes, getSampleContracts, getSamplePayments, getSampleHistories } from './seedData';
 
 // 데이터 스토어 타입
 interface StoreSchema {
@@ -19,12 +20,26 @@ interface StoreSchema {
   contracts: any[];
   contractHistories: any[];
   contractPayments: any[];
+  contractEvents: any[];
   // 양식 설정
   laborGrades: any[];
   expenseCategories: any[];
   // 문서 템플릿 및 생성 문서
   documentTemplates: any[];
   generatedDocuments: any[];
+  // 첨부 문서
+  attachedDocuments: any[];
+  // 외주 관리
+  outsourcings: any[];
+  // 거래처 관리
+  clientCompanies: any[];
+  clientContacts: any[];
+  // HWPX 양식 템플릿 관리
+  hwpxTemplates: any[];
+  // 메신저
+  messengerConversations: any[];
+  messengerMessages: any[];
+  messengerReadReceipts: any[];
   // 일련번호
   sequences: Record<string, number>;
 }
@@ -159,12 +174,26 @@ export function initDatabase(customPath?: string): Store<StoreSchema> {
       contracts: [],
       contractHistories: [],
       contractPayments: [],
+      contractEvents: [],
       // 양식 설정
       laborGrades: [],
       expenseCategories: [],
       // 문서 템플릿 및 생성 문서
       documentTemplates: [],
       generatedDocuments: [],
+      // 첨부 문서
+      attachedDocuments: [],
+      // 외주 관리
+      outsourcings: [],
+      // 거래처 관리
+      clientCompanies: [],
+      clientContacts: [],
+      // HWPX 양식 템플릿 관리
+      hwpxTemplates: [],
+      // 메신저
+      messengerConversations: [],
+      messengerMessages: [],
+      messengerReadReceipts: [],
       // 일련번호 (회사별)
       sequences: {},
     },
@@ -321,599 +350,414 @@ export function initDatabase(customPath?: string): Store<StoreSchema> {
     console.log('Default expense categories created: 사무용품비, 출장비, 회의비, 제경비, 기술료');
 
     // ========================================
-    // 샘플 견적서 데이터 생성
+    // 실제 견적서 데이터 생성 (seedData.ts 기반)
     // ========================================
-    const sampleQuotes = [
-      {
-        id: uuidv4(),
-        company_id: defaultCompanyId,
-        quote_number: 'Q-2024-0001',
-        client_company: '서울대학교',
-        client_business_number: '119-82-00001',
-        client_contact_name: '김교수',
-        client_contact_phone: '02-880-1234',
-        client_contact_email: 'kim@snu.ac.kr',
-        service_name: '2024년 교육혁신 연구용역',
-        service_type: 'research',
-        description: '교육혁신 방안 연구 및 정책 제안',
-        quote_date: '2024-01-15',
-        valid_until: '2024-02-15',
-        labor_total: 15000000,
-        expense_total: 5000000,
-        total_amount: 20000000,
-        vat_amount: 2000000,
-        grand_total: 22000000,
-        status: 'converted',
-        notes: '3차 수정본',
-        created_by: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        id: uuidv4(),
-        company_id: defaultCompanyId,
-        quote_number: 'Q-2024-0002',
-        client_company: '한국과학기술원',
-        client_business_number: '314-82-00002',
-        client_contact_name: '이연구원',
-        client_contact_phone: '042-350-2000',
-        client_contact_email: 'lee@kaist.ac.kr',
-        service_name: 'AI 기반 학습 분석 시스템 개발',
-        service_type: 'service',
-        description: 'AI 학습 분석 시스템 설계 및 개발',
-        quote_date: '2024-02-01',
-        valid_until: '2024-03-01',
-        labor_total: 25000000,
-        expense_total: 8000000,
-        total_amount: 33000000,
-        vat_amount: 3300000,
-        grand_total: 36300000,
-        status: 'submitted',
-        notes: '',
-        created_by: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        id: uuidv4(),
-        company_id: defaultCompanyId,
-        quote_number: 'Q-2024-0003',
-        client_company: '교육부',
-        client_business_number: '110-82-00003',
-        client_contact_name: '박사무관',
-        client_contact_phone: '044-203-6000',
-        client_contact_email: 'park@moe.go.kr',
-        service_name: '2024년 교육정책 평가 연구',
-        service_type: 'consulting',
-        description: '교육정책 효과성 평가 및 개선방안 도출',
-        quote_date: '2024-02-20',
-        valid_until: '2024-03-20',
-        labor_total: 45000000,
-        expense_total: 15000000,
-        total_amount: 60000000,
-        vat_amount: 6000000,
-        grand_total: 66000000,
-        status: 'draft',
-        notes: '초안 작성 중',
-        created_by: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ];
+    const sampleQuotes = getSampleQuotes(defaultCompanyId).map(q => ({
+      ...q,
+      id: uuidv4(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
     store.set('quotes', sampleQuotes);
-    store.set('sequences', { [`${defaultCompanyId}_quote`]: 3 });
-    console.log('Sample quotes created: 3 quotes');
+    store.set('sequences', { [`${defaultCompanyId}_quote`]: sampleQuotes.length });
+    console.log(`Real quotes created: ${sampleQuotes.length} quotes`);
 
     // ========================================
-    // 샘플 계약서 데이터 생성
+    // 실제 계약서 데이터 생성 (seedData.ts 기반)
     // ========================================
-    const contract1Id = uuidv4();
-    const contract2Id = uuidv4();
-    const contract3Id = uuidv4();
-    const contract4Id = uuidv4();
-
-    const sampleContracts = [
-      {
-        id: contract1Id,
-        company_id: defaultCompanyId,
-        quote_id: sampleQuotes[0].id,
-        contract_number: 'C-2024-0001',
-        contract_code: 'EDU-2024-001',
-        client_company: '서울대학교',
-        client_business_number: '119-82-00001',
-        client_contact_name: '김교수',
-        client_contact_phone: '02-880-1234',
-        client_contact_email: 'kim@snu.ac.kr',
-        service_name: '2024년 교육혁신 연구용역',
-        contract_type: 'research',
-        description: '교육혁신 방안 연구 및 정책 제안',
-        contract_start_date: '2024-02-01',
-        contract_end_date: '2024-12-31',
-        contract_amount: 20000000,
-        vat_amount: 2000000,
-        total_amount: 22000000,
-        received_amount: 11000000,
-        remaining_amount: 11000000,
-        progress: 'in_progress',
-        notes: '선금 50% 입금 완료',
-        created_by: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        id: contract2Id,
-        company_id: defaultCompanyId,
-        quote_id: null,
-        contract_number: 'C-2024-0002',
-        contract_code: 'MAINT-2024-001',
-        client_company: '경기도교육청',
-        client_business_number: '127-83-00004',
-        client_contact_name: '최담당',
-        client_contact_phone: '031-820-0000',
-        client_contact_email: 'choi@goe.go.kr',
-        service_name: '교육정보시스템 유지보수',
-        contract_type: 'maintenance',
-        description: '2024년 연간 시스템 유지보수 계약',
-        contract_start_date: '2024-01-01',
-        contract_end_date: '2024-12-31',
-        contract_amount: 36000000,
-        vat_amount: 3600000,
-        total_amount: 39600000,
-        received_amount: 39600000,
-        remaining_amount: 0,
-        progress: 'in_progress',
-        notes: '연간 계약, 전액 선금',
-        created_by: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        id: contract3Id,
-        company_id: defaultCompanyId,
-        quote_id: null,
-        contract_number: 'C-2024-0003',
-        contract_code: 'CONS-2024-001',
-        client_company: '인천광역시',
-        client_business_number: '120-83-00005',
-        client_contact_name: '정주무관',
-        client_contact_phone: '032-120-0000',
-        client_contact_email: 'jung@incheon.go.kr',
-        service_name: '스마트시티 교육플랫폼 컨설팅',
-        contract_type: 'consulting',
-        description: '스마트시티 교육플랫폼 구축 컨설팅',
-        contract_start_date: '2024-03-01',
-        contract_end_date: '2024-08-31',
-        contract_amount: 50000000,
-        vat_amount: 5000000,
-        total_amount: 55000000,
-        received_amount: 27500000,
-        remaining_amount: 27500000,
-        progress: 'contract_signed',
-        notes: '착수금 50% 입금',
-        created_by: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        id: contract4Id,
-        company_id: defaultCompanyId,
-        quote_id: null,
-        contract_number: 'C-2023-0015',
-        contract_code: 'EDU-2023-015',
-        client_company: '부산광역시교육청',
-        client_business_number: '201-83-00006',
-        client_contact_name: '한과장',
-        client_contact_phone: '051-860-0000',
-        client_contact_email: 'han@pen.go.kr',
-        service_name: '2023년 교육과정 개편 연구',
-        contract_type: 'research',
-        description: '교육과정 개편 방안 연구',
-        contract_start_date: '2023-04-01',
-        contract_end_date: '2023-12-31',
-        contract_amount: 30000000,
-        vat_amount: 3000000,
-        total_amount: 33000000,
-        received_amount: 33000000,
-        remaining_amount: 0,
-        progress: 'completed',
-        notes: '완료, 검수 승인',
-        created_by: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ];
+    const sampleContracts = getSampleContracts(defaultCompanyId).map(c => ({
+      ...c,
+      id: uuidv4(),
+      quote_id: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
     store.set('contracts', sampleContracts);
 
-    // 샘플 계약 입금 내역
-    const samplePayments = [
-      {
-        id: uuidv4(),
-        contract_id: contract1Id,
-        amount: 11000000,
-        payment_date: '2024-02-05',
-        payment_type: 'advance',
-        description: '선금 50%',
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: uuidv4(),
-        contract_id: contract2Id,
-        amount: 39600000,
-        payment_date: '2024-01-10',
-        payment_type: 'full',
-        description: '연간 계약 전액',
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: uuidv4(),
-        contract_id: contract3Id,
-        amount: 27500000,
-        payment_date: '2024-03-05',
-        payment_type: 'advance',
-        description: '착수금 50%',
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: uuidv4(),
-        contract_id: contract4Id,
-        amount: 16500000,
-        payment_date: '2023-04-10',
-        payment_type: 'advance',
-        description: '선금 50%',
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: uuidv4(),
-        contract_id: contract4Id,
-        amount: 16500000,
-        payment_date: '2023-12-20',
-        payment_type: 'final',
-        description: '잔금 50%',
-        created_at: new Date().toISOString(),
-      },
-    ];
+    // 실제 입금 내역
+    const samplePayments = getSamplePayments(sampleContracts).map(p => ({
+      ...p,
+      id: uuidv4(),
+      created_at: new Date().toISOString(),
+    }));
     store.set('contractPayments', samplePayments);
 
-    // 샘플 계약 변경 이력
-    const sampleHistories = [
-      {
-        id: uuidv4(),
-        contract_id: contract1Id,
-        change_type: 'progress',
-        old_value: 'contract_signed',
-        new_value: 'in_progress',
-        changed_by: null,
-        note: '연구 착수',
-        created_at: '2024-02-01T09:00:00.000Z',
-      },
-      {
-        id: uuidv4(),
-        contract_id: contract3Id,
-        change_type: 'created',
-        old_value: null,
-        new_value: 'contract_signed',
-        changed_by: null,
-        note: '계약 체결',
-        created_at: '2024-03-01T09:00:00.000Z',
-      },
-      {
-        id: uuidv4(),
-        contract_id: contract4Id,
-        change_type: 'progress',
-        old_value: 'in_progress',
-        new_value: 'completed',
-        changed_by: null,
-        note: '최종 검수 완료',
-        created_at: '2023-12-28T09:00:00.000Z',
-      },
-    ];
+    // 실제 변경 이력
+    const sampleHistories = getSampleHistories(sampleContracts).map(h => ({
+      ...h,
+      id: uuidv4(),
+      created_at: new Date().toISOString(),
+    }));
     store.set('contractHistories', sampleHistories);
 
     // sequences 업데이트
     const sequences = store.get('sequences', {});
-    sequences[`${defaultCompanyId}_contract`] = 4;
+    sequences[`${defaultCompanyId}_contract`] = sampleContracts.length;
     store.set('sequences', sequences);
-    console.log('Sample contracts created: 4 contracts with payments and histories');
+    console.log(`Real contracts created: ${sampleContracts.length} contracts with payments and histories`);
   } else {
     defaultCompanyId = companies[0].id;
 
-    // 기존 DB에도 샘플 데이터가 없으면 추가
+    // Migration: 견적서 금액 업데이트 (이전 시드에서 금액이 0이었던 데이터 갱신)
+    const amountsMigrated = store.get('settings', {})['quote_amounts_migrated'];
+    if (!amountsMigrated && defaultCompanyId) {
+      const existingQ = store.get('quotes', []);
+      if (existingQ.length > 0) {
+        const freshQuotes = getSampleQuotes(defaultCompanyId);
+        const freshMap = new Map(freshQuotes.map(q => [q.quote_number, q]));
+
+        let updatedCount = 0;
+        for (const q of existingQ) {
+          const fresh = freshMap.get(q.quote_number);
+          if (fresh && (q.grand_total === 0 || q.grand_total === undefined) && fresh.grand_total > 0) {
+            q.total_amount = fresh.total_amount;
+            q.vat_amount = fresh.vat_amount;
+            q.grand_total = fresh.grand_total;
+            updatedCount++;
+          }
+        }
+
+        if (updatedCount > 0) {
+          store.set('quotes', existingQ);
+          console.log(`Migrated ${updatedCount} quote amounts from seed data`);
+        }
+      }
+
+      const settings = store.get('settings', {});
+      settings['quote_amounts_migrated'] = true;
+      store.set('settings', settings);
+    }
+
+    // Migration: 계약서 service_category 추가
+    const categoriesMigrated = store.get('settings', {})['contract_categories_migrated'];
+    if (!categoriesMigrated && defaultCompanyId) {
+      const existingC = store.get('contracts', []);
+      if (existingC.length > 0) {
+        const categoryKeywords: Array<[string, string[]]> = [
+          ['apartment', ['공동주택', '아파트']],
+          ['public_housing', ['공공주택']],
+          ['private_rental', ['민간임대', '임대주택']],
+          ['happy_housing', ['행복주택']],
+          ['mixed_use', ['주상복합']],
+          ['officetel', ['오피스텔']],
+          ['residential_improvement', ['주거환경개선', '주거환경 개선']],
+          ['urban_development', ['도시개발']],
+          ['redevelopment', ['재개발', '정비사업', '재건축']],
+          ['knowledge_industry', ['지식산업', '산업단지', '산업센터']],
+          ['educational', ['초등학교', '중학교', '고등학교', '학교', '교육시설']],
+        ];
+
+        let catUpdated = 0;
+        for (const c of existingC) {
+          if (!c.service_category && c.contract_type === 'service' && c.service_name) {
+            const svcName = c.service_name;
+            let found = false;
+            for (const [value, keywords] of categoryKeywords) {
+              if (keywords.some(kw => svcName.includes(kw))) {
+                c.service_category = value;
+                found = true;
+                catUpdated++;
+                break;
+              }
+            }
+            if (!found) {
+              c.service_category = 'other';
+              catUpdated++;
+            }
+          }
+        }
+
+        if (catUpdated > 0) {
+          store.set('contracts', existingC);
+          console.log(`Migrated ${catUpdated} contract service categories`);
+        }
+      }
+
+      const settings2 = store.get('settings', {});
+      settings2['contract_categories_migrated'] = true;
+      store.set('settings', settings2);
+    }
+
+    // Migration: 견적서 source_file_path 추가 (상대경로)
+    const filePathsMigrated = store.get('settings', {})['quote_file_paths_migrated'];
+    if (!filePathsMigrated && defaultCompanyId) {
+      const existingQ = store.get('quotes', []);
+      if (existingQ.length > 0) {
+        const freshQuotes = getSampleQuotes(defaultCompanyId);
+        const freshMap = new Map(freshQuotes.map(q => [q.quote_number, q]));
+
+        let fpUpdated = 0;
+        for (const q of existingQ) {
+          if (!q.source_file_path) {
+            const fresh = freshMap.get(q.quote_number);
+            if (fresh && (fresh as any).source_file_path) {
+              q.source_file_path = (fresh as any).source_file_path;
+              fpUpdated++;
+            }
+          }
+        }
+
+        if (fpUpdated > 0) {
+          store.set('quotes', existingQ);
+          console.log(`Migrated ${fpUpdated} quote source_file_paths`);
+        }
+      }
+
+      const settings3 = store.get('settings', {});
+      settings3['quote_file_paths_migrated'] = true;
+      store.set('settings', settings3);
+    }
+
+    // Migration: 거래처 자동 생성 (기존 계약/견적에서 추출)
+    const clientsMigrated = store.get('settings', {})['client_companies_migrated'];
+    if (!clientsMigrated && defaultCompanyId) {
+      const existingContracts2 = store.get('contracts', []);
+      const existingQuotes2 = store.get('quotes', []);
+      const clientMap = new Map<string, { name: string; business_number?: string; contact_name?: string; contact_phone?: string; contact_email?: string; contact_department?: string }>();
+
+      // 계약서에서 거래처 추출
+      existingContracts2.forEach((c: any) => {
+        if (c.client_company && c.client_company.trim()) {
+          const key = c.client_company.trim();
+          if (!clientMap.has(key)) {
+            clientMap.set(key, {
+              name: key,
+              business_number: c.client_business_number || undefined,
+              contact_name: c.client_contact_name || undefined,
+              contact_phone: c.client_contact_phone || undefined,
+              contact_email: c.client_contact_email || undefined,
+            });
+          }
+        }
+      });
+
+      // 견적서에서 거래처 추출
+      existingQuotes2.forEach((q: any) => {
+        if (q.recipient_company && q.recipient_company.trim()) {
+          const key = q.recipient_company.trim();
+          if (!clientMap.has(key)) {
+            clientMap.set(key, {
+              name: key,
+              contact_name: q.recipient_contact || undefined,
+              contact_phone: q.recipient_phone || undefined,
+              contact_email: q.recipient_email || undefined,
+              contact_department: q.recipient_department || undefined,
+            });
+          }
+        }
+      });
+
+      const newClients: any[] = [];
+      const newContacts: any[] = [];
+
+      clientMap.forEach((info) => {
+        const clientId = uuidv4();
+        newClients.push({
+          id: clientId,
+          company_id: defaultCompanyId,
+          name: info.name,
+          business_number: info.business_number || null,
+          address: null,
+          phone: null,
+          industry: null,
+          notes: null,
+          created_by: 'system',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+
+        if (info.contact_name) {
+          newContacts.push({
+            id: uuidv4(),
+            client_id: clientId,
+            name: info.contact_name,
+            position: null,
+            department: info.contact_department || null,
+            phone: info.contact_phone || null,
+            email: info.contact_email || null,
+            is_primary: true,
+            notes: null,
+            created_at: new Date().toISOString(),
+          });
+        }
+      });
+
+      if (newClients.length > 0) {
+        const existingClients = store.get('clientCompanies', []);
+        store.set('clientCompanies', [...existingClients, ...newClients]);
+        store.set('clientContacts', [...store.get('clientContacts', []), ...newContacts]);
+        console.log(`Migrated ${newClients.length} client companies, ${newContacts.length} contacts from contracts/quotes`);
+      }
+
+      const settings4 = store.get('settings', {});
+      settings4['client_companies_migrated'] = true;
+      store.set('settings', settings4);
+    }
+
+    // 마이그레이션: 기존 생성 문서에 created_by_department_id 백필
+    const docDeptMigrated = store.get('settings', {})['generated_docs_dept_migrated'];
+    if (!docDeptMigrated) {
+      const genDocs = store.get('generatedDocuments', []);
+      const users = store.get('users', []);
+      const userMap = new Map(users.map((u: any) => [u.id, u]));
+
+      let migratedCount = 0;
+      for (const doc of genDocs) {
+        if (!doc.created_by_department_id && doc.generated_by) {
+          const creator = userMap.get(doc.generated_by);
+          if (creator && creator.department_id) {
+            doc.created_by_department_id = creator.department_id;
+            migratedCount++;
+          }
+        }
+      }
+
+      if (migratedCount > 0) {
+        store.set('generatedDocuments', genDocs);
+        console.log(`Migrated ${migratedCount} generated documents with department_id`);
+      }
+
+      const settings5 = store.get('settings', {});
+      settings5['generated_docs_dept_migrated'] = true;
+      store.set('settings', settings5);
+    }
+
+    // 마이그레이션: 기본 내장 HWPX 양식을 hwpxTemplates에 등록
+    const hwpxTemplatesMigrated = store.get('settings', {})['hwpx_builtin_templates_migrated'];
+    if (!hwpxTemplatesMigrated) {
+      try {
+        const { getTemplatesDir, DOCUMENT_TYPE_LABELS } = require('../services/hwpxGenerator');
+        const templatesDir = getTemplatesDir();
+
+        const builtinTemplates: Array<{ file: string; docType: string; name: string }> = [
+          { file: 'contract.hwpx', docType: 'contract', name: '계약서' },
+          { file: 'commencement.hwpx', docType: 'commencement', name: '착수계' },
+          { file: 'completion.hwpx', docType: 'completion', name: '준공계' },
+          { file: 'invoice.hwpx', docType: 'invoice', name: '청구서(대금청구서)' },
+        ];
+
+        // hwpx_templates 디렉토리 생성
+        const customPath = store.get('settings', {})['documentStoragePath'];
+        let docsBase: string;
+        if (customPath && typeof customPath === 'string' && customPath.trim()) {
+          docsBase = customPath;
+        } else {
+          docsBase = path.join(app.getPath('userData'), 'documents');
+        }
+        const hwpxTemplatesDir = path.join(docsBase, 'hwpx_templates');
+        if (!fs.existsSync(hwpxTemplatesDir)) {
+          fs.mkdirSync(hwpxTemplatesDir, { recursive: true });
+        }
+
+        const existingHwpx = store.get('hwpxTemplates', []);
+        const newTemplates: any[] = [];
+
+        for (const bt of builtinTemplates) {
+          const srcPath = path.join(templatesDir, bt.file);
+          if (!fs.existsSync(srcPath)) continue;
+
+          // 이미 같은 doc_type이 등록되어 있으면 스킵
+          if (existingHwpx.some((t: any) => t.doc_type === bt.docType && t.is_active)) continue;
+
+          const tplId = uuidv4();
+          const storedFile = `${tplId}.hwpx`;
+          const destPath = path.join(hwpxTemplatesDir, storedFile);
+
+          fs.copyFileSync(srcPath, destPath);
+
+          newTemplates.push({
+            id: tplId,
+            name: bt.name,
+            doc_type: bt.docType,
+            description: `기본 내장 양식 (${bt.name})`,
+            original_filename: bt.file,
+            stored_filename: storedFile,
+            file_path: destPath,
+            file_size: fs.statSync(destPath).size,
+            is_active: true,
+            created_by: 'system',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+        }
+
+        if (newTemplates.length > 0) {
+          store.set('hwpxTemplates', [...existingHwpx, ...newTemplates]);
+          console.log(`Built-in HWPX templates registered: ${newTemplates.map(t => t.name).join(', ')}`);
+
+          // 매니페스트 파일 생성 (공유 동기화용)
+          try {
+            const allTemplates = store.get('hwpxTemplates', []).filter((t: any) => t.is_active);
+            const manifest = allTemplates.map((t: any) => ({
+              id: t.id, name: t.name, doc_type: t.doc_type,
+              description: t.description, original_filename: t.original_filename,
+              stored_filename: t.stored_filename, file_size: t.file_size,
+              created_by: t.created_by, created_at: t.created_at, updated_at: t.updated_at,
+            }));
+            const manifestPath = path.join(hwpxTemplatesDir, 'templates.json');
+            fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
+          } catch (mErr) {
+            console.error('Failed to write templates manifest:', mErr);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to migrate built-in HWPX templates:', err);
+      }
+
+      const settings6 = store.get('settings', {});
+      settings6['hwpx_builtin_templates_migrated'] = true;
+      store.set('settings', settings6);
+    }
+
+    // 기존 DB에도 실제 데이터가 없으면 추가
     const existingQuotes = store.get('quotes', []);
     const existingContracts = store.get('contracts', []);
 
     if (existingQuotes.length === 0 && existingContracts.length === 0) {
-      console.log('Adding sample data to existing database...');
+      console.log('Adding real data to existing database...');
 
-      // 샘플 견적서 데이터
-      const sampleQuotes = [
-        {
-          id: uuidv4(),
-          company_id: defaultCompanyId,
-          quote_number: 'Q-2024-0001',
-          client_company: '서울대학교',
-          client_business_number: '119-82-00001',
-          client_contact_name: '김교수',
-          client_contact_phone: '02-880-1234',
-          client_contact_email: 'kim@snu.ac.kr',
-          service_name: '2024년 교육혁신 연구용역',
-          service_type: 'research',
-          description: '교육혁신 방안 연구 및 정책 제안',
-          quote_date: '2024-01-15',
-          valid_until: '2024-02-15',
-          labor_total: 15000000,
-          expense_total: 5000000,
-          total_amount: 20000000,
-          vat_amount: 2000000,
-          grand_total: 22000000,
-          status: 'converted',
-          notes: '3차 수정본',
-          created_by: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: uuidv4(),
-          company_id: defaultCompanyId,
-          quote_number: 'Q-2024-0002',
-          client_company: '한국과학기술원',
-          client_business_number: '314-82-00002',
-          client_contact_name: '이연구원',
-          client_contact_phone: '042-350-2000',
-          client_contact_email: 'lee@kaist.ac.kr',
-          service_name: 'AI 기반 학습 분석 시스템 개발',
-          service_type: 'service',
-          description: 'AI 학습 분석 시스템 설계 및 개발',
-          quote_date: '2024-02-01',
-          valid_until: '2024-03-01',
-          labor_total: 25000000,
-          expense_total: 8000000,
-          total_amount: 33000000,
-          vat_amount: 3300000,
-          grand_total: 36300000,
-          status: 'submitted',
-          notes: '',
-          created_by: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: uuidv4(),
-          company_id: defaultCompanyId,
-          quote_number: 'Q-2024-0003',
-          client_company: '교육부',
-          client_business_number: '110-82-00003',
-          client_contact_name: '박사무관',
-          client_contact_phone: '044-203-6000',
-          client_contact_email: 'park@moe.go.kr',
-          service_name: '2024년 교육정책 평가 연구',
-          service_type: 'consulting',
-          description: '교육정책 효과성 평가 및 개선방안 도출',
-          quote_date: '2024-02-20',
-          valid_until: '2024-03-20',
-          labor_total: 45000000,
-          expense_total: 15000000,
-          total_amount: 60000000,
-          vat_amount: 6000000,
-          grand_total: 66000000,
-          status: 'draft',
-          notes: '초안 작성 중',
-          created_by: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ];
+      // 실제 견적서 데이터
+      const sampleQuotes = getSampleQuotes(defaultCompanyId).map(q => ({
+        ...q,
+        id: uuidv4(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }));
       store.set('quotes', sampleQuotes);
 
-      // 샘플 계약서 데이터
-      const contract1Id = uuidv4();
-      const contract2Id = uuidv4();
-      const contract3Id = uuidv4();
-      const contract4Id = uuidv4();
-
-      const sampleContracts = [
-        {
-          id: contract1Id,
-          company_id: defaultCompanyId,
-          quote_id: sampleQuotes[0].id,
-          contract_number: 'C-2024-0001',
-          contract_code: 'EDU-2024-001',
-          client_company: '서울대학교',
-          client_business_number: '119-82-00001',
-          client_contact_name: '김교수',
-          client_contact_phone: '02-880-1234',
-          client_contact_email: 'kim@snu.ac.kr',
-          service_name: '2024년 교육혁신 연구용역',
-          contract_type: 'research',
-          description: '교육혁신 방안 연구 및 정책 제안',
-          contract_start_date: '2024-02-01',
-          contract_end_date: '2024-12-31',
-          contract_amount: 20000000,
-          vat_amount: 2000000,
-          total_amount: 22000000,
-          received_amount: 11000000,
-          remaining_amount: 11000000,
-          progress: 'in_progress',
-          notes: '선금 50% 입금 완료',
-          created_by: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: contract2Id,
-          company_id: defaultCompanyId,
-          quote_id: null,
-          contract_number: 'C-2024-0002',
-          contract_code: 'MAINT-2024-001',
-          client_company: '경기도교육청',
-          client_business_number: '127-83-00004',
-          client_contact_name: '최담당',
-          client_contact_phone: '031-820-0000',
-          client_contact_email: 'choi@goe.go.kr',
-          service_name: '교육정보시스템 유지보수',
-          contract_type: 'maintenance',
-          description: '2024년 연간 시스템 유지보수 계약',
-          contract_start_date: '2024-01-01',
-          contract_end_date: '2024-12-31',
-          contract_amount: 36000000,
-          vat_amount: 3600000,
-          total_amount: 39600000,
-          received_amount: 39600000,
-          remaining_amount: 0,
-          progress: 'in_progress',
-          notes: '연간 계약, 전액 선금',
-          created_by: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: contract3Id,
-          company_id: defaultCompanyId,
-          quote_id: null,
-          contract_number: 'C-2024-0003',
-          contract_code: 'CONS-2024-001',
-          client_company: '인천광역시',
-          client_business_number: '120-83-00005',
-          client_contact_name: '정주무관',
-          client_contact_phone: '032-120-0000',
-          client_contact_email: 'jung@incheon.go.kr',
-          service_name: '스마트시티 교육플랫폼 컨설팅',
-          contract_type: 'consulting',
-          description: '스마트시티 교육플랫폼 구축 컨설팅',
-          contract_start_date: '2024-03-01',
-          contract_end_date: '2024-08-31',
-          contract_amount: 50000000,
-          vat_amount: 5000000,
-          total_amount: 55000000,
-          received_amount: 27500000,
-          remaining_amount: 27500000,
-          progress: 'contract_signed',
-          notes: '착수금 50% 입금',
-          created_by: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: contract4Id,
-          company_id: defaultCompanyId,
-          quote_id: null,
-          contract_number: 'C-2023-0015',
-          contract_code: 'EDU-2023-015',
-          client_company: '부산광역시교육청',
-          client_business_number: '201-83-00006',
-          client_contact_name: '한과장',
-          client_contact_phone: '051-860-0000',
-          client_contact_email: 'han@pen.go.kr',
-          service_name: '2023년 교육과정 개편 연구',
-          contract_type: 'research',
-          description: '교육과정 개편 방안 연구',
-          contract_start_date: '2023-04-01',
-          contract_end_date: '2023-12-31',
-          contract_amount: 30000000,
-          vat_amount: 3000000,
-          total_amount: 33000000,
-          received_amount: 33000000,
-          remaining_amount: 0,
-          progress: 'completed',
-          notes: '완료, 검수 승인',
-          created_by: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ];
+      // 실제 계약서 데이터
+      const sampleContracts = getSampleContracts(defaultCompanyId).map(c => ({
+        ...c,
+        id: uuidv4(),
+        quote_id: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }));
       store.set('contracts', sampleContracts);
 
-      // 샘플 입금 내역
-      const samplePayments = [
-        {
-          id: uuidv4(),
-          contract_id: contract1Id,
-          amount: 11000000,
-          payment_date: '2024-02-05',
-          payment_type: 'advance',
-          description: '선금 50%',
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: uuidv4(),
-          contract_id: contract2Id,
-          amount: 39600000,
-          payment_date: '2024-01-10',
-          payment_type: 'full',
-          description: '연간 계약 전액',
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: uuidv4(),
-          contract_id: contract3Id,
-          amount: 27500000,
-          payment_date: '2024-03-05',
-          payment_type: 'advance',
-          description: '착수금 50%',
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: uuidv4(),
-          contract_id: contract4Id,
-          amount: 16500000,
-          payment_date: '2023-04-10',
-          payment_type: 'advance',
-          description: '선금 50%',
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: uuidv4(),
-          contract_id: contract4Id,
-          amount: 16500000,
-          payment_date: '2023-12-20',
-          payment_type: 'final',
-          description: '잔금 50%',
-          created_at: new Date().toISOString(),
-        },
-      ];
+      // 실제 입금 내역
+      const samplePayments = getSamplePayments(sampleContracts).map(p => ({
+        ...p,
+        id: uuidv4(),
+        created_at: new Date().toISOString(),
+      }));
       store.set('contractPayments', samplePayments);
 
-      // 샘플 변경 이력
-      const sampleHistories = [
-        {
-          id: uuidv4(),
-          contract_id: contract1Id,
-          change_type: 'progress',
-          old_value: 'contract_signed',
-          new_value: 'in_progress',
-          changed_by: null,
-          note: '연구 착수',
-          created_at: '2024-02-01T09:00:00.000Z',
-        },
-        {
-          id: uuidv4(),
-          contract_id: contract3Id,
-          change_type: 'created',
-          old_value: null,
-          new_value: 'contract_signed',
-          changed_by: null,
-          note: '계약 체결',
-          created_at: '2024-03-01T09:00:00.000Z',
-        },
-        {
-          id: uuidv4(),
-          contract_id: contract4Id,
-          change_type: 'progress',
-          old_value: 'in_progress',
-          new_value: 'completed',
-          changed_by: null,
-          note: '최종 검수 완료',
-          created_at: '2023-12-28T09:00:00.000Z',
-        },
-      ];
+      // 실제 변경 이력
+      const sampleHistories = getSampleHistories(sampleContracts).map(h => ({
+        ...h,
+        id: uuidv4(),
+        created_at: new Date().toISOString(),
+      }));
       store.set('contractHistories', sampleHistories);
 
       // sequences 업데이트
       const sequences = store.get('sequences', {});
-      sequences[`${defaultCompanyId}_quote`] = 3;
-      sequences[`${defaultCompanyId}_contract`] = 4;
+      sequences[`${defaultCompanyId}_quote`] = sampleQuotes.length;
+      sequences[`${defaultCompanyId}_contract`] = sampleContracts.length;
       store.set('sequences', sequences);
 
-      console.log('Sample data added to existing database');
+      console.log(`Real data added: ${sampleQuotes.length} quotes, ${sampleContracts.length} contracts`);
     }
   }
 
@@ -964,6 +808,52 @@ export function initDatabase(customPath?: string): Store<StoreSchema> {
 
     store.set('users', [...users, ...newUsers]);
     console.log('Default super admin created: admin / admin123');
+  }
+
+  // 마이그레이션: 샘플 직원 계정 추가 (메신저 테스트용)
+  const sampleUsersMigrated = store.get('settings', {})['sample_employees_migrated'];
+  if (!sampleUsersMigrated && defaultCompanyId) {
+    const allUsers = store.get('users', []);
+    const departments = store.get('departments', []);
+    const firstDept = departments.length > 0 ? departments[0] : null;
+
+    const sampleEmployees = [
+      {
+        id: uuidv4(),
+        company_id: defaultCompanyId,
+        department_id: firstDept?.id || null,
+        username: 'kimyj',
+        password_hash: bcrypt.hashSync('1234', 10),
+        name: '김영진',
+        email: 'kimyj@example.com',
+        role: 'employee',
+        is_active: true,
+        last_login: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: uuidv4(),
+        company_id: defaultCompanyId,
+        department_id: firstDept?.id || null,
+        username: 'parksh',
+        password_hash: bcrypt.hashSync('1234', 10),
+        name: '박서현',
+        email: 'parksh@example.com',
+        role: 'department_manager',
+        is_active: true,
+        last_login: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ];
+
+    store.set('users', [...allUsers, ...sampleEmployees]);
+    console.log('Sample employees created: kimyj/1234 (김영진), parksh/1234 (박서현)');
+
+    const settingsM = store.get('settings', {});
+    settingsM['sample_employees_migrated'] = true;
+    store.set('settings', settingsM);
   }
 
   console.log('Database initialized');
@@ -1064,6 +954,14 @@ export function clearDatabase(): void {
   // 문서 템플릿 및 생성 문서
   store.set('documentTemplates', []);
   store.set('generatedDocuments', []);
+  store.set('attachedDocuments', []);
+  store.set('outsourcings', []);
+  store.set('clientCompanies', []);
+  store.set('clientContacts', []);
+  store.set('hwpxTemplates', []);
+  store.set('messengerConversations', []);
+  store.set('messengerMessages', []);
+  store.set('messengerReadReceipts', []);
   store.set('sequences', {});
 
   // 기본 인건비 등급 생성
@@ -1190,8 +1088,11 @@ export function clearDatabase(): void {
   console.log('  - Company Admin (이지컨설턴트): easyadmin / easy123');
 }
 
-// 헬퍼 함수들
-export const db = {
+// Supabase DB 사용 (기존 로컬 DB는 localDb로 보존)
+export { db } from './supabaseDb';
+
+// 로컬 전용 헬퍼 함수들 (폴백용으로 보존)
+export const localDb = {
   // Users
   getUsers: () => getDatabase().get('users', []),
   setUsers: (users: any[]) => getDatabase().set('users', users),
@@ -1504,6 +1405,8 @@ export const db = {
     getDatabase().set('contractHistories', histories.filter((h: any) => h.contract_id !== id));
     const payments = getDatabase().get('contractPayments', []);
     getDatabase().set('contractPayments', payments.filter((p: any) => p.contract_id !== id));
+    const events = getDatabase().get('contractEvents', []);
+    getDatabase().set('contractEvents', events.filter((e: any) => e.contract_id !== id));
   },
 
   // 계약 변경 이력
@@ -1545,6 +1448,35 @@ export const db = {
   },
 
   // ========================================
+  // 계약 커스텀 이벤트 (Contract Events)
+  // ========================================
+  getContractEvents: () => getDatabase().get('contractEvents', []),
+  getContractEventsByContractId: (contractId: string) =>
+    getDatabase().get('contractEvents', []).filter((e: any) => e.contract_id === contractId),
+
+  addContractEvent: (event: any) => {
+    const events = getDatabase().get('contractEvents', []);
+    getDatabase().set('contractEvents', [...events, event]);
+    return event;
+  },
+
+  updateContractEvent: (id: string, updates: any) => {
+    const events = getDatabase().get('contractEvents', []);
+    const index = events.findIndex((e: any) => e.id === id);
+    if (index !== -1) {
+      events[index] = { ...events[index], ...updates };
+      getDatabase().set('contractEvents', events);
+      return events[index];
+    }
+    return null;
+  },
+
+  deleteContractEvent: (id: string) => {
+    const events = getDatabase().get('contractEvents', []);
+    getDatabase().set('contractEvents', events.filter((e: any) => e.id !== id));
+  },
+
+  // ========================================
   // 일련번호 (Sequences)
   // ========================================
   getNextSequence: (companyId: string, type: 'quote' | 'contract') => {
@@ -1558,13 +1490,13 @@ export const db = {
   },
 
   generateQuoteNumber: (companyId: string, prefix: string = 'Q') => {
-    const seq = db.getNextSequence(companyId, 'quote');
+    const seq = localDb.getNextSequence(companyId, 'quote');
     const year = new Date().getFullYear();
     return `${prefix}-${year}-${seq.toString().padStart(4, '0')}`;
   },
 
   generateContractNumber: (companyId: string, prefix: string = 'C') => {
-    const seq = db.getNextSequence(companyId, 'contract');
+    const seq = localDb.getNextSequence(companyId, 'contract');
     const year = new Date().getFullYear();
     return `${prefix}-${year}-${seq.toString().padStart(4, '0')}`;
   },
@@ -1640,5 +1572,272 @@ export const db = {
   deleteGeneratedDocumentsByContractId: (contractId: string) => {
     const docs = getDatabase().get('generatedDocuments', []);
     getDatabase().set('generatedDocuments', docs.filter((d: any) => d.contract_id !== contractId));
+  },
+
+  // ========================================
+  // 첨부 문서 (Attached Documents)
+  // ========================================
+  getAttachedDocuments: () => getDatabase().get('attachedDocuments', []),
+  getAttachedDocumentsByParent: (parentType: string, parentId: string) =>
+    getDatabase().get('attachedDocuments', []).filter(
+      (d: any) => d.parent_type === parentType && d.parent_id === parentId
+    ),
+  getAttachedDocumentById: (id: string) =>
+    getDatabase().get('attachedDocuments', []).find((d: any) => d.id === id),
+
+  addAttachedDocument: (doc: any) => {
+    const docs = getDatabase().get('attachedDocuments', []);
+    getDatabase().set('attachedDocuments', [...docs, doc]);
+    return doc;
+  },
+
+  updateAttachedDocument: (id: string, updates: any) => {
+    const docs = getDatabase().get('attachedDocuments', []);
+    const index = docs.findIndex((d: any) => d.id === id);
+    if (index !== -1) {
+      docs[index] = { ...docs[index], ...updates };
+      getDatabase().set('attachedDocuments', docs);
+      return docs[index];
+    }
+    return null;
+  },
+
+  deleteAttachedDocument: (id: string) => {
+    const docs = getDatabase().get('attachedDocuments', []);
+    getDatabase().set('attachedDocuments', docs.filter((d: any) => d.id !== id));
+  },
+
+  deleteAttachedDocumentsByParent: (parentType: string, parentId: string) => {
+    const docs = getDatabase().get('attachedDocuments', []);
+    getDatabase().set('attachedDocuments', docs.filter(
+      (d: any) => !(d.parent_type === parentType && d.parent_id === parentId)
+    ));
+  },
+
+  // ========================================
+  // 외주 관리 (Outsourcings)
+  // ========================================
+  getOutsourcings: () => getDatabase().get('outsourcings', []),
+  getOutsourcingsByCompanyId: (companyId: string) =>
+    getDatabase().get('outsourcings', []).filter((o: any) => o.company_id === companyId),
+  getOutsourcingsByContractId: (contractId: string) =>
+    getDatabase().get('outsourcings', []).filter((o: any) => o.contract_id === contractId),
+  getOutsourcingById: (id: string) => getDatabase().get('outsourcings', []).find((o: any) => o.id === id),
+
+  addOutsourcing: (outsourcing: any) => {
+    const items = getDatabase().get('outsourcings', []);
+    getDatabase().set('outsourcings', [...items, outsourcing]);
+    return outsourcing;
+  },
+
+  updateOutsourcing: (id: string, updates: any) => {
+    const items = getDatabase().get('outsourcings', []);
+    const index = items.findIndex((o: any) => o.id === id);
+    if (index !== -1) {
+      items[index] = { ...items[index], ...updates, updated_at: new Date().toISOString() };
+      getDatabase().set('outsourcings', items);
+      return items[index];
+    }
+    return null;
+  },
+
+  deleteOutsourcing: (id: string) => {
+    const items = getDatabase().get('outsourcings', []);
+    getDatabase().set('outsourcings', items.filter((o: any) => o.id !== id));
+  },
+
+  // ========================================
+  // 거래처 (Client Companies)
+  // ========================================
+  getClientCompanies: () => getDatabase().get('clientCompanies', []),
+  getClientCompaniesByCompanyId: (companyId: string) =>
+    getDatabase().get('clientCompanies', []).filter((c: any) => c.company_id === companyId),
+  getClientCompanyById: (id: string) =>
+    getDatabase().get('clientCompanies', []).find((c: any) => c.id === id),
+
+  addClientCompany: (client: any) => {
+    const clients = getDatabase().get('clientCompanies', []);
+    getDatabase().set('clientCompanies', [...clients, client]);
+    return client;
+  },
+
+  updateClientCompany: (id: string, updates: any) => {
+    const clients = getDatabase().get('clientCompanies', []);
+    const index = clients.findIndex((c: any) => c.id === id);
+    if (index !== -1) {
+      clients[index] = { ...clients[index], ...updates, updated_at: new Date().toISOString() };
+      getDatabase().set('clientCompanies', clients);
+      return clients[index];
+    }
+    return null;
+  },
+
+  deleteClientCompany: (id: string) => {
+    const clients = getDatabase().get('clientCompanies', []);
+    getDatabase().set('clientCompanies', clients.filter((c: any) => c.id !== id));
+    // 담당자 캐스케이드 삭제
+    const contacts = getDatabase().get('clientContacts', []);
+    getDatabase().set('clientContacts', contacts.filter((c: any) => c.client_id !== id));
+  },
+
+  // 거래처 담당자 (Client Contacts)
+  getClientContacts: () => getDatabase().get('clientContacts', []),
+  getClientContactsByClientId: (clientId: string) =>
+    getDatabase().get('clientContacts', []).filter((c: any) => c.client_id === clientId),
+
+  addClientContact: (contact: any) => {
+    const contacts = getDatabase().get('clientContacts', []);
+    getDatabase().set('clientContacts', [...contacts, contact]);
+    return contact;
+  },
+
+  updateClientContact: (id: string, updates: any) => {
+    const contacts = getDatabase().get('clientContacts', []);
+    const index = contacts.findIndex((c: any) => c.id === id);
+    if (index !== -1) {
+      contacts[index] = { ...contacts[index], ...updates };
+      getDatabase().set('clientContacts', contacts);
+      return contacts[index];
+    }
+    return null;
+  },
+
+  deleteClientContact: (id: string) => {
+    const contacts = getDatabase().get('clientContacts', []);
+    getDatabase().set('clientContacts', contacts.filter((c: any) => c.id !== id));
+  },
+
+  // ========================================
+  // HWPX 양식 템플릿 관리 (HWPX Templates)
+  // ========================================
+  getHwpxTemplates: () => getDatabase().get('hwpxTemplates', []),
+  getHwpxTemplateById: (id: string) =>
+    getDatabase().get('hwpxTemplates', []).find((t: any) => t.id === id),
+  getHwpxTemplateByDocType: (docType: string) =>
+    getDatabase().get('hwpxTemplates', []).find((t: any) => t.doc_type === docType && t.is_active),
+  getActiveHwpxTemplates: () =>
+    getDatabase().get('hwpxTemplates', []).filter((t: any) => t.is_active),
+
+  addHwpxTemplate: (template: any) => {
+    const templates = getDatabase().get('hwpxTemplates', []);
+    getDatabase().set('hwpxTemplates', [...templates, template]);
+    return template;
+  },
+
+  updateHwpxTemplate: (id: string, updates: any) => {
+    const templates = getDatabase().get('hwpxTemplates', []);
+    const index = templates.findIndex((t: any) => t.id === id);
+    if (index !== -1) {
+      templates[index] = { ...templates[index], ...updates, updated_at: new Date().toISOString() };
+      getDatabase().set('hwpxTemplates', templates);
+      return templates[index];
+    }
+    return null;
+  },
+
+  deleteHwpxTemplate: (id: string) => {
+    const templates = getDatabase().get('hwpxTemplates', []);
+    getDatabase().set('hwpxTemplates', templates.filter((t: any) => t.id !== id));
+  },
+
+  // ========================================
+  // 메신저 (Messenger)
+  // ========================================
+
+  // 대화방
+  getConversations: () => getDatabase().get('messengerConversations', []),
+  getConversationById: (id: string) =>
+    getDatabase().get('messengerConversations', []).find((c: any) => c.id === id),
+  getConversationsByUserId: (userId: string) =>
+    getDatabase().get('messengerConversations', []).filter(
+      (c: any) => c.participants && c.participants.includes(userId)
+    ),
+
+  addConversation: (conversation: any) => {
+    const convs = getDatabase().get('messengerConversations', []);
+    getDatabase().set('messengerConversations', [...convs, conversation]);
+    return conversation;
+  },
+
+  updateConversation: (id: string, updates: any) => {
+    const convs = getDatabase().get('messengerConversations', []);
+    const index = convs.findIndex((c: any) => c.id === id);
+    if (index !== -1) {
+      convs[index] = { ...convs[index], ...updates, updated_at: new Date().toISOString() };
+      getDatabase().set('messengerConversations', convs);
+      return convs[index];
+    }
+    return null;
+  },
+
+  deleteConversation: (id: string) => {
+    const convs = getDatabase().get('messengerConversations', []);
+    getDatabase().set('messengerConversations', convs.filter((c: any) => c.id !== id));
+    // 관련 메시지도 삭제
+    const msgs = getDatabase().get('messengerMessages', []);
+    getDatabase().set('messengerMessages', msgs.filter((m: any) => m.conversation_id !== id));
+    // 읽음 처리도 삭제
+    const receipts = getDatabase().get('messengerReadReceipts', []);
+    getDatabase().set('messengerReadReceipts', receipts.filter((r: any) => r.conversation_id !== id));
+  },
+
+  // 메시지
+  getMessages: () => getDatabase().get('messengerMessages', []),
+  getMessagesByConversationId: (conversationId: string) =>
+    getDatabase().get('messengerMessages', []).filter(
+      (m: any) => m.conversation_id === conversationId && !m.is_deleted
+    ),
+
+  addMessage: (message: any) => {
+    const msgs = getDatabase().get('messengerMessages', []);
+    getDatabase().set('messengerMessages', [...msgs, message]);
+    return message;
+  },
+
+  updateMessage: (id: string, updates: any) => {
+    const msgs = getDatabase().get('messengerMessages', []);
+    const index = msgs.findIndex((m: any) => m.id === id);
+    if (index !== -1) {
+      msgs[index] = { ...msgs[index], ...updates };
+      getDatabase().set('messengerMessages', msgs);
+      return msgs[index];
+    }
+    return null;
+  },
+
+  deleteMessage: (id: string) => {
+    const msgs = getDatabase().get('messengerMessages', []);
+    const index = msgs.findIndex((m: any) => m.id === id);
+    if (index !== -1) {
+      msgs[index] = { ...msgs[index], is_deleted: true, content: '', deleted_at: new Date().toISOString() };
+      getDatabase().set('messengerMessages', msgs);
+    }
+  },
+
+  // 읽음 확인
+  getReadReceipts: () => getDatabase().get('messengerReadReceipts', []),
+  getReadReceiptsByConversation: (conversationId: string, userId: string) =>
+    getDatabase().get('messengerReadReceipts', []).find(
+      (r: any) => r.conversation_id === conversationId && r.user_id === userId
+    ),
+
+  upsertReadReceipt: (conversationId: string, userId: string, lastReadMessageId: string) => {
+    const receipts = getDatabase().get('messengerReadReceipts', []);
+    const index = receipts.findIndex(
+      (r: any) => r.conversation_id === conversationId && r.user_id === userId
+    );
+    const now = new Date().toISOString();
+    if (index !== -1) {
+      receipts[index] = { ...receipts[index], last_read_message_id: lastReadMessageId, read_at: now };
+    } else {
+      receipts.push({
+        id: uuidv4(),
+        conversation_id: conversationId,
+        user_id: userId,
+        last_read_message_id: lastReadMessageId,
+        read_at: now,
+      });
+    }
+    getDatabase().set('messengerReadReceipts', receipts);
   },
 };

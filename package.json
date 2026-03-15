@@ -1,7 +1,7 @@
 {
   "name": "easycompany-mainboard",
   "version": "1.0.0",
-  "description": "이지컨설턴트 업무 효율화 솔루션 메인보드",
+  "description": "건설경제연구원 업무 효율화 솔루션",
   "main": "dist/main/index.js",
   "scripts": {
     "dev": "node start-electron.js",
@@ -14,10 +14,14 @@
   "license": "MIT",
   "dependencies": {
     "@ant-design/icons": "^5.5.0",
+    "@supabase/supabase-js": "^2.98.0",
+    "adm-zip": "^0.5.16",
     "antd": "^5.22.0",
     "bcryptjs": "^2.4.3",
     "dayjs": "^1.11.13",
     "electron-store": "^8.1.0",
+    "electron-updater": "^6.8.3",
+    "nodemailer": "^8.0.1",
     "openai": "^6.21.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -26,25 +30,45 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.10.0",
+    "@types/nodemailer": "^7.0.11",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@types/uuid": "^9.0.0",
     "electron": "^27.0.0",
     "electron-builder": "^24.9.0",
     "esbuild": "^0.19.0",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "xlsx": "^0.18.5"
   },
   "build": {
     "appId": "com.koc.easycompany",
-    "productName": "EasyCompany Mainboard",
+    "productName": "건설경제연구원",
     "directories": {
       "output": "release"
     },
+    "files": [
+      "dist/**/*",
+      "scripts/**/*",
+      "!src",
+      "!build.js",
+      "!start-electron.js",
+      "!tsconfig.json"
+    ],
     "win": {
-      "target": "nsis",
-      "icon": "assets/icon.ico"
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "portable": {
+      "artifactName": "건설경제연구원-${version}-portable.exe"
     }
   }
 }

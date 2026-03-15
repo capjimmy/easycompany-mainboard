@@ -71,7 +71,7 @@ const DocumentTemplates: React.FC = () => {
   // 권한 확인 (부서장 이상)
   const canManage = user?.role === 'super_admin' ||
     user?.role === 'company_admin' ||
-    user?.role === 'department_admin';
+    user?.role === 'department_manager';
 
   useEffect(() => {
     if (user?.id) {
@@ -219,7 +219,7 @@ const DocumentTemplates: React.FC = () => {
     setEditingTemplate(null);
     form.resetFields();
     // 부서장인 경우 자신의 부서로 기본 설정
-    if (user?.role === 'department_admin' && user.department_id) {
+    if (user?.role === 'department_manager' && user.department_id) {
       form.setFieldsValue({ department_id: user.department_id });
     }
     setModalVisible(true);
@@ -398,7 +398,7 @@ const DocumentTemplates: React.FC = () => {
               <Select
                 placeholder="전사 공용"
                 allowClear
-                disabled={user?.role === 'department_admin'}
+                disabled={user?.role === 'department_manager'}
               >
                 <Select.Option value="">전사 공용</Select.Option>
                 {departments.map((dept) => (

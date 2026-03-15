@@ -45,6 +45,9 @@ const getFileIcon = (fileType: string) => {
       return <FileExcelOutlined style={{ color: '#217346', fontSize: 24 }} />;
     case 'pdf':
       return <FilePdfOutlined style={{ color: '#d63031', fontSize: 24 }} />;
+    case 'hwp':
+    case 'hwpx':
+      return <FileOutlined style={{ color: '#1890ff', fontSize: 24 }} />;
     default:
       return <FileOutlined style={{ color: '#666', fontSize: 24 }} />;
   }

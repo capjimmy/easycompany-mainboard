@@ -17,10 +17,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* 스크롤바 스타일 */
+/* 스크롤바 스타일 - 모던 슬림 */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -28,26 +28,26 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.25);
 }
 
 /* 다크 모드 스크롤바 */
 .dark ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.25);
 }
 
 /* 선택 색상 */
 ::selection {
-  background: rgba(24, 144, 255, 0.3);
+  background: rgba(102, 126, 234, 0.3);
 }
 
 /* 애니메이션 */
@@ -59,7 +59,7 @@ body {
 @keyframes slideInLeft {
   from {
     opacity: 0;
-    transform: translateX(-20px);
+    transform: translateX(-12px);
   }
   to {
     opacity: 1;
@@ -70,11 +70,22 @@ body {
 @keyframes slideInUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(16px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
@@ -91,78 +102,97 @@ body {
   animation: slideInUp 0.3s ease-out;
 }
 
-/* Ant Design 커스텀 */
+.scale-in {
+  animation: scaleIn 0.25s ease-out;
+}
+
+/* 커스텀 타이틀바 */
+.titlebar-drag {
+  -webkit-app-region: drag;
+}
+
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* 창 컨트롤 버튼 - Windows 11 네이티브 스타일 */
+.window-controls {
+  display: flex;
+  align-items: center;
+  -webkit-app-region: no-drag;
+  height: 100%;
+  margin-right: -8px;
+}
+
+.window-controls .window-btn {
+  width: 46px;
+  height: 100%;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  color: inherit;
+  transition: background 0.12s ease;
+  outline: none;
+}
+
+.window-controls .window-btn svg {
+  width: 10px;
+  height: 10px;
+}
+
+.window-controls .window-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.window-controls .window-btn:active {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.window-controls .window-btn.close-btn:hover {
+  background: #c42b1c;
+  color: white;
+}
+
+.window-controls .window-btn.close-btn:active {
+  background: #c42b1c;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* 다크 모드 창 컨트롤 */
+.dark .window-controls .window-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dark .window-controls .window-btn:active {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.dark .window-controls .window-btn.close-btn:hover {
+  background: #c42b1c;
+  color: white;
+}
+
+.dark .window-controls .window-btn.close-btn:active {
+  background: #c42b1c;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* ===========================
+   모던 Ant Design 커스텀 스타일
+   =========================== */
+
+/* 레이아웃 */
 .ant-layout {
   min-height: 100vh;
 }
 
 .ant-layout-sider {
-  transition: all 0.2s;
-}
-
-.ant-menu-item {
-  transition: all 0.2s;
-}
-
-.ant-card {
-  transition: box-shadow 0.3s;
-}
-
-.ant-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-/* 대시보드 카드 스타일 */
-.dashboard-card {
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.dashboard-card .ant-card-head {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.dashboard-card .ant-statistic-title {
-  font-size: 14px;
-  color: rgba(0, 0, 0, 0.45);
-}
-
-.dashboard-card .ant-statistic-content {
-  font-size: 28px;
-  font-weight: 600;
-}
-
-/* 테이블 스타일 */
-.ant-table-wrapper {
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-/* 버튼 그룹 */
-.button-group {
-  display: flex;
-  gap: 8px;
-}
-
-/* 페이지 헤더 */
-.page-header {
-  margin-bottom: 24px;
-}
-
-.page-header h1 {
-  font-size: 24px;
-  font-weight: 600;
-  margin: 0;
-}
-
-.page-header .subtitle {
-  color: rgba(0, 0, 0, 0.45);
-  margin-top: 4px;
-}
-
-/* 레이아웃 스크롤 */
-.ant-layout-sider {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: auto;
   height: 100vh;
   position: sticky;
@@ -174,6 +204,225 @@ body {
   max-height: calc(100vh - 64px);
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+/* 사이드바 메뉴 - 모던 스타일 */
+.ant-menu-item {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  border-radius: 8px !important;
+  margin: 2px 8px !important;
+}
+
+.ant-menu-submenu-title {
+  border-radius: 8px !important;
+  margin: 2px 8px !important;
+}
+
+.ant-menu-item:hover,
+.ant-menu-submenu-title:hover {
+  background: rgba(102, 126, 234, 0.08) !important;
+}
+
+.ant-menu-item-selected {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.1) 100%) !important;
+  font-weight: 500;
+}
+
+/* 카드 - 글래스모피즘 & 부드러운 그림자 */
+.ant-card {
+  border-radius: 12px !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  overflow: hidden;
+}
+
+.ant-card:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08) !important;
+  transform: translateY(-1px);
+}
+
+/* 다크 모드 카드 */
+.dark .ant-card {
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+.dark .ant-card:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* 대시보드 카드 */
+.dashboard-card {
+  border-radius: 16px !important;
+  overflow: hidden;
+}
+
+.dashboard-card .ant-card-head {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.dashboard-card .ant-statistic-title {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.45);
+  letter-spacing: 0.3px;
+}
+
+.dashboard-card .ant-statistic-content {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+/* 테이블 - 모던 스타일 */
+.ant-table-wrapper {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ant-table {
+  min-width: 100%;
+}
+
+.ant-table-thead > tr > th {
+  background: rgba(102, 126, 234, 0.04) !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  letter-spacing: 0.3px;
+  border-bottom: 2px solid rgba(102, 126, 234, 0.1) !important;
+}
+
+.dark .ant-table-thead > tr > th {
+  background: rgba(102, 126, 234, 0.08) !important;
+  border-bottom: 2px solid rgba(102, 126, 234, 0.15) !important;
+}
+
+.ant-table-tbody > tr {
+  transition: all 0.15s ease !important;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: rgba(102, 126, 234, 0.03) !important;
+}
+
+.dark .ant-table-tbody > tr:hover > td {
+  background: rgba(102, 126, 234, 0.06) !important;
+}
+
+/* 버튼 - 부드러운 스타일 */
+.ant-btn {
+  border-radius: 8px !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  font-weight: 500 !important;
+}
+
+.ant-btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3) !important;
+}
+
+.ant-btn-primary:hover {
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4) !important;
+  transform: translateY(-1px);
+}
+
+.ant-btn-primary:active {
+  transform: translateY(0);
+}
+
+/* 태그 - 둥글고 부드럽게 */
+.ant-tag {
+  border-radius: 6px !important;
+  font-weight: 500 !important;
+  padding: 1px 8px !important;
+  border: none !important;
+}
+
+/* 인풋 - 모던 포커스 */
+.ant-input,
+.ant-input-number,
+.ant-select-selector,
+.ant-picker {
+  border-radius: 8px !important;
+  transition: all 0.2s ease !important;
+}
+
+.ant-input:focus,
+.ant-input-focused,
+.ant-input-number:focus,
+.ant-select-focused .ant-select-selector {
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15) !important;
+  border-color: #667eea !important;
+}
+
+/* 모달 - 모던 둥근 스타일 */
+.ant-modal-content {
+  border-radius: 16px !important;
+  overflow: hidden;
+}
+
+.ant-modal-header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04) !important;
+}
+
+.ant-modal-body {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+/* Drawer - 모던 */
+.ant-drawer-content {
+  border-radius: 16px 0 0 16px !important;
+}
+
+/* 탭 - 모던 */
+.ant-tabs-tab {
+  border-radius: 8px 8px 0 0 !important;
+  transition: all 0.2s ease !important;
+}
+
+.ant-tabs-tab:hover {
+  color: #667eea !important;
+}
+
+.ant-tabs-tab-active .ant-tabs-tab-btn {
+  font-weight: 600 !important;
+}
+
+.ant-tabs-ink-bar {
+  background: linear-gradient(90deg, #667eea, #764ba2) !important;
+  height: 3px !important;
+  border-radius: 3px !important;
+}
+
+/* Progress 바 - 그라디언트 */
+.ant-progress-bg {
+  border-radius: 4px !important;
+}
+
+/* Badge - 모던 */
+.ant-badge-count {
+  box-shadow: 0 2px 6px rgba(255, 77, 79, 0.4) !important;
+}
+
+/* 페이지 헤더 */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.page-header .subtitle {
+  color: rgba(0, 0, 0, 0.45);
+  margin-top: 4px;
+  font-size: 13px;
 }
 
 /* 컨텐츠 영역 스크롤 */
@@ -188,22 +437,12 @@ body {
   overflow-x: auto;
 }
 
-.ant-table {
-  min-width: 100%;
-}
-
 /* 폼 영역 스크롤 */
 .scrollable-form {
   max-height: calc(100vh - 200px);
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 8px;
-}
-
-/* 모달 내부 스크롤 */
-.ant-modal-body {
-  max-height: calc(100vh - 200px);
-  overflow-y: auto;
 }
 
 /* 리스트 스크롤 */
@@ -216,4 +455,127 @@ body {
 .scrollable-card .ant-card-body {
   max-height: 500px;
   overflow-y: auto;
+}
+
+/* 통계 카드 그라디언트 배경 */
+.stat-card-blue {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border: none !important;
+}
+
+.stat-card-blue .ant-statistic-title,
+.stat-card-blue .ant-statistic-content {
+  color: white !important;
+}
+
+.stat-card-green {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%) !important;
+  border: none !important;
+}
+
+.stat-card-green .ant-statistic-title,
+.stat-card-green .ant-statistic-content {
+  color: white !important;
+}
+
+.stat-card-orange {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
+  border: none !important;
+}
+
+.stat-card-orange .ant-statistic-title,
+.stat-card-orange .ant-statistic-content {
+  color: white !important;
+}
+
+/* 컨텐츠 영역 배경 - 미묘한 그라디언트 */
+.content-area {
+  background: linear-gradient(180deg, rgba(102, 126, 234, 0.02) 0%, transparent 200px);
+  border-radius: 16px;
+  padding: 24px;
+  min-height: calc(100vh - 160px);
+}
+
+.dark .content-area {
+  background: linear-gradient(180deg, rgba(102, 126, 234, 0.04) 0%, transparent 200px);
+}
+
+/* 부드러운 구분선 */
+.ant-divider {
+  border-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+.dark .ant-divider {
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* 알림 팝오버 - 모던 */
+.ant-popover-inner {
+  border-radius: 12px !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* 선택된 행 하이라이트 */
+.ant-table-tbody > tr.ant-table-row-selected > td {
+  background: rgba(102, 126, 234, 0.08) !important;
+}
+
+/* 메뉴 아이콘 부드러운 색상 */
+.ant-menu-item .anticon,
+.ant-menu-submenu-title .anticon {
+  font-size: 16px !important;
+}
+
+/* 부드러운 Tooltip */
+.ant-tooltip-inner {
+  border-radius: 8px !important;
+}
+
+/* 부드러운 Dropdown */
+.ant-dropdown-menu {
+  border-radius: 12px !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1) !important;
+  padding: 4px !important;
+}
+
+.ant-dropdown-menu-item {
+  border-radius: 8px !important;
+}
+
+/* 폼 라벨 */
+.ant-form-item-label > label {
+  font-weight: 500 !important;
+  font-size: 13px !important;
+}
+
+/* 빈 상태 */
+.ant-empty-description {
+  color: rgba(0, 0, 0, 0.35) !important;
+  font-size: 13px;
+}
+
+/* 브레드크럼 */
+.ant-breadcrumb {
+  font-size: 13px !important;
+}
+
+/* Statistic 위아래 간격 */
+.ant-statistic {
+  line-height: 1.4;
+}
+
+/* 캘린더 셀 - 호버 효과 */
+.ant-picker-cell:hover .ant-picker-cell-inner {
+  background: rgba(102, 126, 234, 0.08) !important;
+}
+
+/* 스피너 색상 */
+.ant-spin-dot-item {
+  background-color: #667eea !important;
+}
+
+/* 버튼 그룹 */
+.button-group {
+  display: flex;
+  gap: 8px;
 }

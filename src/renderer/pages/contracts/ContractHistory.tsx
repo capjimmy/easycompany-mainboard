@@ -52,78 +52,13 @@ const ContractHistory: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // 모든 계약의 이력을 가져옴
-      const contractsResult = await window.electronAPI.contracts.getAll(user.id, {});
-      if (contractsResult.success && contractsResult.contracts) {
-        const allHistories: HistoryRecord[] = [];
-
-        for (const contract of contractsResult.contracts) {
-          const historyResult = await window.electronAPI.contracts.getHistories(user.id, contract.id);
-          if (historyResult.success && historyResult.histories) {
-            const enrichedHistories = historyResult.histories.map((h: any) => ({
-              ...h,
-              contract_number: contract.contract_number,
-              client_company: contract.client_company,
-              service_name: contract.service_name,
-            }));
-            allHistories.push(...enrichedHistories);
-          }
-        }
-
-        // 날짜 내림차순 정렬
-        allHistories.sort((a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
-
-        setHistories(allHistories);
+      const result = await (window as any).electronAPI.contracts.getAllHistories(user.id);
+      if (result.success) {
+        setHistories(result.histories || []);
       }
     } catch (err) {
       console.error('Failed to load histories:', err);
-      // 더미 데이터
-      setHistories([
-        {
-          id: '1',
-          contract_id: 'c1',
-          contract_number: 'C-2024-0001',
-          client_company: '서울대학교',
-          service_name: '2024년 교육혁신 연구용역',
-          change_type: 'progress',
-          old_value: 'contract_signed',
-          new_value: 'in_progress',
-          changed_by: null,
-          changed_by_name: '홍길동',
-          note: '연구 착수',
-          created_at: '2024-02-01T09:00:00.000Z',
-        },
-        {
-          id: '2',
-          contract_id: 'c2',
-          contract_number: 'C-2024-0002',
-          client_company: '경기도교육청',
-          service_name: '교육정보시스템 유지보수',
-          change_type: 'payment',
-          old_value: '0',
-          new_value: '39600000',
-          changed_by: null,
-          changed_by_name: '김철수',
-          note: '전액 입금',
-          created_at: '2024-01-10T10:30:00.000Z',
-        },
-        {
-          id: '3',
-          contract_id: 'c3',
-          contract_number: 'C-2023-0015',
-          client_company: '부산광역시교육청',
-          service_name: '2023년 교육과정 개편 연구',
-          change_type: 'progress',
-          old_value: 'in_progress',
-          new_value: 'completed',
-          changed_by: null,
-          changed_by_name: '박영희',
-          note: '최종 검수 완료',
-          created_at: '2023-12-28T09:00:00.000Z',
-        },
-      ]);
+      setHistories([]);
     } finally {
       setIsLoading(false);
     }

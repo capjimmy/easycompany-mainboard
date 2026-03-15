@@ -10,16 +10,21 @@ export function registerQuoteHandlers(): void {
 
   // 견적서 목록 조회
   ipcMain.handle('quotes:getAll', async (_event, requesterId: string, filters?: any) => {
-    const requester = db.getUserById(requesterId);
+    const requester = await db.getUserById(requesterId);
     if (!requester) {
       return { success: false, error: '권한이 없습니다.' };
     }
 
-    let quotes = db.getQuotes();
+    let quotes = await db.getQuotes();
 
     // 슈퍼관리자가 아니면 자기 회사의 견적서만 조회
     if (requester.role !== 'super_admin' && requester.company_id) {
       quotes = quotes.filter((q: any) => q.company_id === requester.company_id);
+    }
+
+    // 부서 관리자는 자기 부서 또는 본인이 작성한 견적서만 조회
+    if (requester.role === 'department_manager' && requester.department_id) {
+      quotes = quotes.filter((q: any) => q.created_by === requester.id);
     }
 
     // 필터 적용
@@ -51,12 +56,12 @@ export function registerQuoteHandlers(): void {
 
   // 견적서 상세 조회
   ipcMain.handle('quotes:getById', async (_event, requesterId: string, quoteId: string) => {
-    const requester = db.getUserById(requesterId);
+    const requester = await db.getUserById(requesterId);
     if (!requester) {
       return { success: false, error: '권한이 없습니다.' };
     }
 
-    const quote = db.getQuoteById(quoteId);
+    const quote = await db.getQuoteById(quoteId);
     if (!quote) {
       return { success: false, error: '견적서를 찾을 수 없습니다.' };
     }
@@ -67,8 +72,8 @@ export function registerQuoteHandlers(): void {
     }
 
     // 상세 항목 조회
-    const laborItems = db.getQuoteLaborItemsByQuoteId(quoteId);
-    const expenseItems = db.getQuoteExpenseItemsByQuoteId(quoteId);
+    const laborItems = await db.getQuoteLaborItemsByQuoteId(quoteId);
+    const expenseItems = await db.getQuoteExpenseItemsByQuoteId(quoteId);
 
     return {
       success: true,
@@ -82,7 +87,7 @@ export function registerQuoteHandlers(): void {
 
   // 견적서 생성
   ipcMain.handle('quotes:create', async (_event, requesterId: string, quoteData: any) => {
-    const requester = db.getUserById(requesterId);
+    const requester = await db.getUserById(requesterId);
     if (!requester) {
       return { success: false, error: '권한이 없습니다.' };
     }
@@ -93,13 +98,13 @@ export function registerQuoteHandlers(): void {
     }
 
     // 회사 정보 조회
-    const company = db.getCompanyById(companyId);
+    const company = await db.getCompanyById(companyId);
     if (!company) {
       return { success: false, error: '회사를 찾을 수 없습니다.' };
     }
 
     // 견적번호 생성
-    const quoteNumber = db.generateQuoteNumber(companyId, 'Q');
+    const quoteNumber = await db.generateQuoteNumber(companyId, 'Q');
 
     const quoteId = uuidv4();
     const now = new Date().toISOString();
@@ -111,12 +116,13 @@ export function registerQuoteHandlers(): void {
     let laborTotal = 0;
     let expenseTotal = 0;
 
-    // 인건비 항목 저장 및 계산
+    // 인건비 소계 계산 (DB 저장은 견적서 생성 후)
+    const preparedLaborItems = [];
     for (const item of laborItems) {
       const subtotal = (item.quantity || 0) * (item.participation_rate || 1) * (item.months || 0) * (item.unit_price || 0);
       laborTotal += subtotal;
 
-      const laborItem = {
+      preparedLaborItems.push({
         id: uuidv4(),
         quote_id: quoteId,
         grade_id: item.grade_id,
@@ -126,11 +132,11 @@ export function registerQuoteHandlers(): void {
         months: item.months || 0,
         unit_price: item.unit_price || 0,
         subtotal: subtotal,
-      };
-      db.addQuoteLaborItem(laborItem);
+      });
     }
 
-    // 경비 항목 저장 및 계산
+    // 경비 소계 계산 (DB 저장은 견적서 생성 후)
+    const preparedExpenseItems = [];
     for (const item of expenseItems) {
       let amount = item.amount || 0;
 
@@ -141,15 +147,14 @@ export function registerQuoteHandlers(): void {
 
       expenseTotal += amount;
 
-      const expenseItem = {
+      preparedExpenseItems.push({
         id: uuidv4(),
         quote_id: quoteId,
         category_id: item.category_id,
         category_name: item.category_name,
         amount: amount,
         note: item.note || null,
-      };
-      db.addQuoteExpenseItem(expenseItem);
+      });
     }
 
     const totalAmount = laborTotal + expenseTotal;
@@ -167,6 +172,9 @@ export function registerQuoteHandlers(): void {
       recipient_contact: quoteData.recipient_contact || null,
       recipient_phone: quoteData.recipient_phone || null,
       recipient_email: quoteData.recipient_email || null,
+      recipient_department: quoteData.recipient_department || null,
+      recipient_address: quoteData.recipient_address || null,
+      project_period_months: quoteData.project_period_months || null,
 
       title: quoteData.title || '',
       service_name: quoteData.service_name || '',
@@ -195,24 +203,36 @@ export function registerQuoteHandlers(): void {
       company_phone: company.phone || null,
 
       notes: quoteData.notes || null,
+      source_file_path: quoteData.source_file_path || null,
 
       created_at: now,
       updated_at: now,
     };
 
-    db.addQuote(newQuote);
+    // 견적서를 먼저 저장 (FK 제약: quote_labor_items, quote_expense_items가 quote_id를 참조)
+    await db.addQuote(newQuote);
+
+    // 인건비 항목 저장 (견적서 생성 후)
+    for (const laborItem of preparedLaborItems) {
+      await db.addQuoteLaborItem(laborItem);
+    }
+
+    // 경비 항목 저장 (견적서 생성 후)
+    for (const expenseItem of preparedExpenseItems) {
+      await db.addQuoteExpenseItem(expenseItem);
+    }
 
     return { success: true, quoteId, quoteNumber };
   });
 
   // 견적서 수정
   ipcMain.handle('quotes:update', async (_event, requesterId: string, quoteId: string, quoteData: any) => {
-    const requester = db.getUserById(requesterId);
+    const requester = await db.getUserById(requesterId);
     if (!requester) {
       return { success: false, error: '권한이 없습니다.' };
     }
 
-    const quote = db.getQuoteById(quoteId);
+    const quote = await db.getQuoteById(quoteId);
     if (!quote) {
       return { success: false, error: '견적서를 찾을 수 없습니다.' };
     }
@@ -228,8 +248,8 @@ export function registerQuoteHandlers(): void {
     }
 
     // 기존 항목 삭제
-    db.deleteQuoteLaborItemsByQuoteId(quoteId);
-    db.deleteQuoteExpenseItemsByQuoteId(quoteId);
+    await db.deleteQuoteLaborItemsByQuoteId(quoteId);
+    await db.deleteQuoteExpenseItemsByQuoteId(quoteId);
 
     // 금액 재계산
     const laborItems = quoteData.labor_items || [];
@@ -254,7 +274,7 @@ export function registerQuoteHandlers(): void {
         unit_price: item.unit_price || 0,
         subtotal: subtotal,
       };
-      db.addQuoteLaborItem(laborItem);
+      await db.addQuoteLaborItem(laborItem);
     }
 
     // 경비 항목 저장
@@ -275,7 +295,7 @@ export function registerQuoteHandlers(): void {
         amount: amount,
         note: item.note || null,
       };
-      db.addQuoteExpenseItem(expenseItem);
+      await db.addQuoteExpenseItem(expenseItem);
     }
 
     const totalAmount = laborTotal + expenseTotal;
@@ -288,6 +308,9 @@ export function registerQuoteHandlers(): void {
       recipient_contact: quoteData.recipient_contact,
       recipient_phone: quoteData.recipient_phone,
       recipient_email: quoteData.recipient_email,
+      recipient_department: quoteData.recipient_department,
+      recipient_address: quoteData.recipient_address,
+      project_period_months: quoteData.project_period_months,
       title: quoteData.title,
       service_name: quoteData.service_name,
       labor_total: laborTotal,
@@ -300,19 +323,46 @@ export function registerQuoteHandlers(): void {
       notes: quoteData.notes,
     };
 
-    db.updateQuote(quoteId, updates);
+    await db.updateQuote(quoteId, updates);
+
+    // 금액 변경 이력 자동 기록
+    const amountChanged =
+      quote.labor_total !== laborTotal ||
+      quote.expense_total !== expenseTotal ||
+      quote.grand_total !== grandTotal;
+
+    if (amountChanged) {
+      try {
+        await db.addQuoteAmountHistory({
+          id: uuidv4(),
+          quote_id: quoteId,
+          changed_by: requesterId,
+          changed_by_name: requester.name,
+          previous_labor_total: quote.labor_total || 0,
+          new_labor_total: laborTotal,
+          previous_expense_total: quote.expense_total || 0,
+          new_expense_total: expenseTotal,
+          previous_total: quote.grand_total || 0,
+          new_total: grandTotal,
+          change_reason: quoteData.change_reason || null,
+          created_at: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error('Failed to save quote amount history:', err);
+      }
+    }
 
     return { success: true };
   });
 
   // 견적서 삭제
   ipcMain.handle('quotes:delete', async (_event, requesterId: string, quoteId: string) => {
-    const requester = db.getUserById(requesterId);
+    const requester = await db.getUserById(requesterId);
     if (!requester) {
       return { success: false, error: '권한이 없습니다.' };
     }
 
-    const quote = db.getQuoteById(quoteId);
+    const quote = await db.getQuoteById(quoteId);
     if (!quote) {
       return { success: false, error: '견적서를 찾을 수 없습니다.' };
     }
@@ -332,19 +382,19 @@ export function registerQuoteHandlers(): void {
       return { success: false, error: '계약 전환된 견적서는 삭제할 수 없습니다.' };
     }
 
-    db.deleteQuote(quoteId);
+    await db.deleteQuote(quoteId);
 
     return { success: true };
   });
 
   // 견적서 상태 변경
   ipcMain.handle('quotes:updateStatus', async (_event, requesterId: string, quoteId: string, status: QuoteStatus) => {
-    const requester = db.getUserById(requesterId);
+    const requester = await db.getUserById(requesterId);
     if (!requester) {
       return { success: false, error: '권한이 없습니다.' };
     }
 
-    const quote = db.getQuoteById(quoteId);
+    const quote = await db.getQuoteById(quoteId);
     if (!quote) {
       return { success: false, error: '견적서를 찾을 수 없습니다.' };
     }
@@ -368,19 +418,19 @@ export function registerQuoteHandlers(): void {
       return { success: false, error: `${quote.status} 상태에서 ${status} 상태로 변경할 수 없습니다.` };
     }
 
-    db.updateQuote(quoteId, { status });
+    await db.updateQuote(quoteId, { status });
 
     return { success: true };
   });
 
   // 견적서 복제
   ipcMain.handle('quotes:duplicate', async (_event, requesterId: string, quoteId: string) => {
-    const requester = db.getUserById(requesterId);
+    const requester = await db.getUserById(requesterId);
     if (!requester) {
       return { success: false, error: '권한이 없습니다.' };
     }
 
-    const quote = db.getQuoteById(quoteId);
+    const quote = await db.getQuoteById(quoteId);
     if (!quote) {
       return { success: false, error: '견적서를 찾을 수 없습니다.' };
     }
@@ -391,11 +441,11 @@ export function registerQuoteHandlers(): void {
     }
 
     // 기존 항목 조회
-    const laborItems = db.getQuoteLaborItemsByQuoteId(quoteId);
-    const expenseItems = db.getQuoteExpenseItemsByQuoteId(quoteId);
+    const laborItems = await db.getQuoteLaborItemsByQuoteId(quoteId);
+    const expenseItems = await db.getQuoteExpenseItemsByQuoteId(quoteId);
 
     // 새 견적번호 생성
-    const newQuoteNumber = db.generateQuoteNumber(quote.company_id, 'Q');
+    const newQuoteNumber = await db.generateQuoteNumber(quote.company_id, 'Q');
     const newQuoteId = uuidv4();
     const now = new Date().toISOString();
 
@@ -413,11 +463,11 @@ export function registerQuoteHandlers(): void {
       converted_contract_id: null,
     };
 
-    db.addQuote(newQuote);
+    await db.addQuote(newQuote);
 
     // 항목 복제
     for (const item of laborItems) {
-      db.addQuoteLaborItem({
+      await db.addQuoteLaborItem({
         ...item,
         id: uuidv4(),
         quote_id: newQuoteId,
@@ -425,7 +475,7 @@ export function registerQuoteHandlers(): void {
     }
 
     for (const item of expenseItems) {
-      db.addQuoteExpenseItem({
+      await db.addQuoteExpenseItem({
         ...item,
         id: uuidv4(),
         quote_id: newQuoteId,
@@ -437,12 +487,12 @@ export function registerQuoteHandlers(): void {
 
   // 견적서 → 계약 전환
   ipcMain.handle('quotes:convertToContract', async (_event, requesterId: string, quoteId: string, contractData: any) => {
-    const requester = db.getUserById(requesterId);
+    const requester = await db.getUserById(requesterId);
     if (!requester) {
       return { success: false, error: '권한이 없습니다.' };
     }
 
-    const quote = db.getQuoteById(quoteId);
+    const quote = await db.getQuoteById(quoteId);
     if (!quote) {
       return { success: false, error: '견적서를 찾을 수 없습니다.' };
     }
@@ -458,7 +508,7 @@ export function registerQuoteHandlers(): void {
     }
 
     // 계약번호 생성
-    const contractNumber = db.generateContractNumber(quote.company_id, 'C');
+    const contractNumber = await db.generateContractNumber(quote.company_id, 'C');
     const contractId = uuidv4();
     const now = new Date().toISOString();
 
@@ -515,16 +565,16 @@ export function registerQuoteHandlers(): void {
       updated_at: now,
     };
 
-    db.addContract(newContract);
+    await db.addContract(newContract);
 
     // 견적서 상태 업데이트
-    db.updateQuote(quoteId, {
+    await db.updateQuote(quoteId, {
       status: 'converted',
       converted_contract_id: contractId,
     });
 
     // 계약 생성 이력 추가
-    db.addContractHistory({
+    await db.addContractHistory({
       id: uuidv4(),
       contract_id: contractId,
       change_type: 'created',
@@ -548,12 +598,12 @@ export function registerQuoteHandlers(): void {
     clientCompany?: string;
     serviceName?: string;
   }) => {
-    const requester = db.getUserById(requesterId);
+    const requester = await db.getUserById(requesterId);
     if (!requester) {
       return { success: false, error: '권한이 없습니다.' };
     }
 
-    let quotes = db.getQuotes();
+    let quotes = await db.getQuotes();
 
     // 회사 필터
     if (requester.role !== 'super_admin' && requester.company_id) {
@@ -620,13 +670,13 @@ export function registerQuoteHandlers(): void {
 
   // 거래처 자동완성 목록
   ipcMain.handle('quotes:getClientCompanies', async (_event, requesterId: string, search?: string) => {
-    const requester = db.getUserById(requesterId);
+    const requester = await db.getUserById(requesterId);
     if (!requester) {
       return { success: false, error: '권한이 없습니다.' };
     }
 
-    let quotes = db.getQuotes();
-    let contracts = db.getContracts();
+    let quotes = await db.getQuotes();
+    let contracts = await db.getContracts();
 
     // 회사 필터
     if (requester.role !== 'super_admin' && requester.company_id) {
@@ -655,5 +705,27 @@ export function registerQuoteHandlers(): void {
     companies.sort();
 
     return { success: true, companies: companies.slice(0, 20) };
+  });
+
+  // ========================================
+  // 견적서 금액 변경 이력 조회
+  // ========================================
+  ipcMain.handle('quotes:getAmountHistories', async (_event, requesterId: string, quoteId: string) => {
+    const requester = await db.getUserById(requesterId);
+    if (!requester) {
+      return { success: false, error: '권한이 없습니다.' };
+    }
+
+    const quote = await db.getQuoteById(quoteId);
+    if (!quote) {
+      return { success: false, error: '견적서를 찾을 수 없습니다.' };
+    }
+
+    if (requester.role !== 'super_admin' && requester.company_id !== quote.company_id) {
+      return { success: false, error: '권한이 없습니다.' };
+    }
+
+    const histories = await db.getQuoteAmountHistories(quoteId);
+    return { success: true, histories };
   });
 }

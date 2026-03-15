@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, Card, Typography, Space, message, Checkbox } from 'antd';
-import { UserOutlined, LockOutlined, EyeInvisibleOutlined, EyeTwoTone } from '@ant-design/icons';
+import {
+  UserOutlined, LockOutlined, EyeInvisibleOutlined, EyeTwoTone,
+  MinusOutlined, BorderOutlined, BlockOutlined, CloseOutlined,
+} from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
 import { useAuthStore } from '../../store/authStore';
@@ -8,12 +11,27 @@ import { useThemeStore } from '../../store/themeStore';
 
 const { Title, Text } = Typography;
 
+declare global {
+  interface Window {
+    electronAPI: any;
+  }
+}
+
 const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(true);
   const navigate = useNavigate();
 
   const { login, isAuthenticated, error, clearError } = useAuthStore();
   const { isDark } = useThemeStore();
+
+  const handleMinimize = () => window.electronAPI.window.minimize();
+  const handleMaximize = async () => {
+    await window.electronAPI.window.maximize();
+    const maximized = await window.electronAPI.window.isMaximized();
+    setIsMaximized(maximized);
+  };
+  const handleClose = () => window.electronAPI.window.close();
 
   // 이미 로그인된 경우 대시보드로 이동
   useEffect(() => {
@@ -58,8 +76,35 @@ const LoginPage: React.FC = () => {
           ? 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)'
           : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         padding: 24,
+        position: 'relative',
       }}
     >
+      {/* 투명 타이틀바 */}
+      <div
+        className="titlebar-drag"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 36,
+          zIndex: 1000,
+          display: 'flex',
+          justifyContent: 'flex-end',
+        }}
+      >
+        <div className="window-controls" style={{ height: 36 }}>
+          <button className="window-btn" onClick={handleMinimize} title="최소화" style={{ color: 'rgba(255,255,255,0.8)' }}>
+            <MinusOutlined style={{ fontSize: 12 }} />
+          </button>
+          <button className="window-btn" onClick={handleMaximize} title="최대화" style={{ color: 'rgba(255,255,255,0.8)' }}>
+            {isMaximized ? <BlockOutlined style={{ fontSize: 12 }} /> : <BorderOutlined style={{ fontSize: 12 }} />}
+          </button>
+          <button className="window-btn close-btn" onClick={handleClose} title="닫기" style={{ color: 'rgba(255,255,255,0.8)' }}>
+            <CloseOutlined style={{ fontSize: 12 }} />
+          </button>
+        </div>
+      </div>
       <Card
         style={{
           width: '100%',
@@ -67,7 +112,7 @@ const LoginPage: React.FC = () => {
           borderRadius: 16,
           boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
         }}
-        bodyStyle={{ padding: 40 }}
+        styles={{ body: { padding: 40 } }}
       >
         {/* 로고 및 타이틀 */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
@@ -84,10 +129,10 @@ const LoginPage: React.FC = () => {
               boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)',
             }}
           >
-            <span style={{ color: 'white', fontSize: 28, fontWeight: 'bold' }}>E</span>
+            <span style={{ color: 'white', fontSize: 28, fontWeight: 'bold' }}>건</span>
           </div>
           <Title level={3} style={{ margin: 0 }}>
-            EasyCompany
+            건설경제연구원
           </Title>
           <Text type="secondary">업무 효율화 솔루션</Text>
         </div>
@@ -156,7 +201,7 @@ const LoginPage: React.FC = () => {
         {/* 하단 정보 */}
         <div style={{ textAlign: 'center', marginTop: 24 }}>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            기본 계정: admin / admin123
+            건설경제연구원 업무관리 시스템
           </Text>
         </div>
       </Card>

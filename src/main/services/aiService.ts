@@ -4,8 +4,8 @@ import { db } from '../database';
 let openaiClient: OpenAI | null = null;
 
 // OpenAI 클라이언트 초기화
-function getOpenAIClient(): OpenAI | null {
-  const apiKey = db.getSetting('openai_api_key');
+async function getOpenAIClient(): Promise<OpenAI | null> {
+  const apiKey = await db.getSetting('openai_api_key');
   if (!apiKey) {
     return null;
   }
@@ -28,7 +28,7 @@ export async function generateDocumentContent(
   template: any,
   company: any
 ): Promise<{ success: boolean; content?: string; error?: string }> {
-  const client = getOpenAIClient();
+  const client = await getOpenAIClient();
 
   if (!client) {
     return { success: false, error: 'OpenAI API 키가 설정되지 않았습니다.' };
@@ -124,7 +124,7 @@ export async function analyzeTemplateFields(
   templateContent: string,
   contract: any
 ): Promise<{ success: boolean; mappings?: Record<string, string>; error?: string }> {
-  const client = getOpenAIClient();
+  const client = await getOpenAIClient();
 
   if (!client) {
     return { success: false, error: 'OpenAI API 키가 설정되지 않았습니다.' };

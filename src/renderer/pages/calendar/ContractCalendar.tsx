@@ -23,6 +23,7 @@ import {
   ClockCircleOutlined,
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
+import { useAuthStore } from '../../store/authStore';
 import { useContractStore } from '../../store/contractStore';
 
 const { Title, Text } = Typography;
@@ -30,7 +31,7 @@ const { Title, Text } = Typography;
 interface CalendarEvent {
   id: string;
   date: string;
-  type: 'contract_start' | 'contract_end' | 'payment_due' | 'milestone' | 'delivery';
+  type: 'contract_start' | 'contract_end' | 'payment_due' | 'milestone' | 'delivery' | 'custom';
   title: string;
   description?: string;
   contractId: string;
@@ -44,32 +45,79 @@ const eventTypeConfig: Record<string, { color: string; label: string; icon: Reac
   payment_due: { color: 'gold', label: '입금 예정', icon: <DollarOutlined /> },
   milestone: { color: 'blue', label: '마일스톤', icon: <CheckCircleOutlined /> },
   delivery: { color: 'purple', label: '납품', icon: <CalendarOutlined /> },
+  custom: { color: 'cyan', label: '커스텀 이벤트', icon: <CalendarOutlined /> },
 };
 
 const ContractCalendar: React.FC = () => {
+  const { user } = useAuthStore();
   const { contracts, fetchContracts } = useContractStore();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedEvents, setSelectedEvents] = useState<CalendarEvent[]>([]);
   const [filterType, setFilterType] = useState<string>('all');
+  const [payments, setPayments] = useState<any[]>([]);
+  const [customEvents, setCustomEvents] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchContracts();
-  }, []);
+    if (user?.id) {
+      fetchContracts(user.id);
+    }
+  }, [user?.id]);
+
+  // 입금 내역 로드
+  useEffect(() => {
+    const loadPayments = async () => {
+      if (!user?.id || contracts.length === 0) return;
+      const allPayments: any[] = [];
+      for (const contract of contracts) {
+        try {
+          const result = await window.electronAPI.contracts.getById(user.id, contract.id);
+          if (result.success && result.contract?.payments) {
+            allPayments.push(...result.contract.payments.map((p: any) => ({
+              ...p,
+              contract_id: contract.id,
+              service_name: contract.service_name,
+            })));
+          }
+        } catch (err) {
+          // skip
+        }
+      }
+      setPayments(allPayments);
+    };
+    loadPayments();
+  }, [contracts, user?.id]);
+
+  // 커스텀 이벤트 로드
+  useEffect(() => {
+    const loadCustomEvents = async () => {
+      if (!user?.id) return;
+      try {
+        const result = await window.electronAPI.contracts.getAllEvents(user.id);
+        if (result.success) {
+          setCustomEvents(result.events || []);
+        }
+      } catch (err) {
+        console.error('Failed to load custom events:', err);
+      }
+    };
+    loadCustomEvents();
+  }, [user?.id, contracts]);
 
   // 계약서에서 이벤트 추출
   useEffect(() => {
     const extractedEvents: CalendarEvent[] = [];
     const today = dayjs();
 
-    contracts.forEach((contract) => {
-      // 계약 시작일
-      if (contract.start_date) {
-        const startDate = dayjs(contract.start_date);
+    contracts.forEach((contract: any) => {
+      // 계약 시작일 (contract_start_date 필드명 사용)
+      const startDateStr = contract.contract_start_date || contract.start_date;
+      if (startDateStr) {
+        const startDate = dayjs(startDateStr);
         extractedEvents.push({
           id: `${contract.id}-start`,
-          date: contract.start_date,
+          date: startDate.format('YYYY-MM-DD'),
           type: 'contract_start',
           title: '계약 시작',
           contractId: contract.id,
@@ -79,11 +127,12 @@ const ContractCalendar: React.FC = () => {
       }
 
       // 계약 종료일
-      if (contract.end_date) {
-        const endDate = dayjs(contract.end_date);
+      const endDateStr = contract.contract_end_date || contract.end_date;
+      if (endDateStr) {
+        const endDate = dayjs(endDateStr);
         extractedEvents.push({
           id: `${contract.id}-end`,
-          date: contract.end_date,
+          date: endDate.format('YYYY-MM-DD'),
           type: 'contract_end',
           title: '계약 종료',
           contractId: contract.id,
@@ -92,16 +141,16 @@ const ContractCalendar: React.FC = () => {
         });
       }
 
-      // 입금 예정일 (계약금액이 있고 미수금이 있는 경우)
-      if (contract.remaining_amount > 0 && contract.end_date) {
-        // 임의로 종료일 7일 전을 입금 예정일로 설정 (실제로는 계약서에서 추출)
-        const paymentDate = dayjs(contract.end_date).subtract(7, 'day');
+      // 미수금이 있는 계약 - 종료일 기준 입금 예정
+      if (contract.remaining_amount > 0 && (contract.contract_end_date || contract.end_date)) {
+        const endStr = contract.contract_end_date || contract.end_date;
+        const paymentDate = dayjs(endStr).subtract(7, 'day');
         if (paymentDate.isAfter(today.subtract(30, 'day'))) {
           extractedEvents.push({
             id: `${contract.id}-payment`,
             date: paymentDate.format('YYYY-MM-DD'),
             type: 'payment_due',
-            title: `입금 예정: ${contract.remaining_amount.toLocaleString()}원`,
+            title: `입금 예정: ${contract.remaining_amount?.toLocaleString()}원`,
             contractId: contract.id,
             contractName: contract.service_name,
             status: paymentDate.isBefore(today, 'day') ? 'overdue' : paymentDate.isSame(today, 'day') ? 'today' : 'upcoming',
@@ -110,8 +159,41 @@ const ContractCalendar: React.FC = () => {
       }
     });
 
+    // 실제 입금 내역 이벤트 추가
+    payments.forEach((payment: any) => {
+      if (payment.payment_date) {
+        const pDate = dayjs(payment.payment_date);
+        extractedEvents.push({
+          id: `payment-${payment.id}`,
+          date: pDate.format('YYYY-MM-DD'),
+          type: 'milestone',
+          title: `입금: ${payment.amount?.toLocaleString()}원 (${payment.description || payment.payment_type})`,
+          contractId: payment.contract_id,
+          contractName: payment.service_name || '',
+          status: 'completed',
+        });
+      }
+    });
+
+    // 커스텀 이벤트 추가
+    customEvents.forEach((ce: any) => {
+      if (ce.event_date) {
+        const eventDate = dayjs(ce.event_date);
+        extractedEvents.push({
+          id: `custom-${ce.id}`,
+          date: eventDate.format('YYYY-MM-DD'),
+          type: 'custom',
+          title: ce.event_title,
+          description: ce.event_description,
+          contractId: ce.contract_id,
+          contractName: ce.contract_name || '',
+          status: eventDate.isBefore(today, 'day') ? 'completed' : eventDate.isSame(today, 'day') ? 'today' : 'upcoming',
+        });
+      }
+    });
+
     setEvents(extractedEvents);
-  }, [contracts]);
+  }, [contracts, payments, customEvents]);
 
   const getEventsForDate = (date: Dayjs): CalendarEvent[] => {
     const dateStr = date.format('YYYY-MM-DD');
@@ -200,6 +282,7 @@ const ContractCalendar: React.FC = () => {
               { value: 'payment_due', label: '입금 예정' },
               { value: 'milestone', label: '마일스톤' },
               { value: 'delivery', label: '납품' },
+              { value: 'custom', label: '커스텀 이벤트' },
             ]}
           />
         </Space>

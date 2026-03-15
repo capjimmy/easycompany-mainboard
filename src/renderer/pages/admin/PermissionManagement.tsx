@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {
   Table, Card, Typography, Select, Checkbox, Button, Space, message, Tag
 } from 'antd';
-import { SaveOutlined, ReloadOutlined, UserOutlined } from '@ant-design/icons';
+import { SaveOutlined, ReloadOutlined, UserOutlined, TableOutlined } from '@ant-design/icons';
+
+import { useNavigate } from 'react-router-dom';
 
 import { useAuthStore } from '../../store/authStore';
 import { MENU_STRUCTURE, DEFAULT_PERMISSIONS } from '../../../shared/constants/menu';
@@ -13,6 +15,7 @@ const { Option } = Select;
 
 const PermissionManagement: React.FC = () => {
   const { user: currentUser } = useAuthStore();
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [permissions, setPermissions] = useState<Record<string, MenuPermission>>({});
@@ -229,9 +232,17 @@ const PermissionManagement: React.FC = () => {
 
   return (
     <div className="fade-in">
-      <div className="page-header" style={{ marginBottom: 24 }}>
-        <Title level={4} style={{ margin: 0 }}>권한 설정</Title>
-        <span style={{ color: '#888' }}>사용자별 메뉴 접근 권한을 설정합니다.</span>
+      <div className="page-header" style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <Title level={4} style={{ margin: 0 }}>권한 설정</Title>
+          <span style={{ color: '#888' }}>사용자별 메뉴 접근 권한을 설정합니다.</span>
+        </div>
+        <Button
+          icon={<TableOutlined />}
+          onClick={() => navigate('/admin/permissions/matrix')}
+        >
+          권한 매트릭스 보기
+        </Button>
       </div>
 
       <Card style={{ marginBottom: 16 }}>

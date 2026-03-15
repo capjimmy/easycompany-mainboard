@@ -7,7 +7,8 @@ import {
 import type { MenuProps } from 'antd';
 import {
   PlusOutlined, SearchOutlined, EyeOutlined, EditOutlined, DeleteOutlined,
-  CopyOutlined, FileTextOutlined, MoreOutlined, CheckCircleOutlined
+  CopyOutlined, FileTextOutlined, MoreOutlined, CheckCircleOutlined, FolderOpenOutlined,
+  MailOutlined, DownloadOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -47,6 +48,12 @@ const QuoteList: React.FC = () => {
   const [convertModalVisible, setConvertModalVisible] = useState(false);
   const [convertingQuote, setConvertingQuote] = useState<Quote | null>(null);
   const [convertForm] = Form.useForm();
+
+  // 이메일 발송 상태
+  const [emailModalVisible, setEmailModalVisible] = useState(false);
+  const [emailingQuote, setEmailingQuote] = useState<Quote | null>(null);
+  const [emailForm] = Form.useForm();
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
@@ -139,6 +146,75 @@ const QuoteList: React.FC = () => {
     }
   };
 
+  const handleOpenOriginal = async (record: Quote) => {
+    if (!(record as any).source_file_path) {
+      message.warning('이 견적서에는 원본 파일 경로 정보가 없습니다.');
+      return;
+    }
+    try {
+      const result = await window.electronAPI.settings.openOriginalFile((record as any).source_file_path);
+      if (!result.success) {
+        message.error(result.error);
+      }
+    } catch (err) {
+      message.error('원본 파일 열기에 실패했습니다.');
+    }
+  };
+
+  const handleEmailClick = (quote: Quote) => {
+    setEmailingQuote(quote);
+    emailForm.setFieldsValue({
+      to: (quote as any).recipient_email || '',
+      subject: `[견적서] ${quote.service_name || ''} - ${quote.quote_number}`,
+      body: `<p>안녕하세요,</p>
+<p>${(quote as any).recipient_company || ''}  담당자님께,</p>
+<p>요청하신 견적서를 발송드립니다.</p>
+<br/>
+<p>견적번호: ${quote.quote_number}</p>
+<p>용역명: ${quote.service_name || ''}</p>
+<p>총액(VAT포함): ${quote.grand_total?.toLocaleString()}원</p>
+<br/>
+<p>감사합니다.</p>`,
+    });
+    setEmailModalVisible(true);
+  };
+
+  const handleSendEmail = async (values: any) => {
+    if (!user?.id) return;
+    setSendingEmail(true);
+    try {
+      const result = await window.electronAPI.email.sendQuote(user.id, {
+        to: values.to,
+        subject: values.subject,
+        body: values.body,
+      });
+      if (result.success) {
+        message.success('이메일이 발송되었습니다.');
+        setEmailModalVisible(false);
+      } else {
+        message.error(result.error || '이메일 발송에 실패했습니다.');
+      }
+    } catch (err) {
+      message.error('이메일 발송 중 오류가 발생했습니다.');
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    if (!user?.id) return;
+    try {
+      const result = await window.electronAPI.export.quotes(user.id);
+      if (result.success) {
+        message.success(`엑셀 파일이 저장되었습니다: ${result.filePath}`);
+      } else if (result.error !== '저장이 취소되었습니다.') {
+        message.error(result.error || '내보내기에 실패했습니다.');
+      }
+    } catch (err) {
+      message.error('엑셀 내보내기 중 오류가 발생했습니다.');
+    }
+  };
+
   const getActionMenu = (record: Quote): MenuProps['items'] => {
     const items: MenuProps['items'] = [
       {
@@ -148,6 +224,16 @@ const QuoteList: React.FC = () => {
         onClick: () => navigate(`/quotes/${record.id}`),
       },
     ];
+
+    // 원본열기 (source_file_path가 있을 때만)
+    if ((record as any).source_file_path) {
+      items.push({
+        key: 'openOriginal',
+        label: '원본열기',
+        icon: <FolderOpenOutlined />,
+        onClick: () => handleOpenOriginal(record),
+      });
+    }
 
     if (record.status === 'draft') {
       items.push(
@@ -222,6 +308,12 @@ const QuoteList: React.FC = () => {
 
     items.push(
       { type: 'divider' },
+      {
+        key: 'email',
+        label: '이메일 발송',
+        icon: <MailOutlined />,
+        onClick: () => handleEmailClick(record),
+      },
       {
         key: 'duplicate',
         label: '복제',
@@ -316,9 +408,16 @@ const QuoteList: React.FC = () => {
           <Title level={4} style={{ margin: 0 }}>견적관리</Title>
           <span style={{ color: '#888' }}>견적서를 작성하고 관리합니다.</span>
         </div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/quotes/new')}>
-          견적서 작성
-        </Button>
+        <Space>
+          {(user?.role === 'super_admin' || user?.role === 'company_admin') && (
+            <Button icon={<DownloadOutlined />} onClick={handleExportExcel}>
+              엑셀 내보내기
+            </Button>
+          )}
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/quotes/new')}>
+            견적서 작성
+          </Button>
+        </Space>
       </div>
 
       {/* 검색 필터 */}
@@ -434,6 +533,61 @@ const QuoteList: React.FC = () => {
               </Form.Item>
             </Form>
           </>
+        )}
+      </Modal>
+
+      {/* 이메일 발송 모달 */}
+      <Modal
+        title="견적서 이메일 발송"
+        open={emailModalVisible}
+        onCancel={() => setEmailModalVisible(false)}
+        footer={null}
+        destroyOnClose
+        width={600}
+      >
+        {emailingQuote && (
+          <Form
+            form={emailForm}
+            layout="vertical"
+            onFinish={handleSendEmail}
+            style={{ marginTop: 16 }}
+          >
+            <Form.Item
+              name="to"
+              label="수신자 이메일"
+              rules={[
+                { required: true, message: '수신자 이메일을 입력해주세요.' },
+                { type: 'email', message: '올바른 이메일 형식이 아닙니다.' },
+              ]}
+            >
+              <Input placeholder="recipient@example.com" />
+            </Form.Item>
+
+            <Form.Item
+              name="subject"
+              label="제목"
+              rules={[{ required: true, message: '제목을 입력해주세요.' }]}
+            >
+              <Input />
+            </Form.Item>
+
+            <Form.Item
+              name="body"
+              label="본문"
+              rules={[{ required: true, message: '본문을 입력해주세요.' }]}
+            >
+              <Input.TextArea rows={8} />
+            </Form.Item>
+
+            <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+              <Space>
+                <Button onClick={() => setEmailModalVisible(false)}>취소</Button>
+                <Button type="primary" htmlType="submit" loading={sendingEmail} icon={<MailOutlined />}>
+                  발송
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
         )}
       </Modal>
     </div>

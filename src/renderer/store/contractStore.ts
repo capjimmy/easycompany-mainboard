@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Contract, ContractProgress, ContractPayment, ContractHistory } from '../../shared/types';
+import type { Contract, ContractProgress, ContractPayment, ContractHistory, ContractEvent } from '../../shared/types';
 
 interface ContractFilters {
   progress?: ContractProgress;
@@ -11,7 +11,7 @@ interface ContractFilters {
 
 interface ContractState {
   contracts: Contract[];
-  currentContract: (Contract & { payments?: ContractPayment[]; histories?: ContractHistory[] }) | null;
+  currentContract: (Contract & { payments?: ContractPayment[]; histories?: ContractHistory[]; events?: ContractEvent[] }) | null;
   isLoading: boolean;
   error: string | null;
   filters: ContractFilters;
@@ -28,6 +28,11 @@ interface ContractState {
   addPayment: (userId: string, contractId: string, paymentData: any) => Promise<{ success: boolean; error?: string }>;
   updatePayment: (userId: string, paymentId: string, paymentData: any) => Promise<{ success: boolean; error?: string }>;
   deletePayment: (userId: string, paymentId: string) => Promise<{ success: boolean; error?: string }>;
+
+  // 이벤트 관리
+  addEvent: (userId: string, contractId: string, eventData: any) => Promise<{ success: boolean; error?: string }>;
+  updateEvent: (userId: string, eventId: string, eventData: any) => Promise<{ success: boolean; error?: string }>;
+  deleteEvent: (userId: string, eventId: string) => Promise<{ success: boolean; error?: string }>;
 
   // 통계
   fetchMonthlyStats: (userId: string, year: number, month?: number) => Promise<any>;
@@ -218,6 +223,46 @@ export const useContractStore = create<ContractState>((set, get) => ({
       }
     } catch (err) {
       set({ error: '오류가 발생했습니다.', isLoading: false });
+      return { success: false, error: '오류가 발생했습니다.' };
+    }
+  },
+
+  addEvent: async (userId: string, contractId: string, eventData: any) => {
+    try {
+      const result = await window.electronAPI.contracts.addEvent(userId, contractId, eventData);
+      if (result.success) {
+        get().fetchContractById(userId, contractId);
+        return { success: true };
+      } else {
+        return { success: false, error: result.error };
+      }
+    } catch (err) {
+      return { success: false, error: '오류가 발생했습니다.' };
+    }
+  },
+
+  updateEvent: async (userId: string, eventId: string, eventData: any) => {
+    try {
+      const result = await window.electronAPI.contracts.updateEvent(userId, eventId, eventData);
+      if (result.success) {
+        return { success: true };
+      } else {
+        return { success: false, error: result.error };
+      }
+    } catch (err) {
+      return { success: false, error: '오류가 발생했습니다.' };
+    }
+  },
+
+  deleteEvent: async (userId: string, eventId: string) => {
+    try {
+      const result = await window.electronAPI.contracts.deleteEvent(userId, eventId);
+      if (result.success) {
+        return { success: true };
+      } else {
+        return { success: false, error: result.error };
+      }
+    } catch (err) {
       return { success: false, error: '오류가 발생했습니다.' };
     }
   },

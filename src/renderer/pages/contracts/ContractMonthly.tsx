@@ -73,17 +73,6 @@ const ContractMonthly: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to load monthly stats:', err);
-      // 더미 데이터 (API 미구현 시)
-      const dummyStats: MonthlyStats[] = Array.from({ length: 12 }, (_, i) => ({
-        month: i + 1,
-        contractCount: Math.floor(Math.random() * 5),
-        totalAmount: Math.floor(Math.random() * 100000000),
-        receivedAmount: Math.floor(Math.random() * 80000000),
-        remainingAmount: Math.floor(Math.random() * 20000000),
-        completedCount: Math.floor(Math.random() * 3),
-        inProgressCount: Math.floor(Math.random() * 3),
-      }));
-      setMonthlyStats(dummyStats);
     } finally {
       setIsLoading(false);
     }

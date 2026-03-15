@@ -90,7 +90,7 @@ const BackupSettings: React.FC = () => {
 
     setExporting(true);
     try {
-      const result = await window.api.settings.exportData(user.id);
+      const result = await window.electronAPI.settings.exportData(user.id);
       if (result.success) {
         message.success('백업이 완료되었습니다.');
         fetchBackups();
@@ -127,7 +127,7 @@ const BackupSettings: React.FC = () => {
       onOk: async () => {
         setImporting(true);
         try {
-          const result = await window.api.settings.importData(user.id);
+          const result = await window.electronAPI.settings.importData(user.id);
           if (result.success) {
             message.success('데이터가 복원되었습니다. 앱을 재시작합니다.');
             setTimeout(() => {

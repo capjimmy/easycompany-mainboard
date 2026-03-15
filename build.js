@@ -30,6 +30,7 @@ async function build() {
     external: ['electron', 'electron-store'],
     loader: {
       '.ts': 'ts',
+      '.json': 'json',
     },
     sourcemap: true,
   });
@@ -77,6 +78,20 @@ async function build() {
 
   // Copy HTML
   fs.copyFileSync('src/renderer/index.html', 'dist/renderer/index.html');
+
+  // Copy HWPX template files
+  const templatesDir = path.join('resources', 'templates');
+  const distTemplatesDir = path.join('dist', 'templates');
+  if (fs.existsSync(templatesDir)) {
+    if (!fs.existsSync(distTemplatesDir)) {
+      fs.mkdirSync(distTemplatesDir, { recursive: true });
+    }
+    for (const file of fs.readdirSync(templatesDir)) {
+      if (file.endsWith('.hwpx')) {
+        fs.copyFileSync(path.join(templatesDir, file), path.join(distTemplatesDir, file));
+      }
+    }
+  }
 
   console.log('Build completed!');
 }

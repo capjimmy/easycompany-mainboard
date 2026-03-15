@@ -7,7 +7,8 @@ import {
 import type { MenuProps } from 'antd';
 import {
   PlusOutlined, SearchOutlined, EyeOutlined, EditOutlined, DeleteOutlined,
-  DollarOutlined, MoreOutlined, CheckCircleOutlined
+  DollarOutlined, MoreOutlined, CheckCircleOutlined, WarningOutlined, ExclamationCircleOutlined,
+  DownloadOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -142,6 +143,40 @@ const ContractList: React.FC = () => {
     }
   };
 
+  // 수금률 계산 및 색상 결정
+  const getCollectionRateInfo = (record: Contract) => {
+    const totalAmt = record.total_amount || 0;
+    if (totalAmt === 0) return { rate: 0, color: '#d9d9d9', label: '-' };
+    const rate = Math.round((record.received_amount / totalAmt) * 100);
+    let color = '#ff4d4f'; // red: 0-49%
+    if (rate >= 100) color = '#52c41a'; // green: 100%
+    else if (rate >= 80) color = '#1890ff'; // blue: 80-99%
+    else if (rate >= 50) color = '#faad14'; // gold: 50-79%
+    return { rate, color, label: `${rate}%` };
+  };
+
+  // 연체 여부 확인
+  const isOverdue = (record: Contract) => {
+    if (!record.contract_end_date) return false;
+    if (record.remaining_amount <= 0) return false;
+    const endDate = dayjs(record.contract_end_date);
+    return dayjs().isAfter(endDate, 'day');
+  };
+
+  const handleExportExcel = async () => {
+    if (!user?.id) return;
+    try {
+      const result = await window.electronAPI.export.contracts(user.id);
+      if (result.success) {
+        message.success(`엑셀 파일이 저장되었습니다: ${result.filePath}`);
+      } else if (result.error !== '저장이 취소되었습니다.') {
+        message.error(result.error || '내보내기에 실패했습니다.');
+      }
+    } catch (err) {
+      message.error('엑셀 내보내기 중 오류가 발생했습니다.');
+    }
+  };
+
   const getActionMenu = (record: Contract): MenuProps['items'] => {
     const items: MenuProps['items'] = [
       {
@@ -231,16 +266,45 @@ const ContractList: React.FC = () => {
       ),
     },
     {
+      title: '수금률',
+      key: 'collection_rate',
+      width: 80,
+      align: 'center' as const,
+      render: (_: any, record: Contract) => {
+        const info = getCollectionRateInfo(record);
+        return (
+          <Tag
+            color={info.color}
+            style={{ fontWeight: 'bold', minWidth: 48, textAlign: 'center' }}
+          >
+            {info.label}
+          </Tag>
+        );
+      },
+    },
+    {
       title: '미수금',
       dataIndex: 'remaining_amount',
       key: 'remaining_amount',
-      width: 130,
+      width: 140,
       align: 'right' as const,
-      render: (value: number) => (
-        <span style={{ color: value > 0 ? '#ff4d4f' : '#52c41a' }}>
-          {value.toLocaleString()}원
-        </span>
-      ),
+      render: (value: number, record: Contract) => {
+        const overdue = isOverdue(record);
+        return (
+          <Space size={4}>
+            <span style={{ color: value > 0 ? '#ff4d4f' : '#52c41a' }}>
+              {value.toLocaleString()}원
+            </span>
+            {overdue && (
+              <Tooltip title={`연체 (종료일: ${dayjs(record.contract_end_date).format('YYYY-MM-DD')})`}>
+                <Tag color="red" style={{ marginLeft: 4 }}>
+                  <ExclamationCircleOutlined /> 연체
+                </Tag>
+              </Tooltip>
+            )}
+          </Space>
+        );
+      },
     },
     {
       title: '진행상황',
@@ -278,9 +342,16 @@ const ContractList: React.FC = () => {
           <Title level={4} style={{ margin: 0 }}>계약관리</Title>
           <span style={{ color: '#888' }}>계약을 조회하고 관리합니다.</span>
         </div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/contracts/new')}>
-          계약 등록
-        </Button>
+        <Space>
+          {(user?.role === 'super_admin' || user?.role === 'company_admin') && (
+            <Button icon={<DownloadOutlined />} onClick={handleExportExcel}>
+              엑셀 내보내기
+            </Button>
+          )}
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/contracts/new')}>
+            계약 등록
+          </Button>
+        </Space>
       </div>
 
       {/* 통계 */}
@@ -361,7 +432,7 @@ const ContractList: React.FC = () => {
             showSizeChanger: true,
             showTotal: (total) => `총 ${total}건`,
           }}
-          scroll={{ x: 1200 }}
+          scroll={{ x: 1400 }}
         />
       </Card>
 

@@ -20,6 +20,7 @@ import {
   TeamOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '../../store/authStore';
+import dayjs from 'dayjs';
 
 const { Title } = Typography;
 
@@ -28,9 +29,11 @@ interface Department {
   name: string;
   code: string;
   parent_id?: string;
+  company_id?: string;
+  company_name?: string;
   manager_id?: string;
   manager_name?: string;
-  member_count: number;
+  member_count?: number;
   created_at: string;
 }
 
@@ -42,47 +45,27 @@ const DepartmentManagement: React.FC = () => {
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [form] = Form.useForm();
 
-  // 부서 목록 조회 (더미 데이터)
   const fetchDepartments = async () => {
+    if (!user?.id) return;
     setLoading(true);
-    // TODO: API 연동 시 실제 데이터로 교체
-    const dummyData: Department[] = [
-      {
-        id: '1',
-        name: '경영지원팀',
-        code: 'MGMT',
-        member_count: 5,
-        created_at: '2024-01-01',
-      },
-      {
-        id: '2',
-        name: '개발팀',
-        code: 'DEV',
-        member_count: 12,
-        created_at: '2024-01-01',
-      },
-      {
-        id: '3',
-        name: '연구팀',
-        code: 'RND',
-        member_count: 8,
-        created_at: '2024-01-01',
-      },
-      {
-        id: '4',
-        name: '영업팀',
-        code: 'SALES',
-        member_count: 6,
-        created_at: '2024-01-01',
-      },
-    ];
-    setDepartments(dummyData);
-    setLoading(false);
+    try {
+      const result = await (window as any).electronAPI.departments.getAll(user.id);
+      if (result.success) {
+        setDepartments(result.departments || []);
+      } else {
+        message.error(result.error || '부서 목록을 불러올 수 없습니다.');
+      }
+    } catch (err) {
+      console.error('Failed to load departments:', err);
+      message.error('부서 목록 로드 실패');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchDepartments();
-  }, []);
+  }, [user?.id]);
 
   const handleAdd = () => {
     setEditingDepartment(null);
@@ -97,32 +80,44 @@ const DepartmentManagement: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    // TODO: API 연동
-    setDepartments(departments.filter((d) => d.id !== id));
-    message.success('부서가 삭제되었습니다.');
+    if (!user?.id) return;
+    try {
+      const result = await (window as any).electronAPI.departments.delete(user.id, id);
+      if (result.success) {
+        message.success('부서가 삭제되었습니다.');
+        fetchDepartments();
+      } else {
+        message.error(result.error || '삭제 실패');
+      }
+    } catch (err) {
+      message.error('삭제 중 오류 발생');
+    }
   };
 
   const handleSubmit = async (values: any) => {
-    if (editingDepartment) {
-      // 수정
-      setDepartments(
-        departments.map((d) =>
-          d.id === editingDepartment.id ? { ...d, ...values } : d
-        )
-      );
-      message.success('부서 정보가 수정되었습니다.');
-    } else {
-      // 추가
-      const newDepartment: Department = {
-        id: Date.now().toString(),
-        ...values,
-        member_count: 0,
-        created_at: new Date().toISOString().split('T')[0],
-      };
-      setDepartments([...departments, newDepartment]);
-      message.success('부서가 추가되었습니다.');
+    if (!user?.id) return;
+    try {
+      if (editingDepartment) {
+        const result = await (window as any).electronAPI.departments.update(user.id, editingDepartment.id, values);
+        if (result.success) {
+          message.success('부서 정보가 수정되었습니다.');
+          fetchDepartments();
+        } else {
+          message.error(result.error || '수정 실패');
+        }
+      } else {
+        const result = await (window as any).electronAPI.departments.create(user.id, values);
+        if (result.success) {
+          message.success('부서가 추가되었습니다.');
+          fetchDepartments();
+        } else {
+          message.error(result.error || '추가 실패');
+        }
+      }
+      setModalVisible(false);
+    } catch (err) {
+      message.error('처리 중 오류 발생');
     }
-    setModalVisible(false);
   };
 
   const columns = [
@@ -144,7 +139,7 @@ const DepartmentManagement: React.FC = () => {
       width: 100,
       render: (count: number) => (
         <Tag icon={<TeamOutlined />} color="blue">
-          {count}명
+          {count ?? 0}명
         </Tag>
       ),
     },
@@ -153,6 +148,7 @@ const DepartmentManagement: React.FC = () => {
       dataIndex: 'created_at',
       key: 'created_at',
       width: 120,
+      render: (v: string) => v ? dayjs(v).format('YYYY-MM-DD') : '-',
     },
     {
       title: '관리',

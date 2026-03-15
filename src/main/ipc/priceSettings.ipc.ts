@@ -9,7 +9,7 @@ export function registerPriceSettingsHandlers(): void {
 
   // 회사별 인건비 등급 조회
   ipcMain.handle('laborGrades:getByCompany', async (_event, requesterId: string, companyId: string) => {
-    const requester = db.getUserById(requesterId);
+    const requester = await db.getUserById(requesterId);
     if (!requester) {
       return { success: false, error: '권한이 없습니다.' };
     }
@@ -19,7 +19,7 @@ export function registerPriceSettingsHandlers(): void {
       return { success: false, error: '권한이 없습니다.' };
     }
 
-    const grades = db.getLaborGradesByCompanyId(companyId);
+    const grades = await db.getLaborGradesByCompanyId(companyId);
     // sort_order로 정렬
     grades.sort((a: any, b: any) => a.sort_order - b.sort_order);
 
@@ -28,7 +28,7 @@ export function registerPriceSettingsHandlers(): void {
 
   // 인건비 등급 생성 (회사관리자 이상)
   ipcMain.handle('laborGrades:create', async (_event, requesterId: string, gradeData: any) => {
-    const requester = db.getUserById(requesterId);
+    const requester = await db.getUserById(requesterId);
     if (!requester) {
       return { success: false, error: '권한이 없습니다.' };
     }
@@ -43,7 +43,7 @@ export function registerPriceSettingsHandlers(): void {
     }
 
     // 중복 이름 확인
-    const existingGrades = db.getLaborGradesByCompanyId(companyId);
+    const existingGrades = await db.getLaborGradesByCompanyId(companyId);
     const duplicate = existingGrades.find((g: any) => g.name === gradeData.name);
     if (duplicate) {
       return { success: false, error: '이미 존재하는 등급명입니다.' };
@@ -65,19 +65,19 @@ export function registerPriceSettingsHandlers(): void {
       updated_at: new Date().toISOString(),
     };
 
-    db.addLaborGrade(newGrade);
+    await db.addLaborGrade(newGrade);
 
     return { success: true, laborGrade: newGrade };
   });
 
   // 인건비 등급 수정
   ipcMain.handle('laborGrades:update', async (_event, requesterId: string, gradeId: string, gradeData: any) => {
-    const requester = db.getUserById(requesterId);
+    const requester = await db.getUserById(requesterId);
     if (!requester) {
       return { success: false, error: '권한이 없습니다.' };
     }
 
-    const grade = db.getLaborGradeById(gradeId);
+    const grade = await db.getLaborGradeById(gradeId);
     if (!grade) {
       return { success: false, error: '인건비 등급을 찾을 수 없습니다.' };
     }
@@ -91,7 +91,7 @@ export function registerPriceSettingsHandlers(): void {
 
     // 이름 중복 확인 (자기 자신 제외)
     if (gradeData.name && gradeData.name !== grade.name) {
-      const existingGrades = db.getLaborGradesByCompanyId(grade.company_id);
+      const existingGrades = await db.getLaborGradesByCompanyId(grade.company_id);
       const duplicate = existingGrades.find((g: any) => g.name === gradeData.name && g.id !== gradeId);
       if (duplicate) {
         return { success: false, error: '이미 존재하는 등급명입니다.' };
@@ -105,7 +105,7 @@ export function registerPriceSettingsHandlers(): void {
     if (gradeData.description !== undefined) updates.description = gradeData.description;
 
     if (Object.keys(updates).length > 0) {
-      db.updateLaborGrade(gradeId, updates);
+      await db.updateLaborGrade(gradeId, updates);
     }
 
     return { success: true };
@@ -113,12 +113,12 @@ export function registerPriceSettingsHandlers(): void {
 
   // 인건비 등급 삭제 (소프트 삭제)
   ipcMain.handle('laborGrades:delete', async (_event, requesterId: string, gradeId: string) => {
-    const requester = db.getUserById(requesterId);
+    const requester = await db.getUserById(requesterId);
     if (!requester) {
       return { success: false, error: '권한이 없습니다.' };
     }
 
-    const grade = db.getLaborGradeById(gradeId);
+    const grade = await db.getLaborGradeById(gradeId);
     if (!grade) {
       return { success: false, error: '인건비 등급을 찾을 수 없습니다.' };
     }
@@ -130,14 +130,14 @@ export function registerPriceSettingsHandlers(): void {
       }
     }
 
-    db.deleteLaborGrade(gradeId);
+    await db.deleteLaborGrade(gradeId);
 
     return { success: true };
   });
 
   // 인건비 등급 순서 변경
   ipcMain.handle('laborGrades:reorder', async (_event, requesterId: string, companyId: string, orderedIds: string[]) => {
-    const requester = db.getUserById(requesterId);
+    const requester = await db.getUserById(requesterId);
     if (!requester) {
       return { success: false, error: '권한이 없습니다.' };
     }
@@ -149,9 +149,9 @@ export function registerPriceSettingsHandlers(): void {
       }
     }
 
-    orderedIds.forEach((id, index) => {
-      db.updateLaborGrade(id, { sort_order: index + 1 });
-    });
+    for (let index = 0; index < orderedIds.length; index++) {
+      await db.updateLaborGrade(orderedIds[index], { sort_order: index + 1 });
+    }
 
     return { success: true };
   });
@@ -162,7 +162,7 @@ export function registerPriceSettingsHandlers(): void {
 
   // 회사별 경비 항목 조회
   ipcMain.handle('expenseCategories:getByCompany', async (_event, requesterId: string, companyId: string) => {
-    const requester = db.getUserById(requesterId);
+    const requester = await db.getUserById(requesterId);
     if (!requester) {
       return { success: false, error: '권한이 없습니다.' };
     }
@@ -172,7 +172,7 @@ export function registerPriceSettingsHandlers(): void {
       return { success: false, error: '권한이 없습니다.' };
     }
 
-    const categories = db.getExpenseCategoriesByCompanyId(companyId);
+    const categories = await db.getExpenseCategoriesByCompanyId(companyId);
     // sort_order로 정렬
     categories.sort((a: any, b: any) => a.sort_order - b.sort_order);
 
@@ -181,7 +181,7 @@ export function registerPriceSettingsHandlers(): void {
 
   // 경비 항목 생성
   ipcMain.handle('expenseCategories:create', async (_event, requesterId: string, categoryData: any) => {
-    const requester = db.getUserById(requesterId);
+    const requester = await db.getUserById(requesterId);
     if (!requester) {
       return { success: false, error: '권한이 없습니다.' };
     }
@@ -196,7 +196,7 @@ export function registerPriceSettingsHandlers(): void {
     }
 
     // 중복 이름 확인
-    const existingCategories = db.getExpenseCategoriesByCompanyId(companyId);
+    const existingCategories = await db.getExpenseCategoriesByCompanyId(companyId);
     const duplicate = existingCategories.find((c: any) => c.name === categoryData.name);
     if (duplicate) {
       return { success: false, error: '이미 존재하는 항목명입니다.' };
@@ -218,19 +218,19 @@ export function registerPriceSettingsHandlers(): void {
       updated_at: new Date().toISOString(),
     };
 
-    db.addExpenseCategory(newCategory);
+    await db.addExpenseCategory(newCategory);
 
     return { success: true, expenseCategory: newCategory };
   });
 
   // 경비 항목 수정
   ipcMain.handle('expenseCategories:update', async (_event, requesterId: string, categoryId: string, categoryData: any) => {
-    const requester = db.getUserById(requesterId);
+    const requester = await db.getUserById(requesterId);
     if (!requester) {
       return { success: false, error: '권한이 없습니다.' };
     }
 
-    const category = db.getExpenseCategoryById(categoryId);
+    const category = await db.getExpenseCategoryById(categoryId);
     if (!category) {
       return { success: false, error: '경비 항목을 찾을 수 없습니다.' };
     }
@@ -244,7 +244,7 @@ export function registerPriceSettingsHandlers(): void {
 
     // 이름 중복 확인 (자기 자신 제외)
     if (categoryData.name && categoryData.name !== category.name) {
-      const existingCategories = db.getExpenseCategoriesByCompanyId(category.company_id);
+      const existingCategories = await db.getExpenseCategoriesByCompanyId(category.company_id);
       const duplicate = existingCategories.find((c: any) => c.name === categoryData.name && c.id !== categoryId);
       if (duplicate) {
         return { success: false, error: '이미 존재하는 항목명입니다.' };
@@ -258,7 +258,7 @@ export function registerPriceSettingsHandlers(): void {
     if (categoryData.default_rate !== undefined) updates.default_rate = categoryData.default_rate;
 
     if (Object.keys(updates).length > 0) {
-      db.updateExpenseCategory(categoryId, updates);
+      await db.updateExpenseCategory(categoryId, updates);
     }
 
     return { success: true };
@@ -266,12 +266,12 @@ export function registerPriceSettingsHandlers(): void {
 
   // 경비 항목 삭제
   ipcMain.handle('expenseCategories:delete', async (_event, requesterId: string, categoryId: string) => {
-    const requester = db.getUserById(requesterId);
+    const requester = await db.getUserById(requesterId);
     if (!requester) {
       return { success: false, error: '권한이 없습니다.' };
     }
 
-    const category = db.getExpenseCategoryById(categoryId);
+    const category = await db.getExpenseCategoryById(categoryId);
     if (!category) {
       return { success: false, error: '경비 항목을 찾을 수 없습니다.' };
     }
@@ -283,14 +283,14 @@ export function registerPriceSettingsHandlers(): void {
       }
     }
 
-    db.deleteExpenseCategory(categoryId);
+    await db.deleteExpenseCategory(categoryId);
 
     return { success: true };
   });
 
   // 경비 항목 순서 변경
   ipcMain.handle('expenseCategories:reorder', async (_event, requesterId: string, companyId: string, orderedIds: string[]) => {
-    const requester = db.getUserById(requesterId);
+    const requester = await db.getUserById(requesterId);
     if (!requester) {
       return { success: false, error: '권한이 없습니다.' };
     }
@@ -302,9 +302,9 @@ export function registerPriceSettingsHandlers(): void {
       }
     }
 
-    orderedIds.forEach((id, index) => {
-      db.updateExpenseCategory(id, { sort_order: index + 1 });
-    });
+    for (let index = 0; index < orderedIds.length; index++) {
+      await db.updateExpenseCategory(orderedIds[index], { sort_order: index + 1 });
+    }
 
     return { success: true };
   });

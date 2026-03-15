@@ -51,73 +51,6 @@ const OutsourcingManagement: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
-  // 더미 데이터
-  const dummyOutsourcings: Outsourcing[] = [
-    {
-      id: '1',
-      contract_id: 'c1',
-      contract_number: 'C-2024-0001',
-      vendor_name: '(주)테크솔루션',
-      vendor_business_number: '123-45-67890',
-      vendor_contact_name: '이기술',
-      vendor_contact_phone: '02-1234-5678',
-      vendor_contact_email: 'tech@solution.co.kr',
-      service_description: 'AI 모델 개발 외주',
-      outsourcing_amount: 5000000,
-      vat_amount: 500000,
-      total_amount: 5500000,
-      paid_amount: 2750000,
-      remaining_amount: 2750000,
-      start_date: '2024-03-01',
-      end_date: '2024-06-30',
-      status: 'in_progress',
-      notes: '1차 결과물 제출 완료',
-      created_at: new Date().toISOString(),
-    },
-    {
-      id: '2',
-      contract_id: 'c2',
-      contract_number: 'C-2024-0002',
-      vendor_name: '디자인팩토리',
-      vendor_business_number: '234-56-78901',
-      vendor_contact_name: '김디자인',
-      vendor_contact_phone: '02-2345-6789',
-      vendor_contact_email: 'design@factory.co.kr',
-      service_description: 'UI/UX 디자인 외주',
-      outsourcing_amount: 3000000,
-      vat_amount: 300000,
-      total_amount: 3300000,
-      paid_amount: 3300000,
-      remaining_amount: 0,
-      start_date: '2024-01-15',
-      end_date: '2024-02-28',
-      status: 'completed',
-      notes: '완료, 최종 검수 승인',
-      created_at: new Date().toISOString(),
-    },
-    {
-      id: '3',
-      contract_id: 'c3',
-      contract_number: 'C-2024-0003',
-      vendor_name: '데이터마이닝(주)',
-      vendor_business_number: '345-67-89012',
-      vendor_contact_name: '박데이터',
-      vendor_contact_phone: '02-3456-7890',
-      vendor_contact_email: 'data@mining.co.kr',
-      service_description: '데이터 수집 및 분석',
-      outsourcing_amount: 8000000,
-      vat_amount: 800000,
-      total_amount: 8800000,
-      paid_amount: 0,
-      remaining_amount: 8800000,
-      start_date: '2024-04-01',
-      end_date: '2024-07-31',
-      status: 'pending',
-      notes: '계약 체결 예정',
-      created_at: new Date().toISOString(),
-    },
-  ];
-
   useEffect(() => {
     if (user?.id) {
       loadData();
@@ -135,11 +68,13 @@ const OutsourcingManagement: React.FC = () => {
         setContracts(contractsResult.contracts || []);
       }
 
-      // 외주 데이터는 아직 API가 없으므로 더미 데이터 사용
-      setOutsourcings(dummyOutsourcings);
+      // 외주 데이터 가져오기
+      const outsourcingsResult = await window.electronAPI.outsourcings.getAll(user.id, {});
+      if (outsourcingsResult.success) {
+        setOutsourcings(outsourcingsResult.outsourcings || []);
+      }
     } catch (err) {
       console.error('Failed to load data:', err);
-      setOutsourcings(dummyOutsourcings);
     } finally {
       setIsLoading(false);
     }
@@ -165,12 +100,24 @@ const OutsourcingManagement: React.FC = () => {
     setModalVisible(true);
   };
 
-  const handleDelete = (id: string) => {
-    setOutsourcings(outsourcings.filter((o) => o.id !== id));
-    message.success('외주 정보가 삭제되었습니다.');
+  const handleDelete = async (id: string) => {
+    if (!user?.id) return;
+    try {
+      const result = await window.electronAPI.outsourcings.delete(user.id, id);
+      if (result.success) {
+        message.success('외주 정보가 삭제되었습니다.');
+        loadData();
+      } else {
+        message.error(result.error || '삭제에 실패했습니다.');
+      }
+    } catch (err) {
+      message.error('오류가 발생했습니다.');
+    }
   };
 
   const handleSubmit = async (values: any) => {
+    if (!user?.id) return;
+
     const outsourcingData = {
       ...values,
       start_date: values.start_date?.format('YYYY-MM-DD'),
@@ -180,23 +127,30 @@ const OutsourcingManagement: React.FC = () => {
       remaining_amount: (values.outsourcing_amount + Math.round(values.outsourcing_amount * 0.1)) - (values.paid_amount || 0),
     };
 
-    if (editingId) {
-      setOutsourcings(outsourcings.map((o) =>
-        o.id === editingId ? { ...o, ...outsourcingData } : o
-      ));
-      message.success('외주 정보가 수정되었습니다.');
-    } else {
-      const newOutsourcing: Outsourcing = {
-        id: Date.now().toString(),
-        ...outsourcingData,
-        created_at: new Date().toISOString(),
-      };
-      setOutsourcings([...outsourcings, newOutsourcing]);
-      message.success('외주가 등록되었습니다.');
-    }
+    try {
+      let result;
+      if (editingId) {
+        result = await window.electronAPI.outsourcings.update(user.id, editingId, outsourcingData);
+        if (result.success) {
+          message.success('외주 정보가 수정되었습니다.');
+        }
+      } else {
+        result = await window.electronAPI.outsourcings.create(user.id, outsourcingData);
+        if (result.success) {
+          message.success('외주가 등록되었습니다.');
+        }
+      }
 
-    setModalVisible(false);
-    form.resetFields();
+      if (result?.success) {
+        setModalVisible(false);
+        form.resetFields();
+        loadData();
+      } else {
+        message.error(result?.error || '저장에 실패했습니다.');
+      }
+    } catch (err) {
+      message.error('오류가 발생했습니다.');
+    }
   };
 
   const getStatusTag = (status: string) => {

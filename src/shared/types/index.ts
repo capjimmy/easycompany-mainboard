@@ -2,7 +2,7 @@
 export type UserRole =
   | 'super_admin'      // 슈퍼관리자: 전체 시스템 관리 (KOC)
   | 'company_admin'    // 회사 관리자: 회사 내 모든 기능 + 권한 설정
-  | 'department_admin' // 부서 관리자: 부서 내 모든 기능
+  | 'department_manager' // 부서 관리자: 부서 내 모든 기능
   | 'employee';        // 사원: 부여받은 권한만
 
 // 사용자 정보
@@ -20,6 +20,32 @@ export interface User {
   last_login: string | null;
   created_at: string;
   permissions: Record<string, MenuPermission>;
+
+  // 기본 인사정보
+  employee_number?: string;
+  rank?: string;
+  position?: string;
+  phone?: string;
+  direct_phone?: string;
+  hire_date?: string;
+  resignation_date?: string;
+
+  // 상세정보
+  birth_date?: string;
+  address?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  emergency_contact_relation?: string;
+  bank_name?: string;
+  bank_account?: string;
+
+  // 경력정보
+  education?: Array<{ school: string; major: string; degree: string; graduation_year: string }>;
+  certifications?: Array<{ name: string; issuer: string; acquired_date: string }>;
+  career_history?: Array<{ company: string; position: string; period: string; description: string }>;
+
+  // 유연한 추가 필드
+  extra_info?: Record<string, any>;
 }
 
 // 부서 정보
@@ -154,6 +180,9 @@ export interface Quote {
   recipient_contact?: string;
   recipient_phone?: string;
   recipient_email?: string;
+  recipient_department?: string;
+  recipient_address?: string;
+  project_period_months?: number;
 
   title: string;
   service_name: string;
@@ -182,6 +211,9 @@ export interface Quote {
   company_phone?: string;
 
   notes?: string;
+
+  // 원본 파일 경로 (상대경로, sourceDataPath 기준)
+  source_file_path?: string;
 
   // 상세 항목
   labor_items?: QuoteLaborItem[];
@@ -231,12 +263,14 @@ export interface Contract {
 
   // 계약 기본 정보
   contract_type: ContractType;
+  service_category?: string;           // 용역종류 (공동주택, 공공주택, 등)
   service_name: string;
   description?: string;
 
   // 계약 기간
   contract_start_date: string;
   contract_end_date?: string;
+  contract_date?: string;              // 계약 체결일
 
   // 금액 정보
   contract_amount: number;         // VAT 제외
@@ -258,11 +292,18 @@ export interface Contract {
   // 담당자
   manager_id: string;
   manager_name: string;
+  department_id?: string;
+  progress_rate?: number;
+  outsource_company?: string;
+  outsource_amount?: number;
 
   // 원본 견적서
   source_quote_id?: string;
 
   notes?: string;
+
+  // 원본 파일 경로 (상대경로, sourceDataPath 기준)
+  source_file_path?: string;
 
   created_by: string;
   created_at: string;
@@ -293,6 +334,93 @@ export interface ContractPayment {
   created_by: string;
   created_at: string;
 }
+
+// ========================================
+// 계약 커스텀 이벤트 (캘린더 표시용)
+// ========================================
+
+export interface ContractEvent {
+  id: string;
+  contract_id: string;
+  event_title: string;
+  event_date: string;
+  event_description?: string;
+  event_color?: string;
+  created_by: string;
+  created_at: string;
+}
+
+// ========================================
+// 거래처 관리
+// ========================================
+
+export interface ClientCompany {
+  id: string;
+  company_id: string;
+  name: string;
+  business_number?: string;
+  address?: string;
+  phone?: string;
+  industry?: string;
+  notes?: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClientContact {
+  id: string;
+  client_id: string;
+  name: string;
+  position?: string;
+  department?: string;
+  phone?: string;
+  email?: string;
+  is_primary: boolean;
+  notes?: string;
+  created_at: string;
+}
+
+// ========================================
+// 첨부 문서 (프로젝트 세트)
+// ========================================
+
+export interface AttachedDocument {
+  id: string;
+  parent_type: 'quote' | 'contract';
+  parent_id: string;
+  file_name: string;
+  file_path: string;
+  file_type: string;           // pdf, docx, xlsx, hwp, etc.
+  file_size: number;
+  category: string;            // 계약서, 과업지시서, 견적서, 성과품, 참고자료, 기타
+  description?: string;
+  attached_by: string;
+  attached_at: string;
+}
+
+// 파일 탐색 결과
+export interface FileInfo {
+  name: string;
+  path: string;
+  type: string;               // file extension
+  size: number;
+  isDirectory: boolean;
+  modifiedAt: string;
+}
+
+// 문서 카테고리
+export const DOCUMENT_CATEGORIES = [
+  { value: 'contract', label: '계약서' },
+  { value: 'task_instruction', label: '과업지시서' },
+  { value: 'quotation', label: '견적서' },
+  { value: 'terms', label: '약관/특별약관' },
+  { value: 'deliverable', label: '성과품' },
+  { value: 'reference', label: '참고자료' },
+  { value: 'bid', label: '입찰안내서' },
+  { value: 'progress', label: '업무경과' },
+  { value: 'other', label: '기타' },
+] as const;
 
 // ========================================
 // 양식 설정 (회사별)

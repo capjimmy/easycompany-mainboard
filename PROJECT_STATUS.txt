@@ -1,0 +1,204 @@
+===============================================================
+  건설경제연구원 업무관리 시스템 (EasyCompany Mainboard)
+  프로젝트 현황 정리 - 2026.03.15
+===============================================================
+
+1. 프로젝트 개요
+---------------------------------------------------------------
+- 프로젝트명: 건설경제연구원 업무 효율화 솔루션
+- 기술 스택: Electron 27 + React 18 + Ant Design 5 + Supabase (PostgreSQL)
+- 빌드 도구: esbuild (build.js), electron-builder (패키징)
+- 출력물: release/건설경제연구원-1.0.0-portable.exe
+- 총 소스 코드: 약 35,700 라인 (85개 TS/TSX 파일)
+- Git: https://github.com/capjimmy/easycompany-mainboard.git
+
+
+2. 아키텍처
+---------------------------------------------------------------
+[Renderer (React)] → [Preload (contextBridge)] → [IPC Main] → [Supabase DB]
+
+- src/main/          : Electron 메인 프로세스 (IPC 핸들러, 서비스, DB)
+- src/preload/       : contextBridge API 노출 (electronAPI)
+- src/renderer/      : React UI (페이지, 컴포넌트, 스토어)
+- src/shared/        : 공유 타입, 상수 (메뉴 구조 등)
+- resources/         : 한글(.hwpx) 문서 템플릿
+- scripts/           : SQL 스키마, 시드 데이터, 유틸리티
+
+
+3. 주요 기능 목록
+---------------------------------------------------------------
+[핵심 업무]
+  - 견적서 관리 (CRUD, 금액이력, 문서 생성)
+  - 계약 관리 (CRUD, 하도급, 대금조건, 하위작업)
+  - 거래처 관리 (CRUD, 계약/견적 연동)
+  - 프로젝트 현황판 (카드형 대시보드)
+  - 견적-계약 연동 (수동 링킹, 양방향)
+
+[문서/파일]
+  - 한글(.hwpx) 문서 자동 생성 (착공계, 준공계, 계약서, 세금계산서)
+  - 문서 템플릿 관리
+  - 파일 탐색기 (첨부파일 관리)
+  - 폴더 불러오기 + AI 분석 (OpenAI gpt-4o-mini)
+  - OCR 스캔 (문서 데이터 추출)
+  - 엑셀 내보내기 (견적/계약/프로젝트)
+
+[일정/캘린더]
+  - 계약 캘린더
+  - HR 캘린더
+  - 회의실 예약 (공간 캘린더)
+
+[인사/근태]
+  - 휴가 관리 (신청/승인/반려)
+  - 휴가 관리자 페이지
+  - 증명서 발급 (신청/승인)
+
+[커뮤니케이션]
+  - 메신저 (실시간 Supabase Realtime)
+  - 알림 시스템
+  - 이메일 발송 (Nodemailer)
+
+[검색]
+  - 통합 검색
+  - AI 검색 (OpenAI 기반)
+
+[관리자]
+  - 사용자 관리
+  - 회사 관리
+  - 부서 관리
+  - 권한 관리 (RBAC 매트릭스)
+  - 단가 설정
+  - 백업 설정
+
+[시스템]
+  - 자동 업데이트 (electron-updater, UI 배너)
+  - 다크모드/라이트모드
+  - 커스텀 타이틀바 (frameless window)
+  - 단일 인스턴스 보장
+
+
+4. 권한 체계 (4단계)
+---------------------------------------------------------------
+  super_admin       : 전체 시스템 접근 (모든 회사)
+  company_admin     : 소속 회사 전체 접근
+  department_manager: 소속 부서 + 본인 데이터
+  employee          : 본인 데이터만
+
+  * 회사 단위 데이터 격리: 모든 IPC 핸들러에서 company_id 기반 필터링
+
+
+5. 회사 구조
+---------------------------------------------------------------
+  - 건설경제연구원 + 이지컨설턴트 (2개 회사)
+  - company_id: a0000000-0000-0000-0000-000000000001 (통합)
+  - super_admin이 두 회사 모두 관리
+
+
+6. 파일 구조
+---------------------------------------------------------------
+mainboard/
+├── build.js                    # esbuild 빌드 스크립트
+├── start-electron.js           # 개발 실행 스크립트
+├── package.json                # 의존성 및 빌드 설정
+├── tsconfig.json               # TypeScript 설정
+├── resources/templates/        # hwpx 문서 템플릿
+├── scripts/                    # SQL 스키마, 시드 데이터
+└── src/
+    ├── main/
+    │   ├── index.ts            # Electron 메인 진입점
+    │   ├── database/
+    │   │   ├── index.ts        # DB 초기화
+    │   │   ├── supabaseClient.ts  # Supabase 클라이언트
+    │   │   ├── supabaseDb.ts   # DB 쿼리 레이어
+    │   │   └── seedData.ts     # 시드 데이터
+    │   ├── ipc/                # IPC 핸들러 (22개)
+    │   │   ├── auth.ipc.ts
+    │   │   ├── contract.ipc.ts
+    │   │   ├── quote.ipc.ts
+    │   │   ├── client.ipc.ts
+    │   │   ├── export.ipc.ts
+    │   │   ├── folderScan.ipc.ts
+    │   │   ├── linking.ipc.ts
+    │   │   └── ... (총 22개)
+    │   └── services/           # 비즈니스 서비스
+    │       ├── aiService.ts
+    │       ├── autoUpdater.ts
+    │       ├── emailService.ts
+    │       ├── hwpxGenerator.ts
+    │       └── ocrService.ts
+    ├── preload/
+    │   └── index.ts            # contextBridge API
+    ├── renderer/
+    │   ├── App.tsx             # 라우터 설정
+    │   ├── index.tsx           # React 진입점
+    │   ├── components/
+    │   │   ├── layout/AppLayout.tsx  # 메인 레이아웃
+    │   │   ├── common/         # 공통 컴포넌트
+    │   │   └── documents/      # 문서 관련 컴포넌트
+    │   ├── pages/              # 16개 페이지 그룹
+    │   │   ├── home/           # 대시보드
+    │   │   ├── contracts/      # 계약 관리
+    │   │   ├── quotes/         # 견적 관리
+    │   │   ├── clients/        # 거래처 관리
+    │   │   ├── projects/       # 프로젝트 현황
+    │   │   ├── calendar/       # 캘린더
+    │   │   ├── hr/             # 인사/근태
+    │   │   ├── messenger/      # 메신저
+    │   │   ├── search/         # 검색
+    │   │   ├── admin/          # 관리자
+    │   │   ├── settings/       # 설정
+    │   │   └── auth/           # 로그인
+    │   ├── store/              # Zustand 상태관리
+    │   └── types/              # 글로벌 타입
+    └── shared/
+        ├── types/index.ts      # 공유 타입 정의
+        └── constants/menu.ts   # 메뉴 구조
+
+
+7. 주요 의존성
+---------------------------------------------------------------
+  - electron: 27.x
+  - react / react-dom: 18.x
+  - antd: 5.22.x / @ant-design/icons: 5.5.x
+  - @supabase/supabase-js: 2.98.x
+  - electron-updater: 6.8.x
+  - zustand: 5.x
+  - openai: 6.21.x
+  - nodemailer: 8.x
+  - xlsx: 0.18.x
+  - bcryptjs: 2.4.x
+  - dayjs: 1.11.x
+
+
+8. 빌드 및 실행
+---------------------------------------------------------------
+  개발:    node start-electron.js
+  빌드:    node build.js
+  패키징:  npx electron-builder --win --x64
+  출력:    release/건설경제연구원-1.0.0-portable.exe
+
+
+9. DB 스키마 (주요 테이블)
+---------------------------------------------------------------
+  - users, companies, departments
+  - quotes, contracts
+  - clients (거래처)
+  - contract_subtasks, payment_conditions
+  - leave_requests, leave_balances
+  - certificates
+  - chat_rooms, chat_messages, chat_participants
+  - notifications
+  - meeting_rooms, meeting_reservations
+  - document_templates, generated_documents
+  - price_settings
+  * 모든 SQL은 scripts/ 폴더에 보관
+
+
+10. 최근 추가 기능 (2026.03)
+---------------------------------------------------------------
+  - 폴더 불러오기 + AI 분석 (견적서/계약서 폼에서 폴더 스캔)
+  - 견적-계약 수동 링킹 (양방향 연동)
+  - 엑셀 내보내기 (견적/계약/프로젝트, 관리자 전용)
+  - 자동 업데이트 UI (배너 알림 + 다운로드 + 재시작)
+
+
+===============================================================
