@@ -31,7 +31,7 @@ const STATUS_CONFIG: Record<QuoteStatus, { label: string; color: string }> = {
 
 const QuoteList: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, selectedCompanyId } = useAuthStore();
   const {
     quotes,
     isLoading,
@@ -57,9 +57,11 @@ const QuoteList: React.FC = () => {
 
   useEffect(() => {
     if (user?.id) {
-      fetchQuotes(user.id);
+      const filters: any = {};
+      if (user.role === 'super_admin' && selectedCompanyId) filters.company_id = selectedCompanyId;
+      fetchQuotes(user.id, filters);
     }
-  }, [user?.id]);
+  }, [user?.id, selectedCompanyId]);
 
   const handleSearch = () => {
     if (!user?.id) return;
@@ -72,6 +74,7 @@ const QuoteList: React.FC = () => {
       filters.endDate = dateRange[1].format('YYYY-MM-DD');
     }
 
+    if (user.role === 'super_admin' && selectedCompanyId) filters.company_id = selectedCompanyId;
     fetchQuotes(user.id, filters);
   };
 

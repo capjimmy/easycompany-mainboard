@@ -27,6 +27,7 @@ import { registerCertificateHandlers } from './ipc/certificate.ipc';
 import { registerFolderScanIPC } from './ipc/folderScan.ipc';
 import { registerExportIPC } from './ipc/export.ipc';
 import { registerLinkingHandlers } from './ipc/linking.ipc';
+import { registerPdfHandlers } from './ipc/pdf.ipc';
 import { initAutoUpdater } from './services/autoUpdater';
 
 let mainWindow: BrowserWindow | null = null;
@@ -128,6 +129,7 @@ app.whenReady().then(() => {
   registerFolderScanIPC();
   registerExportIPC();
   registerLinkingHandlers();
+  registerPdfHandlers();
 
   // 3. 메신저 Realtime 구독
   setupMessengerRealtime(() => mainWindow);

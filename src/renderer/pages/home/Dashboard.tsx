@@ -45,27 +45,16 @@ const Dashboard: React.FC = () => {
   const [recentContracts, setRecentContracts] = useState<any[]>([]);
   const [recentQuotes, setRecentQuotes] = useState<any[]>([]);
 
-  // 슈퍼관리자 회사별 필터
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('all');
+  // 슈퍼관리자 회사별 필터 (authStore 연동)
+  const { activeCompanyId: storeCompanyId } = useAuthStore();
   const isSuperAdmin = user?.role === 'super_admin';
-
-  // 회사 목록 로드 (슈퍼관리자만)
-  useEffect(() => {
-    if (isSuperAdmin && user?.id) {
-      window.electronAPI.companies.getAll(user.id).then((result: any) => {
-        if (result.success && result.companies) {
-          setCompanies(result.companies);
-        }
-      }).catch(() => {});
-    }
-  }, [isSuperAdmin, user?.id]);
+  const activeCompanyId = isSuperAdmin ? (storeCompanyId || 'all') : 'all';
 
   useEffect(() => {
     if (user?.id) {
       loadDashboardData();
     }
-  }, [user?.id, selectedCompanyId]);
+  }, [user?.id, activeCompanyId]);
 
   const loadDashboardData = async () => {
     if (!user?.id) return;
@@ -73,18 +62,14 @@ const Dashboard: React.FC = () => {
 
     try {
       // 계약서와 견적서 데이터를 병렬로 로드
+      const companyFilter = isSuperAdmin && activeCompanyId !== 'all' ? { company_id: activeCompanyId } : {};
       const [contractResult, quoteResult] = await Promise.all([
-        window.electronAPI.contracts.getAll(user.id),
-        window.electronAPI.quotes.getAll(user.id),
+        window.electronAPI.contracts.getAll(user.id, companyFilter),
+        window.electronAPI.quotes.getAll(user.id, companyFilter),
       ]);
 
       if (contractResult.success && contractResult.contracts) {
         let contracts = contractResult.contracts;
-
-        // 슈퍼관리자 회사별 필터링
-        if (isSuperAdmin && selectedCompanyId !== 'all') {
-          contracts = contracts.filter((c: any) => c.company_id === selectedCompanyId);
-        }
 
         // 통계 계산
         const inProgress = contracts.filter((c: any) => c.progress === 'in_progress');
@@ -107,12 +92,7 @@ const Dashboard: React.FC = () => {
       }
 
       if (quoteResult.success && quoteResult.quotes) {
-        let quotes = quoteResult.quotes;
-
-        // 슈퍼관리자 회사별 필터링
-        if (isSuperAdmin && selectedCompanyId !== 'all') {
-          quotes = quotes.filter((q: any) => q.company_id === selectedCompanyId);
-        }
+        const quotes = quoteResult.quotes;
 
         setStats(prev => ({
           ...prev,
@@ -178,24 +158,11 @@ const Dashboard: React.FC = () => {
           <Text type="secondary">오늘도 좋은 하루 되세요!</Text>
         </div>
 
-        {/* 슈퍼관리자 회사별 필터 */}
-        {isSuperAdmin && companies.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <BankOutlined style={{ color: '#1890ff', fontSize: 16 }} />
-            <Select
-              value={selectedCompanyId}
-              onChange={(value) => setSelectedCompanyId(value)}
-              style={{ minWidth: 200 }}
-              size="middle"
-            >
-              <Option value="all">전체</Option>
-              {companies.map((company: any) => (
-                <Option key={company.id} value={company.id}>
-                  {company.name}
-                </Option>
-              ))}
-            </Select>
-          </div>
+        {/* 총괄관리자: 현재 선택된 회사 표시 */}
+        {isSuperAdmin && storeCompanyId && (
+          <Tag color="blue" icon={<BankOutlined />} style={{ fontSize: 13, padding: '4px 12px' }}>
+            {useAuthStore.getState().selectedCompanyName}
+          </Tag>
         )}
       </div>
 

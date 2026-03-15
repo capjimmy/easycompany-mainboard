@@ -40,7 +40,7 @@ interface ContractSummary {
 
 const ContractMonthly: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, selectedCompanyId } = useAuthStore();
 
   const [selectedYear, setSelectedYear] = useState(dayjs().year());
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
@@ -54,13 +54,13 @@ const ContractMonthly: React.FC = () => {
     if (user?.id) {
       loadMonthlyStats();
     }
-  }, [user?.id, selectedYear]);
+  }, [user?.id, selectedYear, selectedCompanyId]);
 
   useEffect(() => {
     if (user?.id && selectedMonth !== null) {
       loadMonthContracts();
     }
-  }, [user?.id, selectedMonth]);
+  }, [user?.id, selectedMonth, selectedCompanyId]);
 
   const loadMonthlyStats = async () => {
     if (!user?.id) return;
@@ -83,10 +83,9 @@ const ContractMonthly: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const result = await window.electronAPI.contracts.getAll(user.id, {
-        year: selectedYear,
-        month: selectedMonth,
-      });
+      const filters: any = { year: selectedYear, month: selectedMonth };
+      if (user.role === 'super_admin' && selectedCompanyId) filters.company_id = selectedCompanyId;
+      const result = await window.electronAPI.contracts.getAll(user.id, filters);
       if (result.success) {
         setContracts(result.contracts || []);
       }

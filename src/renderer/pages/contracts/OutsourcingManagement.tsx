@@ -40,7 +40,7 @@ interface Outsourcing {
 
 const OutsourcingManagement: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, selectedCompanyId } = useAuthStore();
   const [form] = Form.useForm();
 
   const [outsourcings, setOutsourcings] = useState<Outsourcing[]>([]);
@@ -55,7 +55,7 @@ const OutsourcingManagement: React.FC = () => {
     if (user?.id) {
       loadData();
     }
-  }, [user?.id]);
+  }, [user?.id, selectedCompanyId]);
 
   const loadData = async () => {
     if (!user?.id) return;
@@ -63,7 +63,9 @@ const OutsourcingManagement: React.FC = () => {
 
     try {
       // 계약 목록 가져오기
-      const contractsResult = await window.electronAPI.contracts.getAll(user.id, {});
+      const filters: any = {};
+      if (user.role === 'super_admin' && selectedCompanyId) filters.company_id = selectedCompanyId;
+      const contractsResult = await window.electronAPI.contracts.getAll(user.id, filters);
       if (contractsResult.success) {
         setContracts(contractsResult.contracts || []);
       }

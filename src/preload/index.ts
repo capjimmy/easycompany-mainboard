@@ -500,6 +500,22 @@ const electronAPI = {
   },
 
   // ========================================
+  // PDF 생성
+  // ========================================
+  pdf: {
+    generateQuote: (requesterId: string, quoteId: string) =>
+      ipcRenderer.invoke('pdf:generateQuote', requesterId, quoteId),
+    generateContract: (requesterId: string, contractId: string) =>
+      ipcRenderer.invoke('pdf:generateContract', requesterId, contractId),
+    open: (filePath: string) =>
+      ipcRenderer.invoke('pdf:open', filePath),
+    saveAs: (sourcePath: string, defaultName: string) =>
+      ipcRenderer.invoke('pdf:saveAs', sourcePath, defaultName),
+    searchContacts: (requesterId: string, clientName: string) =>
+      ipcRenderer.invoke('pdf:searchContacts', requesterId, clientName),
+  },
+
+  // ========================================
   // OCR (외부 문서 인식)
   // ========================================
   ocr: {

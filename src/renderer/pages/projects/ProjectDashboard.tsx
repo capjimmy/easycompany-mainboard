@@ -63,7 +63,7 @@ const COMPLETED_STATUSES: ContractProgress[] = ['completed'];
 const CANCELLED_STATUSES: ContractProgress[] = ['cancelled'];
 
 const ProjectDashboard: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, selectedCompanyId } = useAuthStore();
   const navigate = useNavigate();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -77,7 +77,7 @@ const ProjectDashboard: React.FC = () => {
     if (user?.id) {
       loadContracts();
     }
-  }, [user?.id]);
+  }, [user?.id, selectedCompanyId]);
 
   const handleExportExcel = async () => {
     if (!user?.id) return;
@@ -97,7 +97,8 @@ const ProjectDashboard: React.FC = () => {
     if (!user?.id) return;
     setIsLoading(true);
     try {
-      const result = await window.electronAPI.contracts.getAll(user.id);
+      const filters = user.role === 'super_admin' && selectedCompanyId ? { company_id: selectedCompanyId } : {};
+      const result = await window.electronAPI.contracts.getAll(user.id, filters);
       if (result.success) {
         let filtered = result.contracts as Contract[];
 

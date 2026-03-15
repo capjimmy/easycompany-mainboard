@@ -5,7 +5,7 @@ import {
   Space, Divider, message, Spin, Row, Col, List, Empty, Tag, Badge, AutoComplete,
   Timeline, Table, Collapse, Modal
 } from 'antd';
-import { ArrowLeftOutlined, SaveOutlined, FileAddOutlined, BulbOutlined, PaperClipOutlined, FolderOpenOutlined, CalendarOutlined, PlusOutlined, DeleteOutlined, HistoryOutlined, ScanOutlined, LinkOutlined, DisconnectOutlined, SearchOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, SaveOutlined, FileAddOutlined, BulbOutlined, PaperClipOutlined, FolderOpenOutlined, CalendarOutlined, PlusOutlined, DeleteOutlined, HistoryOutlined, ScanOutlined, LinkOutlined, DisconnectOutlined, SearchOutlined, FilePdfOutlined, MailOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 import { useAuthStore } from '../../store/authStore';
@@ -16,6 +16,7 @@ import DocumentAttachment from '../../components/documents/DocumentAttachment';
 import RecommendationPopover from '../../components/common/RecommendationPopover';
 import PaymentConditions from './PaymentConditions';
 import ContractSubtasks from './ContractSubtasks';
+import EmailSendModal from '../../components/common/EmailSendModal';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -88,6 +89,8 @@ const ContractForm: React.FC = () => {
   const [linkSearchText, setLinkSearchText] = useState('');
   const [linkSearchResults, setLinkSearchResults] = useState<any[]>([]);
   const [linkSearchLoading, setLinkSearchLoading] = useState(false);
+  const [emailModalVisible, setEmailModalVisible] = useState(false);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
 
   // 계약유형 감시 (용역계약일 때 용역종류 표시)
   const watchedContractType = Form.useWatch('contract_type', form);
@@ -548,6 +551,30 @@ const ContractForm: React.FC = () => {
     }
   };
 
+  // PDF 다운로드
+  const handleDownloadPdf = async () => {
+    if (!user?.id || !id) return;
+    setPdfGenerating(true);
+    try {
+      const result = await window.electronAPI.pdf.generateContract(user.id, id);
+      if (result.success && result.filePath) {
+        const defaultName = `계약서_${currentContract?.contract_number || ''}.pdf`;
+        const saveResult = await window.electronAPI.pdf.saveAs(result.filePath, defaultName);
+        if (saveResult.success) {
+          message.success('PDF가 저장되었습니다.');
+        } else if (saveResult.error !== 'canceled') {
+          message.error(saveResult.error || 'PDF 저장에 실패했습니다.');
+        }
+      } else {
+        message.error(result.error || 'PDF 생성에 실패했습니다.');
+      }
+    } catch (err) {
+      message.error('PDF 생성 중 오류가 발생했습니다.');
+    } finally {
+      setPdfGenerating(false);
+    }
+  };
+
   if (isLoading && isEdit) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -591,12 +618,27 @@ const ContractForm: React.FC = () => {
             </Button>
           )}
           {isEdit && id && (
-            <Button
-              icon={<FileAddOutlined />}
-              onClick={() => setShowDocumentModal(true)}
-            >
-              문서 생성
-            </Button>
+            <>
+              <Button
+                icon={<FileAddOutlined />}
+                onClick={() => setShowDocumentModal(true)}
+              >
+                문서 생성
+              </Button>
+              <Button
+                icon={<FilePdfOutlined />}
+                onClick={handleDownloadPdf}
+                loading={pdfGenerating}
+              >
+                PDF 저장
+              </Button>
+              <Button
+                icon={<MailOutlined />}
+                onClick={() => setEmailModalVisible(true)}
+              >
+                이메일 발송
+              </Button>
+            </>
           )}
           <Button
             type="primary"
@@ -1206,6 +1248,20 @@ const ContractForm: React.FC = () => {
         onClose={() => setShowDocumentModal(false)}
         onGenerated={() => setDocumentRefreshTrigger(prev => prev + 1)}
       />
+
+      {/* 이메일 발송 모달 */}
+      {isEdit && id && currentContract && (
+        <EmailSendModal
+          visible={emailModalVisible}
+          onClose={() => setEmailModalVisible(false)}
+          type="contract"
+          documentId={id}
+          documentNumber={currentContract.contract_number}
+          serviceName={currentContract.service_name}
+          recipientCompany={currentContract.client_company}
+          recipientEmail={currentContract.client_contact_email}
+        />
+      )}
     </div>
   );
 };

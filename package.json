@@ -1,6 +1,6 @@
 {
   "name": "easycompany-mainboard",
-  "version": "1.1.5",
+  "version": "1.2.0",
   "description": "건설경제연구원 업무 효율화 솔루션",
   "main": "dist/main/index.js",
   "scripts": {

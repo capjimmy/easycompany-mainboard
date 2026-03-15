@@ -28,7 +28,7 @@ const CLIENT_TYPE_CONFIG: Record<string, { label: string; color: string }> = {
 
 const ClientList: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, selectedCompanyId } = useAuthStore();
 
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -44,6 +44,7 @@ const ClientList: React.FC = () => {
       const filters: any = {};
       if (search) filters.search = search;
       if (clientType) filters.client_type = clientType;
+      if (user.role === 'super_admin' && selectedCompanyId) filters.company_id = selectedCompanyId;
       const result = await window.electronAPI.clients.getAll(user.id, filters);
       if (result.success) {
         setClients(result.clients || []);
@@ -60,7 +61,7 @@ const ClientList: React.FC = () => {
 
   useEffect(() => {
     loadClients();
-  }, [user?.id]);
+  }, [user?.id, selectedCompanyId]);
 
   const handleSearch = () => {
     loadClients(searchText, filterClientType);

@@ -4,7 +4,7 @@ import {
   Card, Typography, Button, Form, Input, InputNumber, DatePicker, Select,
   Table, Space, Divider, message, Spin, Row, Col, AutoComplete, Modal, Empty, Tag
 } from 'antd';
-import { PlusOutlined, DeleteOutlined, ArrowLeftOutlined, SaveOutlined, BulbOutlined, PaperClipOutlined, FolderOpenOutlined, ScanOutlined, LinkOutlined, DisconnectOutlined, SearchOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, ArrowLeftOutlined, SaveOutlined, BulbOutlined, PaperClipOutlined, FolderOpenOutlined, ScanOutlined, LinkOutlined, DisconnectOutlined, SearchOutlined, FilePdfOutlined, MailOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 import { useAuthStore } from '../../store/authStore';
@@ -12,6 +12,7 @@ import { useQuoteStore } from '../../store/quoteStore';
 import RecommendationPopover from '../../components/common/RecommendationPopover';
 import DocumentAttachment from '../../components/documents/DocumentAttachment';
 import QuoteAmountHistory from './QuoteAmountHistory';
+import EmailSendModal from '../../components/common/EmailSendModal';
 import type { LaborGrade, ExpenseCategory } from '../../../shared/types';
 
 const { Title, Text } = Typography;
@@ -72,6 +73,8 @@ const QuoteForm: React.FC = () => {
   const [linkSearchText, setLinkSearchText] = useState('');
   const [linkSearchResults, setLinkSearchResults] = useState<any[]>([]);
   const [linkSearchLoading, setLinkSearchLoading] = useState(false);
+  const [emailModalVisible, setEmailModalVisible] = useState(false);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
 
   // 합계 계산
   const laborTotal = laborItems.reduce((sum, item) => sum + item.subtotal, 0);
@@ -700,6 +703,30 @@ const QuoteForm: React.FC = () => {
     }
   };
 
+  // PDF 다운로드
+  const handleDownloadPdf = async () => {
+    if (!user?.id || !id) return;
+    setPdfGenerating(true);
+    try {
+      const result = await window.electronAPI.pdf.generateQuote(user.id, id);
+      if (result.success && result.filePath) {
+        const defaultName = `견적서_${currentQuote?.quote_number || ''}.pdf`;
+        const saveResult = await window.electronAPI.pdf.saveAs(result.filePath, defaultName);
+        if (saveResult.success) {
+          message.success('PDF가 저장되었습니다.');
+        } else if (saveResult.error !== 'canceled') {
+          message.error(saveResult.error || 'PDF 저장에 실패했습니다.');
+        }
+      } else {
+        message.error(result.error || 'PDF 생성에 실패했습니다.');
+      }
+    } catch (err) {
+      message.error('PDF 생성 중 오류가 발생했습니다.');
+    } finally {
+      setPdfGenerating(false);
+    }
+  };
+
   if (isLoading && isEdit) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -741,6 +768,23 @@ const QuoteForm: React.FC = () => {
             >
               원본열기
             </Button>
+          )}
+          {isEdit && id && (
+            <>
+              <Button
+                icon={<FilePdfOutlined />}
+                onClick={handleDownloadPdf}
+                loading={pdfGenerating}
+              >
+                PDF 저장
+              </Button>
+              <Button
+                icon={<MailOutlined />}
+                onClick={() => setEmailModalVisible(true)}
+              >
+                이메일 발송
+              </Button>
+            </>
           )}
           <Button
             type="primary"
@@ -1086,6 +1130,20 @@ const QuoteForm: React.FC = () => {
       {/* 금액 변경 이력 (수정 모드에서만) */}
       {isEdit && id && user?.id && (
         <QuoteAmountHistory quoteId={id} userId={user.id} />
+      )}
+
+      {/* 이메일 발송 모달 */}
+      {isEdit && id && currentQuote && (
+        <EmailSendModal
+          visible={emailModalVisible}
+          onClose={() => setEmailModalVisible(false)}
+          type="quote"
+          documentId={id}
+          documentNumber={currentQuote.quote_number}
+          serviceName={currentQuote.service_name}
+          recipientCompany={currentQuote.recipient_company}
+          recipientEmail={currentQuote.recipient_email}
+        />
       )}
     </div>
   );

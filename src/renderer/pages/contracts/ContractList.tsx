@@ -31,7 +31,7 @@ const PROGRESS_CONFIG: Record<ContractProgress, { label: string; color: string }
 
 const ContractList: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, selectedCompanyId } = useAuthStore();
   const {
     contracts,
     isLoading,
@@ -52,9 +52,11 @@ const ContractList: React.FC = () => {
 
   useEffect(() => {
     if (user?.id) {
-      fetchContracts(user.id);
+      const filters: any = {};
+      if (user.role === 'super_admin' && selectedCompanyId) filters.company_id = selectedCompanyId;
+      fetchContracts(user.id, filters);
     }
-  }, [user?.id]);
+  }, [user?.id, selectedCompanyId]);
 
   // 통계 계산
   const stats = {
@@ -73,6 +75,7 @@ const ContractList: React.FC = () => {
       filters.startDate = dateRange[0].format('YYYY-MM-DD');
       filters.endDate = dateRange[1].format('YYYY-MM-DD');
     }
+    if (user.role === 'super_admin' && selectedCompanyId) filters.company_id = selectedCompanyId;
 
     fetchContracts(user.id, filters);
   };
