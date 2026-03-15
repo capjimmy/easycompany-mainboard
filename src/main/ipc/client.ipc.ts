@@ -21,6 +21,11 @@ export function registerClientHandlers(): void {
       clients = clients.filter((c: any) => c.company_id === requester.company_id);
     }
 
+    // 총괄관리자의 회사 전환 필터
+    if (requester.role === 'super_admin' && filters?.company_id) {
+      clients = clients.filter((c: any) => c.company_id === filters.company_id);
+    }
+
     // 필터 적용
     if (filters) {
       if (filters.search) {

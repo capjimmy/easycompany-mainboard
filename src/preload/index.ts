@@ -516,6 +516,9 @@ const electronAPI = {
     check: () => ipcRenderer.invoke('update:check'),
     download: () => ipcRenderer.invoke('update:download'),
     install: () => ipcRenderer.invoke('update:install'),
+    checkForceUpdate: () => ipcRenderer.invoke('update:checkForceUpdate'),
+    setMinVersion: (version: string) => ipcRenderer.invoke('update:setMinVersion', version),
+    getMinVersion: () => ipcRenderer.invoke('update:getMinVersion'),
     onUpdateAvailable: (callback: any) => {
       const handler = (_e: any, info: any) => callback(info);
       ipcRenderer.on('update-available', handler);

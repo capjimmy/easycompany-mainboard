@@ -7,9 +7,9 @@ export const MENU_STRUCTURE: MenuItem[] = [
     label: '홈',
     icon: 'HomeOutlined',
     children: [
-      { key: 'dashboard', label: '대시보드', icon: 'DashboardOutlined', path: '/dashboard' },
+      { key: 'dashboard', label: '대시보드', icon: 'DashboardOutlined', path: '/dashboard', roles: ['super_admin', 'company_admin'] },
       { key: 'search', label: '통합검색', icon: 'SearchOutlined', path: '/search' },
-      { key: 'ai-search', label: 'AI 검색', icon: 'RobotOutlined', path: '/ai-search' },
+      { key: 'ai-search', label: 'AI 검색', icon: 'RobotOutlined', path: '/ai-search', roles: ['super_admin', 'company_admin'] },
     ],
   },
   {
@@ -62,7 +62,6 @@ export const MENU_STRUCTURE: MenuItem[] = [
     label: '프로젝트',
     icon: 'ProjectOutlined',
     children: [
-      { key: 'project-board', label: '프로젝트현황판', icon: 'AppstoreOutlined', path: '/project/board' },
       { key: 'project-dashboard', label: '프로젝트 현황', icon: 'FundProjectionScreenOutlined', path: '/project/dashboard' },
       { key: 'project-timeline', label: '일정관리', icon: 'CalendarOutlined', path: '/project/timeline' },
     ],

@@ -22,6 +22,11 @@ export function registerQuoteHandlers(): void {
       quotes = quotes.filter((q: any) => q.company_id === requester.company_id);
     }
 
+    // 총괄관리자의 회사 전환 필터
+    if (requester.role === 'super_admin' && filters?.company_id) {
+      quotes = quotes.filter((q: any) => q.company_id === filters.company_id);
+    }
+
     // 부서 관리자는 자기 부서 또는 본인이 작성한 견적서만 조회
     if (requester.role === 'department_manager' && requester.department_id) {
       quotes = quotes.filter((q: any) => q.created_by === requester.id);

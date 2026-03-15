@@ -22,6 +22,11 @@ export function registerContractHandlers(): void {
       contracts = contracts.filter((c: any) => c.company_id === requester.company_id);
     }
 
+    // 총괄관리자의 회사 전환 필터 (selectedCompanyId)
+    if (requester.role === 'super_admin' && filters?.company_id) {
+      contracts = contracts.filter((c: any) => c.company_id === filters.company_id);
+    }
+
     // 부서 관리자는 자기 부서의 계약서만 조회
     if (requester.role === 'department_manager' && requester.department_id) {
       contracts = contracts.filter((c: any) => c.department_id === requester.department_id || c.manager_id === requester.id);

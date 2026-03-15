@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, screen } from 'electron';
 import * as path from 'path';
 import { initDatabase } from './database';
 import { registerAuthHandlers } from './ipc/auth.ipc';
@@ -45,11 +45,19 @@ if (!gotTheLock) {
 }
 
 function createMainWindow(): void {
+  // 모니터 해상도 기반 창 크기 설정
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+
+  // 화면의 85% 크기로 설정, 최소/최대 제한
+  const windowWidth = Math.max(1200, Math.min(Math.round(screenWidth * 0.85), screenWidth));
+  const windowHeight = Math.max(700, Math.min(Math.round(screenHeight * 0.85), screenHeight));
+
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 1200,
-    minHeight: 700,
+    width: windowWidth,
+    height: windowHeight,
+    minWidth: Math.min(1200, screenWidth),
+    minHeight: Math.min(700, screenHeight),
     title: '건설경제연구원',
     icon: path.join(__dirname, '../../assets/icon.png'),
     webPreferences: {

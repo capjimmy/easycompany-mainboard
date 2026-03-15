@@ -82,6 +82,10 @@ const Settings: React.FC = () => {
   const [downloadingUpdate, setDownloadingUpdate] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [updateDownloaded, setUpdateDownloaded] = useState(false);
+  // 강제 업데이트 최소 버전 설정
+  const [minAppVersion, setMinAppVersion] = useState('');
+  const [newMinVersion, setNewMinVersion] = useState('');
+  const [savingMinVersion, setSavingMinVersion] = useState(false);
 
   // 프로필 연락처 동기화
   React.useEffect(() => {
@@ -126,6 +130,14 @@ const Settings: React.FC = () => {
   // 앱 버전 로드
   React.useEffect(() => {
     window.electronAPI.app.getVersion().then((v: string) => setAppVersion(v));
+
+    // 강제 업데이트 최소 버전 조회
+    window.electronAPI.updater.getMinVersion().then((result: any) => {
+      if (result.success && result.minVersion) {
+        setMinAppVersion(result.minVersion);
+        setNewMinVersion(result.minVersion);
+      }
+    }).catch(() => {});
 
     // 업데이트 이벤트 리스너
     const cleanupAvailable = window.electronAPI.updater?.onUpdateAvailable?.((info: any) => {
@@ -250,6 +262,28 @@ const Settings: React.FC = () => {
 
   const handleInstallUpdate = () => {
     window.electronAPI.updater.install();
+  };
+
+  // 강제 업데이트 최소 버전 저장
+  const handleSaveMinVersion = async () => {
+    if (!newMinVersion || !/^\d+\.\d+\.\d+$/.test(newMinVersion)) {
+      message.error('올바른 버전 형식을 입력하세요. (예: 1.0.3)');
+      return;
+    }
+    setSavingMinVersion(true);
+    try {
+      const result = await window.electronAPI.updater.setMinVersion(newMinVersion);
+      if (result.success) {
+        setMinAppVersion(newMinVersion);
+        message.success(`최소 요구 버전이 v${newMinVersion}으로 설정되었습니다.`);
+      } else {
+        message.error(result.error || '설정 실패');
+      }
+    } catch {
+      message.error('설정 중 오류가 발생했습니다.');
+    } finally {
+      setSavingMinVersion(false);
+    }
   };
 
   // 데이터 경로 로드
@@ -1557,6 +1591,55 @@ const Settings: React.FC = () => {
               </Button>
             )}
           </Space>
+
+          {/* 강제 업데이트 설정 - 관리자 전용 */}
+          {(user?.role === 'super_admin' || user?.role === 'company_admin') && (
+            <>
+              <Divider />
+              <div style={{ marginBottom: 16 }}>
+                <Title level={5} style={{ margin: 0 }}>
+                  <LockOutlined style={{ marginRight: 8 }} />
+                  강제 업데이트 설정
+                </Title>
+                <Text type="secondary">
+                  최소 요구 버전을 설정하면, 해당 버전 미만의 사용자는 업데이트하지 않으면 앱을 사용할 수 없습니다.
+                </Text>
+              </div>
+              <div style={{
+                padding: 16,
+                backgroundColor: '#fffbe6',
+                border: '1px solid #ffe58f',
+                borderRadius: 8,
+                marginBottom: 16,
+              }}>
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <div>
+                    <Text strong>현재 최소 요구 버전: </Text>
+                    <Text>{minAppVersion || '설정 안 됨'}</Text>
+                  </div>
+                  <Space>
+                    <Input
+                      placeholder="예: 1.0.3"
+                      value={newMinVersion}
+                      onChange={(e) => setNewMinVersion(e.target.value)}
+                      style={{ width: 150 }}
+                    />
+                    <Button
+                      type="primary"
+                      danger
+                      onClick={handleSaveMinVersion}
+                      loading={savingMinVersion}
+                    >
+                      강제 업데이트 설정
+                    </Button>
+                  </Space>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    설정된 버전보다 낮은 버전의 앱은 업데이트 전까지 사용이 차단됩니다.
+                  </Text>
+                </Space>
+              </div>
+            </>
+          )}
         </Card>
       ),
     },

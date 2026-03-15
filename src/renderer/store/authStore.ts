@@ -7,12 +7,16 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  // 총괄관리자 회사 전환용
+  selectedCompanyId: string | null;
+  selectedCompanyName: string | null;
 
   // Actions
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   clearError: () => void;
+  setSelectedCompany: (companyId: string | null, companyName: string | null) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -22,6 +26,12 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: true,
       error: null,
+      selectedCompanyId: null,
+      selectedCompanyName: null,
+
+      setSelectedCompany: (companyId: string | null, companyName: string | null) => {
+        set({ selectedCompanyId: companyId, selectedCompanyName: companyName });
+      },
 
       login: async (username: string, password: string) => {
         set({ isLoading: true, error: null });
@@ -68,6 +78,8 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: false,
             isLoading: false,
             error: null,
+            selectedCompanyId: null,
+            selectedCompanyName: null,
           });
         }
       },
@@ -109,7 +121,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({ user: state.user }),
+      partialize: (state) => ({ user: state.user, selectedCompanyId: state.selectedCompanyId, selectedCompanyName: state.selectedCompanyName }),
     }
   )
 );

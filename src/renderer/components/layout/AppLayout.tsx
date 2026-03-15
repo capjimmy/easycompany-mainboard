@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Layout, Menu, Avatar, Dropdown, Button, Space, Typography, Badge, Drawer, Descriptions, Divider, Table, Tag, List, Popover, Empty, Progress, message } from 'antd';
+import { Layout, Menu, Avatar, Dropdown, Button, Space, Typography, Badge, Drawer, Descriptions, Divider, Table, Tag, List, Popover, Empty, Progress, message, Modal, Result, Select } from 'antd';
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -111,6 +111,13 @@ const AppLayout: React.FC = () => {
   const [updateDownloading, setUpdateDownloading] = useState(false);
   const [updateDownloaded, setUpdateDownloaded] = useState(false);
   const [downloadPercent, setDownloadPercent] = useState(0);
+  const [appVersion, setAppVersion] = useState('');
+  // 강제 업데이트 상태
+  const [forceUpdateRequired, setForceUpdateRequired] = useState(false);
+  const [forceMinVersion, setForceMinVersion] = useState('');
+  // 회사 전환 (총괄관리자용)
+  const [companyList, setCompanyList] = useState<any[]>([]);
+  const { selectedCompanyId, selectedCompanyName, setSelectedCompany } = useAuthStore();
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -118,8 +125,38 @@ const AppLayout: React.FC = () => {
   const { user, logout } = useAuthStore();
   const { isDark, toggle } = useThemeStore();
 
-  // 앱 시작 시 업데이트 확인
+  // 총괄관리자: 회사 목록 로드
   useEffect(() => {
+    if (user?.role === 'super_admin' && user?.id) {
+      window.electronAPI.companies.getAll(user.id).then((result: any) => {
+        if (result.success) {
+          setCompanyList(result.companies || []);
+          // 선택된 회사가 없으면 '전체' 모드
+          if (!selectedCompanyId) {
+            setSelectedCompany(null, '전체');
+          }
+        }
+      }).catch(() => {});
+    }
+  }, [user?.id, user?.role]);
+
+  // 앱 시작 시 버전 조회 및 업데이트 확인
+  useEffect(() => {
+    // 버전 조회
+    window.electronAPI.app.getVersion().then((v: string) => setAppVersion(v)).catch(() => {});
+
+    // 강제 업데이트 확인
+    window.electronAPI.updater.checkForceUpdate().then((result: any) => {
+      if (result?.forceUpdate) {
+        setForceUpdateRequired(true);
+        setForceMinVersion(result.minVersion);
+        // 강제 업데이트 시 자동 다운로드 시작
+        window.electronAPI.updater.check().then(() => {
+          window.electronAPI.updater.download().catch(() => {});
+        }).catch(() => {});
+      }
+    }).catch(() => {});
+
     // 업데이트 체크
     window.electronAPI.updater.check().catch(() => {});
 
@@ -319,34 +356,77 @@ const AppLayout: React.FC = () => {
             borderBottom: `1px solid ${isDark ? '#303030' : '#f0f0f0'}`,
           }}
         >
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontWeight: 'bold',
-              fontSize: 16,
-            }}
-          >
-            건
-          </div>
-          {!collapsed && (
-            <span
-              style={{
-                marginLeft: 12,
-                fontSize: 18,
-                fontWeight: 600,
-                color: isDark ? '#fff' : '#333',
-              }}
-            >
-              건설경제연구원
-            </span>
-          )}
+          {(() => {
+            const displayName = user?.role === 'super_admin'
+              ? (selectedCompanyName || '전체')
+              : (user?.company_name || '건설경제연구원');
+            const firstChar = displayName.charAt(0) || '건';
+            return (
+              <>
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontWeight: 'bold',
+                    fontSize: 16,
+                  }}
+                >
+                  {firstChar}
+                </div>
+                {!collapsed && (
+                  <div style={{ marginLeft: 12, flex: 1, minWidth: 0 }}>
+                    {user?.role === 'super_admin' ? (
+                      <Select
+                        value={selectedCompanyId || 'all'}
+                        onChange={(value) => {
+                          if (value === 'all') {
+                            setSelectedCompany(null, '전체');
+                          } else {
+                            const company = companyList.find((c: any) => c.id === value);
+                            setSelectedCompany(value, company?.name || '');
+                          }
+                        }}
+                        bordered={false}
+                        style={{
+                          width: '100%',
+                          fontWeight: 600,
+                          fontSize: 15,
+                        }}
+                        dropdownStyle={{ minWidth: 200 }}
+                        size="small"
+                      >
+                        <Select.Option value="all">전체 (총괄)</Select.Option>
+                        {companyList.map((c: any) => (
+                          <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>
+                        ))}
+                      </Select>
+                    ) : (
+                      <span
+                        style={{
+                          fontSize: 18,
+                          fontWeight: 600,
+                          color: isDark ? '#fff' : '#333',
+                          display: 'block',
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {user?.company_name || '건설경제연구원'}
+                      </span>
+                    )}
+                    {appVersion && (
+                      <span style={{ fontSize: 10, color: '#999', display: 'block' }}>v{appVersion}</span>
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
 
         {/* 메뉴 - 스크롤 가능 */}
@@ -731,6 +811,49 @@ const AppLayout: React.FC = () => {
           </Button>
         </Space>
       </Drawer>
+
+      {/* 강제 업데이트 모달 - 닫을 수 없음 */}
+      <Modal
+        open={forceUpdateRequired}
+        closable={false}
+        maskClosable={false}
+        keyboard={false}
+        footer={null}
+        centered
+        width={480}
+      >
+        <Result
+          status="warning"
+          title="필수 업데이트"
+          subTitle={
+            <>
+              <p>현재 버전({appVersion})은 더 이상 사용할 수 없습니다.</p>
+              <p>최소 요구 버전: <strong>v{forceMinVersion}</strong></p>
+            </>
+          }
+        >
+          {updateDownloaded ? (
+            <Button type="primary" size="large" onClick={handleUpdateInstall}>
+              재시작하여 업데이트 적용
+            </Button>
+          ) : updateDownloading ? (
+            <Space direction="vertical" align="center" style={{ width: '100%' }}>
+              <SyncOutlined spin style={{ fontSize: 24, color: '#1890ff' }} />
+              <span>업데이트 다운로드 중... {downloadPercent}%</span>
+              <Progress percent={downloadPercent} style={{ width: 300 }} />
+            </Space>
+          ) : updateAvailable ? (
+            <Button type="primary" size="large" onClick={handleUpdateDownload}>
+              업데이트 다운로드
+            </Button>
+          ) : (
+            <Space direction="vertical" align="center" style={{ width: '100%' }}>
+              <SyncOutlined spin style={{ fontSize: 24, color: '#1890ff' }} />
+              <span>업데이트 확인 중...</span>
+            </Space>
+          )}
+        </Result>
+      </Modal>
     </Layout>
   );
 };
