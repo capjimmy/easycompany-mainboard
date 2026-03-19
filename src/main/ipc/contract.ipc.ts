@@ -27,9 +27,24 @@ export function registerContractHandlers(): void {
       contracts = contracts.filter((c: any) => c.company_id === filters.company_id);
     }
 
-    // 부서 관리자는 자기 부서의 계약서만 조회
+    // 부서 관리자는 자기 회사 + 자기 부서의 계약서만 조회
     if (requester.role === 'department_manager' && requester.department_id) {
       contracts = contracts.filter((c: any) => c.department_id === requester.department_id || c.manager_id === requester.id);
+    }
+
+    // 사원은 본인이 담당자이거나, 세부작업의 담당자인 계약서만 조회
+    if (requester.role === 'employee') {
+      const contractIdsWithSubtask = new Set<string>();
+      for (const contract of contracts) {
+        const subtasks = await db.getContractSubtasks(contract.id);
+        const hasAssignment = subtasks.some((st: any) => st.assignee_id === requester.id);
+        if (hasAssignment) {
+          contractIdsWithSubtask.add(contract.id);
+        }
+      }
+      contracts = contracts.filter((c: any) =>
+        c.manager_id === requester.id || contractIdsWithSubtask.has(c.id)
+      );
     }
 
     // 필터 적용

@@ -27,8 +27,19 @@ export function registerQuoteHandlers(): void {
       quotes = quotes.filter((q: any) => q.company_id === filters.company_id);
     }
 
-    // 부서 관리자는 자기 부서 또는 본인이 작성한 견적서만 조회
+    // 부서 관리자는 자기 회사 + 자기 부서원이 작성한 견적서만 조회
     if (requester.role === 'department_manager' && requester.department_id) {
+      const allUsers = await db.getUsers();
+      const deptUserIds = new Set(
+        allUsers
+          .filter((u: any) => u.department_id === requester.department_id && u.company_id === requester.company_id)
+          .map((u: any) => u.id)
+      );
+      quotes = quotes.filter((q: any) => deptUserIds.has(q.created_by));
+    }
+
+    // 사원은 본인이 작성한 견적서만 조회
+    if (requester.role === 'employee') {
       quotes = quotes.filter((q: any) => q.created_by === requester.id);
     }
 
