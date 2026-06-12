@@ -42,8 +42,8 @@ async function checkExportPermission(requesterId: string): Promise<{ allowed: bo
   if (!requester) {
     return { allowed: false, error: '사용자를 찾을 수 없습니다.' };
   }
-  if (requester.role !== 'super_admin' && requester.role !== 'company_admin') {
-    return { allowed: false, error: '내보내기 권한이 없습니다. 관리자만 사용할 수 있습니다.' };
+  if (!['super_admin', 'company_admin', 'department_manager'].includes(requester.role)) {
+    return { allowed: false, error: '내보내기 권한이 없습니다.' };
   }
   return { allowed: true };
 }
@@ -173,6 +173,36 @@ export function registerExportIPC(): void {
     } catch (error: any) {
       console.error('계약 내보내기 오류:', error);
       return { success: false, error: error.message || '계약 내보내기 중 오류가 발생했습니다.' };
+    }
+  });
+
+  // ========================================
+  // 재무/회계 범용 엑셀 내보내기
+  // ========================================
+  ipcMain.handle('export:financeGeneric', async (_event, requesterId: string, sheetName: string, columns: { title: string; key: string }[], data: any[]): Promise<ExportResult> => {
+    try {
+      const permission = await checkExportPermission(requesterId);
+      if (!permission.allowed) {
+        return { success: false, error: permission.error };
+      }
+
+      const rows = data.map((item: any) => {
+        const row: any = {};
+        for (const col of columns) {
+          row[col.title] = item[col.key] ?? '';
+        }
+        return row;
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+
+      const today = dayjs().format('YYYY-MM-DD');
+      return await saveWorkbook(workbook, `${sheetName}_${today}.xlsx`);
+    } catch (error: any) {
+      console.error('재무 내보내기 오류:', error);
+      return { success: false, error: error.message || '내보내기 중 오류가 발생했습니다.' };
     }
   });
 

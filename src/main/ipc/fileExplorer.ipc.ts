@@ -303,8 +303,10 @@ export function registerFileExplorerHandlers() {
   });
 
   // 첨부 문서 삭제 (파일 자체는 삭제하지 않음)
-  ipcMain.handle('attachedDocs:remove', async (_event, docId: string) => {
+  ipcMain.handle('attachedDocs:remove', async (_event, requesterId: string, docId: string) => {
     try {
+      const requester = await db.getUserById(requesterId);
+      if (!requester) return { success: false, error: '권한이 없습니다.' };
       await db.deleteAttachedDocument(docId);
       return { success: true };
     } catch (err: any) {
@@ -313,8 +315,10 @@ export function registerFileExplorerHandlers() {
   });
 
   // 첨부 문서 카테고리 수정
-  ipcMain.handle('attachedDocs:updateCategory', async (_event, docId: string, category: string) => {
+  ipcMain.handle('attachedDocs:updateCategory', async (_event, requesterId: string, docId: string, category: string) => {
     try {
+      const requester = await db.getUserById(requesterId);
+      if (!requester) return { success: false, error: '권한이 없습니다.' };
       await db.updateAttachedDocument(docId, { category });
       return { success: true };
     } catch (err: any) {
@@ -323,8 +327,10 @@ export function registerFileExplorerHandlers() {
   });
 
   // 첨부 문서 열기
-  ipcMain.handle('attachedDocs:openFile', async (_event, docId: string) => {
+  ipcMain.handle('attachedDocs:openFile', async (_event, requesterId: string, docId: string) => {
     try {
+      const requester = await db.getUserById(requesterId);
+      if (!requester) return { success: false, error: '권한이 없습니다.' };
       const doc = await db.getAttachedDocumentById(docId);
       if (!doc) return { success: false, error: '문서를 찾을 수 없습니다.' };
       if (!fs.existsSync(doc.file_path)) return { success: false, error: '파일이 존재하지 않습니다.' };

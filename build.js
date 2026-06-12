@@ -2,6 +2,16 @@ const esbuild = require('esbuild');
 const fs = require('fs');
 const path = require('path');
 
+// .env.local 파싱하여 process.env에 주입 (main process에만 사용됨)
+const envLocal = path.join(__dirname, '.env.local');
+const envVars = {};
+if (fs.existsSync(envLocal)) {
+  for (const line of fs.readFileSync(envLocal, 'utf8').split('\n')) {
+    const m = line.match(/^([A-Z_]+)=(.+)$/);
+    if (m) envVars[m[1]] = m[2].trim();
+  }
+}
+
 async function build() {
   // dist 폴더 생성
   if (!fs.existsSync('dist')) {
@@ -19,7 +29,12 @@ async function build() {
 
   console.log('Building main process...');
 
-  // Main process: esbuild 사용
+  // Main process: esbuild 사용 — .env.local 키들을 process.env 값으로 주입
+  // ⚠️ renderer/preload에는 SERVICE_ROLE_KEY 절대 노출 안 됨 (이 빌드는 main만)
+  const mainDefine = {};
+  for (const k of ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY']) {
+    if (envVars[k]) mainDefine[`process.env.${k}`] = JSON.stringify(envVars[k]);
+  }
   await esbuild.build({
     entryPoints: ['src/main/index.ts'],
     bundle: true,
@@ -27,11 +42,12 @@ async function build() {
     target: 'node18',
     outfile: 'dist/main/index.js',
     format: 'cjs',
-    external: ['electron', 'electron-store'],
+    external: ['electron', 'electron-store', 'pdf-parse', 'mammoth'],
     loader: {
       '.ts': 'ts',
       '.json': 'json',
     },
+    define: mainDefine,
     sourcemap: true,
   });
 
@@ -78,6 +94,13 @@ async function build() {
 
   // Copy HTML
   fs.copyFileSync('src/renderer/index.html', 'dist/renderer/index.html');
+
+  // Copy logo image for PDF generator
+  if (fs.existsSync('build/image2.png')) {
+    fs.copyFileSync('build/image2.png', path.join('dist', 'logo.png'));
+    fs.copyFileSync('build/image2.png', path.join('dist', 'main', 'logo.png'));
+    console.log('Logo image copied to dist/');
+  }
 
   // Copy HWPX template files
   const templatesDir = path.join('resources', 'templates');

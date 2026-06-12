@@ -115,19 +115,19 @@ body {
   -webkit-app-region: no-drag;
 }
 
-/* 창 컨트롤 버튼 - Windows 11 네이티브 스타일 */
+/* 창 컨트롤 버튼 - 모던 스타일 */
 .window-controls {
   display: flex;
   align-items: center;
+  gap: 2px;
   -webkit-app-region: no-drag;
   height: 100%;
-  margin-right: -8px;
+  padding: 0 4px;
 }
 
 .window-controls .window-btn {
-  width: 46px;
-  height: 100%;
-  min-height: 32px;
+  width: 36px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -136,50 +136,67 @@ body {
   cursor: pointer;
   padding: 0;
   color: inherit;
-  transition: background 0.12s ease;
+  border-radius: 6px;
+  transition: all 0.15s ease;
   outline: none;
-}
-
-.window-controls .window-btn svg {
-  width: 10px;
-  height: 10px;
+  opacity: 0.7;
 }
 
 .window-controls .window-btn:hover {
+  opacity: 1;
   background: rgba(0, 0, 0, 0.06);
 }
 
 .window-controls .window-btn:active {
+  transform: scale(0.92);
   background: rgba(0, 0, 0, 0.1);
 }
 
+.window-controls .window-btn.manual-btn {
+  width: auto;
+  padding: 0 10px;
+  opacity: 0.55;
+  font-size: 11px;
+}
+
+.window-controls .window-btn.manual-btn:hover {
+  opacity: 0.85;
+  background: rgba(0, 0, 0, 0.04);
+}
+
 .window-controls .window-btn.close-btn:hover {
-  background: #c42b1c;
+  background: rgba(232, 17, 35, 0.9);
   color: white;
+  opacity: 1;
 }
 
 .window-controls .window-btn.close-btn:active {
-  background: #c42b1c;
-  color: rgba(255, 255, 255, 0.7);
+  background: rgba(232, 17, 35, 0.7);
+  color: white;
+  transform: scale(0.92);
 }
 
 /* 다크 모드 창 컨트롤 */
 .dark .window-controls .window-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .dark .window-controls .window-btn:active {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dark .window-controls .window-btn.manual-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .dark .window-controls .window-btn.close-btn:hover {
-  background: #c42b1c;
+  background: rgba(232, 17, 35, 0.9);
   color: white;
 }
 
 .dark .window-controls .window-btn.close-btn:active {
-  background: #c42b1c;
-  color: rgba(255, 255, 255, 0.7);
+  background: rgba(232, 17, 35, 0.7);
+  color: white;
 }
 
 /* ===========================

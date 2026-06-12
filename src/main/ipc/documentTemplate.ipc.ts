@@ -5,6 +5,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { generateDocumentContent, testApiKey, resetOpenAIClient } from '../services/aiService';
 import { generateHwpxDocument, generateMultipleDocuments, DOCUMENT_TYPE_LABELS, DocumentType, ContractData } from '../services/hwpxGenerator';
+import { fillXlsxTemplate, fillDocxTemplate, fillXlsxQuoteTemplate, fillDocxQuoteTemplate } from '../services/xlsxDocxGenerator';
+import * as os from 'os';
+import { supabase } from '../database/supabaseClient';
+import { fillTemplateBytes, buildContractPlaceholderMap, buildQuotePlaceholderMap } from '../../shared/services/templateFill';
+
+const TEMPLATES_BUCKET = 'templates';
 
 // 문서 저장 경로 (네트워크 드라이브 지원)
 const getDocumentsPath = async () => {
@@ -49,6 +55,73 @@ const getGeneratedPath = async () => {
   return generatedPath;
 };
 
+/**
+ * 양식 바이트 로드: 로컬 파일이면 로컬에서, 아니면 Supabase 'templates' 버킷 키로 간주해 다운로드.
+ * (서버 저장된 양식을 어느 PC에서나 불러올 수 있게 함)
+ */
+async function loadTemplateBuffer(templatePath: string): Promise<Buffer> {
+  if (fs.existsSync(templatePath)) {
+    return fs.readFileSync(templatePath);
+  }
+  const { data, error } = await supabase.storage.from(TEMPLATES_BUCKET).download(templatePath);
+  if (error || !data) {
+    throw new Error(`양식을 불러올 수 없습니다: ${templatePath} (${error?.message || '없음'})`);
+  }
+  const ab = await data.arrayBuffer();
+  return Buffer.from(ab);
+}
+
+/**
+ * 양식(xlsx/docx)을 공용 엔진으로 채워 outputPath 에 저장.
+ * - 플레이스홀더가 있으면 서식보존 zip 치환(데스크톱·웹 공용 엔진)
+ * - 플레이스홀더가 전혀 없으면 기존 엔진(AI 자동배치 포함)으로 폴백
+ */
+async function fillFromTemplate(
+  templatePath: string,
+  data: any,
+  outputPath: string,
+  kind: 'contract' | 'quote',
+): Promise<{ success: boolean; filePath?: string; error?: string; usedAI?: boolean }> {
+  const extDot = path.extname(templatePath).toLowerCase();
+  const ext: 'xlsx' | 'docx' | null =
+    extDot === '.xlsx' || extDot === '.xls' ? 'xlsx' : extDot === '.docx' ? 'docx' : null;
+  if (!ext) return { success: false, error: `지원하지 않는 양식 형식입니다: ${extDot}` };
+
+  let buf: Buffer;
+  try {
+    buf = await loadTemplateBuffer(templatePath);
+  } catch (e: any) {
+    return { success: false, error: e?.message || '양식 로드 실패' };
+  }
+
+  const map = kind === 'quote' ? buildQuotePlaceholderMap(data) : buildContractPlaceholderMap(data);
+  const { bytes, count } = await fillTemplateBytes(buf, ext, map);
+
+  const outputDir = path.dirname(outputPath);
+  if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+
+  if (count > 0) {
+    fs.writeFileSync(outputPath, Buffer.from(bytes));
+    return { success: true, filePath: outputPath, usedAI: false };
+  }
+
+  // 플레이스홀더가 없으면 기존 엔진(AI 포함)으로 폴백 — 임시파일에 양식을 쓰고 처리
+  const tmp = path.join(os.tmpdir(), `tpl_${uuidv4()}${extDot}`);
+  fs.writeFileSync(tmp, buf);
+  try {
+    if (ext === 'xlsx') {
+      return kind === 'quote'
+        ? await fillXlsxQuoteTemplate(tmp, data, outputPath)
+        : await fillXlsxTemplate(tmp, data, outputPath);
+    }
+    return kind === 'quote'
+      ? await fillDocxQuoteTemplate(tmp, data, outputPath)
+      : await fillDocxTemplate(tmp, data, outputPath);
+  } finally {
+    try { fs.unlinkSync(tmp); } catch { /* noop */ }
+  }
+}
+
 // 문서 타입별 설명
 function getDocTypeDescription(docType: DocumentType): string {
   const descriptions: Record<DocumentType, string> = {
@@ -58,6 +131,9 @@ function getDocTypeDescription(docType: DocumentType): string {
     completion: '준공 신고서 (용역 완료 시 제출)',
     invoice: '대금 청구서 (기성/잔금 청구 시)',
     settlement: '정산 세부내역서 (최종 정산 시)',
+    official_letter: '공문 (발주처/관계기관 공식 서한)',
+    quote_doc: '견적서 (용역 견적 제출용)',
+    service_cost: '용역비산출서 (인건비/경비 산출 내역)',
   };
   return descriptions[docType] || '';
 }
@@ -225,7 +301,7 @@ export function registerDocumentTemplateHandlers(): void {
     }
 
     // 부서 정보 추가
-    const templatesWithDept = [];
+    const templatesWithDept: any[] = [];
     for (const t of templates) {
       const dept = t.department_id ? await db.getDepartmentById(t.department_id) : null;
       templatesWithDept.push({
@@ -999,9 +1075,15 @@ export function registerDocumentTemplateHandlers(): void {
       }
     }
 
+    // 생성 완료 후 폴더 자동 열기
+    if (generatedDocs.length > 0) {
+      shell.openPath(projectDir);
+    }
+
     return {
       success: generatedDocs.length > 0,
       documents: generatedDocs,
+      folderPath: projectDir,
       errors: errors.length > 0 ? errors : undefined,
     };
   });
@@ -1028,6 +1110,431 @@ export function registerDocumentTemplateHandlers(): void {
 
     shell.showItemInFolder(doc.file_path);
     return { success: true };
+  });
+
+  // ========================================
+  // XLSX / DOCX 템플릿 채우기
+  // ========================================
+
+  // XLSX 템플릿으로 계약서/견적서 생성
+  ipcMain.handle('documents:fillXlsx', async (_event, requesterId: string, sourceId: string, templatePath: string, sourceType: 'contract' | 'quote' = 'contract') => {
+    const user = await db.getUserById(requesterId);
+    if (!user) {
+      return { success: false, error: '권한이 없습니다.' };
+    }
+
+    try {
+      let outputFileName: string;
+      let fillResult: any;
+
+      if (sourceType === 'quote') {
+        const quote = await db.getQuoteById(sourceId);
+        if (!quote) return { success: false, error: '견적서를 찾을 수 없습니다.' };
+
+        const companyId = quote.company_id || user.company_id;
+        let companyInfo: any = {};
+        if (companyId) {
+          const company = await db.getCompanyById(companyId);
+          if (company) {
+            companyInfo = {
+              company_name: company.name || '',
+              company_representative: company.representative || '',
+              company_business_number: company.business_number || '',
+              company_address: company.address || '',
+              company_phone: company.phone || '',
+            };
+          }
+        }
+
+        const laborItems = await db.getQuoteLaborItemsByQuoteId(sourceId);
+        const expenseItems = await db.getQuoteExpenseItemsByQuoteId(sourceId);
+
+        const quoteData = {
+          quote_number: quote.quote_number,
+          recipient_company: quote.recipient_company,
+          recipient_contact: quote.recipient_contact,
+          recipient_phone: quote.recipient_phone,
+          recipient_email: quote.recipient_email,
+          recipient_department: quote.recipient_department,
+          recipient_address: quote.recipient_address,
+          service_name: quote.service_name,
+          title: quote.title,
+          quote_date: quote.quote_date,
+          valid_until: quote.valid_until,
+          project_period_months: quote.project_period_months,
+          labor_total: quote.labor_total,
+          expense_total: quote.expense_total,
+          total_amount: quote.total_amount,
+          vat_amount: quote.vat_amount,
+          grand_total: quote.grand_total,
+          notes: quote.notes,
+          ...companyInfo,
+        };
+
+        const safeNum = (quote.quote_number || 'quote').replace(/[\\/:*?"<>|]/g, '_');
+        const safeName = (quote.recipient_company || '').replace(/[\\/:*?"<>|]/g, '_').substring(0, 30);
+        outputFileName = `견적서_${safeNum}_${safeName}.xlsx`;
+
+        const generatedDir = await getGeneratedPath();
+        const projDir = path.join(generatedDir, `견적서_${safeNum}`);
+        const outputPath = path.join(projDir, outputFileName);
+
+        fillResult = await fillFromTemplate(templatePath, quoteData, outputPath, 'quote');
+      } else {
+        const contract = await db.getContractById(sourceId);
+        if (!contract) return { success: false, error: '계약을 찾을 수 없습니다.' };
+
+        const company = contract.company_id ? await db.getCompanyById(contract.company_id) : null;
+        const payments = await db.getContractPaymentsByContractId(sourceId);
+        const receivedAmount = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+
+        const contractData: ContractData = {
+          contract_number: contract.contract_number,
+          client_company: contract.client_company,
+          client_business_number: contract.client_business_number,
+          client_contact_name: contract.client_contact_name,
+          client_contact_phone: contract.client_contact_phone,
+          service_name: contract.service_name,
+          description: contract.description,
+          contract_type: contract.contract_type,
+          contract_date: contract.contract_date,
+          contract_start_date: contract.contract_start_date,
+          contract_end_date: contract.contract_end_date,
+          contract_amount: contract.contract_amount,
+          vat_amount: contract.vat_amount,
+          total_amount: contract.total_amount,
+          outsource_company: contract.outsource_company,
+          outsource_amount: contract.outsource_amount,
+          progress_rate: contract.progress_rate,
+          manager_name: contract.manager_name,
+          notes: contract.notes,
+          received_amount: receivedAmount || contract.received_amount,
+          remaining_amount: contract.remaining_amount,
+          company_name: company?.name || '',
+          company_address: company?.address,
+          company_phone: company?.phone,
+          company_ceo: company?.ceo_name,
+        };
+
+        const safeContractNum = (contract.contract_number || 'no-number').replace(/[\\/:*?"<>|]/g, '_');
+        const safeSvcName = (contract.service_name || 'document').replace(/[\\/:*?"<>|]/g, '_').substring(0, 40);
+        const projFolderName = `${safeContractNum}_${safeSvcName}`;
+        const generatedDir = await getGeneratedPath();
+        const projDir = path.join(generatedDir, projFolderName);
+
+        const templateBaseName = path.basename(templatePath, '.xlsx');
+        outputFileName = `${templateBaseName}_${safeContractNum}.xlsx`;
+        const outputPath = path.join(projDir, outputFileName);
+
+        fillResult = await fillFromTemplate(templatePath, contractData, outputPath, 'contract');
+      }
+
+      if (fillResult.success && fillResult.filePath) {
+        // 생성 문서 DB 저장
+        const docId = require('uuid').v4();
+        const generatedDoc = {
+          id: docId,
+          contract_id: sourceType === 'contract' ? sourceId : null,
+          template_id: `xlsx_custom`,
+          template_name: path.basename(templatePath, '.xlsx'),
+          original_filename: outputFileName,
+          stored_filename: outputFileName,
+          file_path: fillResult.filePath,
+          file_type: 'xlsx',
+          file_size: fs.existsSync(fillResult.filePath) ? fs.statSync(fillResult.filePath).size : 0,
+          data_snapshot: {},
+          generated_by: requesterId,
+          created_by_department_id: user.department_id || null,
+          generated_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        await db.addGeneratedDocument(generatedDoc);
+
+        shell.openPath(path.dirname(fillResult.filePath));
+        return { success: true, filePath: fillResult.filePath, usedAI: fillResult.usedAI };
+      }
+
+      return fillResult;
+    } catch (err: any) {
+      return { success: false, error: err.message || 'XLSX 문서 생성에 실패했습니다.' };
+    }
+  });
+
+  // DOCX 템플릿으로 계약서/견적서 생성
+  ipcMain.handle('documents:fillDocx', async (_event, requesterId: string, sourceId: string, templatePath: string, sourceType: 'contract' | 'quote' = 'contract') => {
+    const user = await db.getUserById(requesterId);
+    if (!user) {
+      return { success: false, error: '권한이 없습니다.' };
+    }
+
+    try {
+      let outputFileName: string;
+      let fillResult: any;
+
+      if (sourceType === 'quote') {
+        const quote = await db.getQuoteById(sourceId);
+        if (!quote) return { success: false, error: '견적서를 찾을 수 없습니다.' };
+
+        const companyId = quote.company_id || user.company_id;
+        let companyInfo: any = {};
+        if (companyId) {
+          const company = await db.getCompanyById(companyId);
+          if (company) {
+            companyInfo = {
+              company_name: company.name || '',
+              company_representative: company.representative || '',
+              company_business_number: company.business_number || '',
+              company_address: company.address || '',
+              company_phone: company.phone || '',
+            };
+          }
+        }
+
+        const quoteData = {
+          quote_number: quote.quote_number,
+          recipient_company: quote.recipient_company,
+          recipient_contact: quote.recipient_contact,
+          recipient_phone: quote.recipient_phone,
+          recipient_email: quote.recipient_email,
+          recipient_department: quote.recipient_department,
+          recipient_address: quote.recipient_address,
+          service_name: quote.service_name,
+          title: quote.title,
+          quote_date: quote.quote_date,
+          valid_until: quote.valid_until,
+          project_period_months: quote.project_period_months,
+          labor_total: quote.labor_total,
+          expense_total: quote.expense_total,
+          total_amount: quote.total_amount,
+          vat_amount: quote.vat_amount,
+          grand_total: quote.grand_total,
+          notes: quote.notes,
+          ...companyInfo,
+        };
+
+        const safeNum = (quote.quote_number || 'quote').replace(/[\\/:*?"<>|]/g, '_');
+        const safeName = (quote.recipient_company || '').replace(/[\\/:*?"<>|]/g, '_').substring(0, 30);
+        outputFileName = `견적서_${safeNum}_${safeName}.docx`;
+
+        const generatedDir = await getGeneratedPath();
+        const projDir = path.join(generatedDir, `견적서_${safeNum}`);
+        const outputPath = path.join(projDir, outputFileName);
+
+        fillResult = await fillFromTemplate(templatePath, quoteData, outputPath, 'quote');
+      } else {
+        const contract = await db.getContractById(sourceId);
+        if (!contract) return { success: false, error: '계약을 찾을 수 없습니다.' };
+
+        const company = contract.company_id ? await db.getCompanyById(contract.company_id) : null;
+        const payments = await db.getContractPaymentsByContractId(sourceId);
+        const receivedAmount = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+
+        const contractData: ContractData = {
+          contract_number: contract.contract_number,
+          client_company: contract.client_company,
+          client_business_number: contract.client_business_number,
+          client_contact_name: contract.client_contact_name,
+          client_contact_phone: contract.client_contact_phone,
+          service_name: contract.service_name,
+          description: contract.description,
+          contract_type: contract.contract_type,
+          contract_date: contract.contract_date,
+          contract_start_date: contract.contract_start_date,
+          contract_end_date: contract.contract_end_date,
+          contract_amount: contract.contract_amount,
+          vat_amount: contract.vat_amount,
+          total_amount: contract.total_amount,
+          outsource_company: contract.outsource_company,
+          outsource_amount: contract.outsource_amount,
+          progress_rate: contract.progress_rate,
+          manager_name: contract.manager_name,
+          notes: contract.notes,
+          received_amount: receivedAmount || contract.received_amount,
+          remaining_amount: contract.remaining_amount,
+          company_name: company?.name || '',
+          company_address: company?.address,
+          company_phone: company?.phone,
+          company_ceo: company?.ceo_name,
+        };
+
+        const safeContractNum = (contract.contract_number || 'no-number').replace(/[\\/:*?"<>|]/g, '_');
+        const safeSvcName = (contract.service_name || 'document').replace(/[\\/:*?"<>|]/g, '_').substring(0, 40);
+        const projFolderName = `${safeContractNum}_${safeSvcName}`;
+        const generatedDir = await getGeneratedPath();
+        const projDir = path.join(generatedDir, projFolderName);
+
+        const templateBaseName = path.basename(templatePath, '.docx');
+        outputFileName = `${templateBaseName}_${safeContractNum}.docx`;
+        const outputPath = path.join(projDir, outputFileName);
+
+        fillResult = await fillFromTemplate(templatePath, contractData, outputPath, 'contract');
+      }
+
+      if (fillResult.success && fillResult.filePath) {
+        const docId = require('uuid').v4();
+        const generatedDoc = {
+          id: docId,
+          contract_id: sourceType === 'contract' ? sourceId : null,
+          template_id: `docx_custom`,
+          template_name: path.basename(templatePath, '.docx'),
+          original_filename: outputFileName,
+          stored_filename: outputFileName,
+          file_path: fillResult.filePath,
+          file_type: 'docx',
+          file_size: fs.existsSync(fillResult.filePath) ? fs.statSync(fillResult.filePath).size : 0,
+          data_snapshot: {},
+          generated_by: requesterId,
+          created_by_department_id: user.department_id || null,
+          generated_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        await db.addGeneratedDocument(generatedDoc);
+
+        shell.openPath(path.dirname(fillResult.filePath));
+        return { success: true, filePath: fillResult.filePath, usedAI: fillResult.usedAI };
+      }
+
+      return fillResult;
+    } catch (err: any) {
+      return { success: false, error: err.message || 'DOCX 문서 생성에 실패했습니다.' };
+    }
+  });
+
+  // 커스텀 템플릿으로 문서 생성 (파일 확장자 자동 감지)
+  ipcMain.handle('documents:fillTemplate', async (_event, requesterId: string, sourceId: string, templatePath: string, sourceType: 'contract' | 'quote' = 'contract') => {
+    const ext = path.extname(templatePath).toLowerCase();
+
+    // XLSX/DOCX는 해당 핸들러를 직접 호출하지 않고, 여기서 동일 로직 수행
+    // (ipcMain.emit은 handle과 다르므로 직접 함수 호출)
+    if (ext === '.xlsx' || ext === '.xls') {
+      // documents:fillXlsx 핸들러와 동일한 로직
+      const user = await db.getUserById(requesterId);
+      if (!user) return { success: false, error: '권한이 없습니다.' };
+
+      if (sourceType === 'contract') {
+        const contract = await db.getContractById(sourceId);
+        if (!contract) return { success: false, error: '계약을 찾을 수 없습니다.' };
+        const company = contract.company_id ? await db.getCompanyById(contract.company_id) : null;
+        const payments = await db.getContractPaymentsByContractId(sourceId);
+        const receivedAmount = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+        const contractData: ContractData = {
+          contract_number: contract.contract_number, client_company: contract.client_company,
+          client_business_number: contract.client_business_number, client_contact_name: contract.client_contact_name,
+          client_contact_phone: contract.client_contact_phone, service_name: contract.service_name,
+          description: contract.description, contract_type: contract.contract_type,
+          contract_date: contract.contract_date, contract_start_date: contract.contract_start_date,
+          contract_end_date: contract.contract_end_date, contract_amount: contract.contract_amount,
+          vat_amount: contract.vat_amount, total_amount: contract.total_amount,
+          manager_name: contract.manager_name, notes: contract.notes,
+          received_amount: receivedAmount || contract.received_amount, remaining_amount: contract.remaining_amount,
+          company_name: company?.name || '', company_address: company?.address,
+          company_phone: company?.phone, company_ceo: company?.ceo_name,
+        };
+        const safeNum = (contract.contract_number || 'no-number').replace(/[\\/:*?"<>|]/g, '_');
+        const safeSvc = (contract.service_name || 'document').replace(/[\\/:*?"<>|]/g, '_').substring(0, 40);
+        const projDir = path.join(await getGeneratedPath(), `${safeNum}_${safeSvc}`);
+        const outputPath = path.join(projDir, `${path.basename(templatePath, ext)}_${safeNum}${ext}`);
+        const fillResult = await fillFromTemplate(templatePath, contractData, outputPath, 'contract');
+        if (fillResult.success) shell.openPath(path.dirname(fillResult.filePath!));
+        return fillResult;
+      }
+      return { success: false, error: '견적서용은 fillXlsx 핸들러를 직접 사용하세요.' };
+    } else if (ext === '.docx') {
+      const user = await db.getUserById(requesterId);
+      if (!user) return { success: false, error: '권한이 없습니다.' };
+
+      if (sourceType === 'contract') {
+        const contract = await db.getContractById(sourceId);
+        if (!contract) return { success: false, error: '계약을 찾을 수 없습니다.' };
+        const company = contract.company_id ? await db.getCompanyById(contract.company_id) : null;
+        const payments = await db.getContractPaymentsByContractId(sourceId);
+        const receivedAmount = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+        const contractData: ContractData = {
+          contract_number: contract.contract_number, client_company: contract.client_company,
+          client_business_number: contract.client_business_number, client_contact_name: contract.client_contact_name,
+          client_contact_phone: contract.client_contact_phone, service_name: contract.service_name,
+          description: contract.description, contract_type: contract.contract_type,
+          contract_date: contract.contract_date, contract_start_date: contract.contract_start_date,
+          contract_end_date: contract.contract_end_date, contract_amount: contract.contract_amount,
+          vat_amount: contract.vat_amount, total_amount: contract.total_amount,
+          manager_name: contract.manager_name, notes: contract.notes,
+          received_amount: receivedAmount || contract.received_amount, remaining_amount: contract.remaining_amount,
+          company_name: company?.name || '', company_address: company?.address,
+          company_phone: company?.phone, company_ceo: company?.ceo_name,
+        };
+        const safeNum = (contract.contract_number || 'no-number').replace(/[\\/:*?"<>|]/g, '_');
+        const safeSvc = (contract.service_name || 'document').replace(/[\\/:*?"<>|]/g, '_').substring(0, 40);
+        const projDir = path.join(await getGeneratedPath(), `${safeNum}_${safeSvc}`);
+        const outputPath = path.join(projDir, `${path.basename(templatePath, ext)}_${safeNum}${ext}`);
+        const fillResult = await fillFromTemplate(templatePath, contractData, outputPath, 'contract');
+        if (fillResult.success) shell.openPath(path.dirname(fillResult.filePath!));
+        return fillResult;
+      }
+      return { success: false, error: '견적서용은 fillDocx 핸들러를 직접 사용하세요.' };
+    } else if (ext === '.hwpx') {
+      // HWPX는 기존 로직 사용
+      const user = await db.getUserById(requesterId);
+      if (!user) return { success: false, error: '권한이 없습니다.' };
+
+      if (sourceType !== 'contract') {
+        return { success: false, error: 'HWPX 양식은 계약서에서만 사용 가능합니다.' };
+      }
+
+      const contract = await db.getContractById(sourceId);
+      if (!contract) return { success: false, error: '계약을 찾을 수 없습니다.' };
+
+      const company = contract.company_id ? await db.getCompanyById(contract.company_id) : null;
+      const payments = await db.getContractPaymentsByContractId(sourceId);
+      const receivedAmount = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+
+      const contractData: ContractData = {
+        contract_number: contract.contract_number,
+        client_company: contract.client_company,
+        client_business_number: contract.client_business_number,
+        client_contact_name: contract.client_contact_name,
+        client_contact_phone: contract.client_contact_phone,
+        service_name: contract.service_name,
+        description: contract.description,
+        contract_type: contract.contract_type,
+        contract_date: contract.contract_date,
+        contract_start_date: contract.contract_start_date,
+        contract_end_date: contract.contract_end_date,
+        contract_amount: contract.contract_amount,
+        vat_amount: contract.vat_amount,
+        total_amount: contract.total_amount,
+        outsource_company: contract.outsource_company,
+        outsource_amount: contract.outsource_amount,
+        progress_rate: contract.progress_rate,
+        manager_name: contract.manager_name,
+        notes: contract.notes,
+        received_amount: receivedAmount || contract.received_amount,
+        remaining_amount: contract.remaining_amount,
+        company_name: company?.name || '',
+        company_address: company?.address,
+        company_phone: company?.phone,
+        company_ceo: company?.ceo_name,
+      };
+
+      const safeContractNum = (contract.contract_number || 'no-number').replace(/[\\/:*?"<>|]/g, '_');
+      const safeSvcName = (contract.service_name || 'document').replace(/[\\/:*?"<>|]/g, '_').substring(0, 40);
+      const projFolderName = `${safeContractNum}_${safeSvcName}`;
+      const generatedDir = await getGeneratedPath();
+      const projDir = path.join(generatedDir, projFolderName);
+      if (!fs.existsSync(projDir)) fs.mkdirSync(projDir, { recursive: true });
+
+      const templateBaseName = path.basename(templatePath, '.hwpx');
+      const outputPath = path.join(projDir, `${templateBaseName}_${safeContractNum}.hwpx`);
+
+      const result = await generateHwpxDocument('contract', contractData, outputPath);
+      if (result.success) {
+        shell.openPath(projDir);
+      }
+      return result;
+    } else {
+      return { success: false, error: `지원하지 않는 파일 형식입니다: ${ext}` };
+    }
   });
 
   // AI 분석 결과 조회

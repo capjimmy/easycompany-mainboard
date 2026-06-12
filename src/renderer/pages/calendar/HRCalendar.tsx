@@ -25,7 +25,9 @@ import {
   CoffeeOutlined,
   GiftOutlined,
   TeamOutlined,
+  PlusOutlined,
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 
 const { Title, Text } = Typography;
@@ -67,8 +69,9 @@ const mapLeaveType = (leaveType: string): LeaveType => {
   return mapping[leaveType] || 'annual';
 };
 
-const ContractCalendar: React.FC = () => {
-  const { user } = useAuthStore();
+const HRCalendar: React.FC = () => {
+  const navigate = useNavigate();
+  const { user, selectedCompanyId, setSelectedCompany } = useAuthStore();
   const [events, setEvents] = useState<HREvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
@@ -76,15 +79,53 @@ const ContractCalendar: React.FC = () => {
   const [selectedEvents, setSelectedEvents] = useState<HREvent[]>([]);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterDepartment, setFilterDepartment] = useState<string>('all');
+  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
 
-  const isAdmin = user?.role === 'super_admin' || user?.role === 'company_admin';
+  const isSuperAdmin = user?.role === 'super_admin';
+  const isCompanyAdmin = user?.role === 'company_admin';
+  const isDeptManager = user?.role === 'department_manager';
+  const isAdmin = isSuperAdmin || isCompanyAdmin;
+  // 부서 콤보박스를 사용할 수 있는 역할 (전체부서 선택 가능)
+  const canPickDept = isAdmin;
+  // 회사 콤보박스 (super_admin만)
+  const canPickCompany = isSuperAdmin;
+
+  // 회사 목록 (super_admin 전용)
+  useEffect(() => {
+    if (!isSuperAdmin || !user?.id) return;
+    (async () => {
+      try {
+        const result = await window.electronAPI.companies.getAll(user.id);
+        if (result.success && result.companies) {
+          setCompanies(result.companies.map((c: any) => ({ id: c.id, name: c.name })));
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+  }, [isSuperAdmin, user?.id]);
+
+  // 권한별 기본 필터: employee만 자기 부서 고정, dept_manager/admin은 전체
+  useEffect(() => {
+    if (!isAdmin && !isDeptManager && user?.department_id) {
+      // employee: 자기 부서 고정
+      setFilterDepartment(user.department_id);
+    } else {
+      // dept_manager/admin: 전체 (부서 콤보로 필터 가능)
+      setFilterDepartment('all');
+    }
+  }, [user?.id, user?.department_id, isAdmin, isDeptManager]);
 
   useEffect(() => {
-    if (!isAdmin && user?.department_id) {
-      setFilterDepartment(user.department_id);
-    }
     loadAllEvents();
-  }, [user?.id, user?.department_id, isAdmin]);
+    // 회사/부서/사용자 변경 시 재조회
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, selectedCompanyId, filterDepartment, isAdmin]);
+
+  // 회사가 바뀌면 부서 필터를 '전체'로 초기화
+  useEffect(() => {
+    if (isAdmin) setFilterDepartment('all');
+  }, [selectedCompanyId, isAdmin]);
 
   const loadAllEvents = async () => {
     if (!user?.id) return;
@@ -92,32 +133,21 @@ const ContractCalendar: React.FC = () => {
     try {
       const allEvents: HREvent[] = [];
 
-      // 1. 생일 이벤트 로드
-      const usersResult = await window.electronAPI.users.getAll(user.id);
-      if (usersResult.success && usersResult.users) {
-        const currentYear = dayjs().year();
-        const birthdayEvents: HREvent[] = usersResult.users
-          .filter((u: any) => u.birth_date)
-          .map((u: any) => {
-            const birth = dayjs(u.birth_date);
-            const birthdayThisYear = birth.year(currentYear).format('YYYY-MM-DD');
-            return {
-              id: `birthday-${u.id}`,
-              date: birthdayThisYear,
-              type: 'birthday' as LeaveType,
-              employeeId: u.id,
-              employeeName: `[${u.department_name || '미배정'}] ${u.name} 생일`,
-              departmentId: u.department_id || '',
-              departmentName: u.department_name || '미배정',
-              description: '생일 축하합니다!',
-              status: 'approved' as const,
-            };
-          });
-        allEvents.push(...birthdayEvents);
-      }
+      // super_admin은 선택된 회사, 그 외는 자기 회사 컨텍스트
+      const effectiveCompanyId = isSuperAdmin
+        ? selectedCompanyId || undefined
+        : user.company_id;
+
+      // 1. 생일 이벤트 — 이사회 의견 반영하여 표시 제거 (2026-05-15)
+      //    필요 시 settings에 birthday_enabled 플래그를 두고 토글하도록 확장 가능
 
       // 2. 연차/휴가 이벤트 로드 (승인된 것 + 대기 중인 것)
-      const leaveResult = await window.electronAPI.leave.getAllRequests(user.id, {});
+      const leaveFilters: any = { calendarMode: true };
+      if (isSuperAdmin && selectedCompanyId) leaveFilters.company_id = selectedCompanyId;
+      if (isAdmin && filterDepartment && filterDepartment !== 'all') {
+        leaveFilters.department_id = filterDepartment;
+      }
+      const leaveResult = await window.electronAPI.leave.getAllRequests(user.id, leaveFilters);
       if (leaveResult.success && leaveResult.requests) {
         const leaveEvents: HREvent[] = leaveResult.requests
           .filter((r: any) => r.status !== 'rejected' && r.status !== 'cancelled')
@@ -228,25 +258,29 @@ const ContractCalendar: React.FC = () => {
     return event.date === today.format('YYYY-MM-DD');
   });
 
-  // 부서 목록 로드
+  // 부서 목록 로드 (선택된 회사 기준)
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   useEffect(() => {
     const loadDepartments = async () => {
+      if (!user?.id) return;
       try {
-        const result = await window.electronAPI.departments.getAll(user?.id || '');
+        const companyFilter = isSuperAdmin
+          ? selectedCompanyId || undefined
+          : user.company_id;
+        const result = await (window as any).electronAPI.departments.getAll(user.id, companyFilter);
         if (result.success && result.departments) {
           const deptList = [
-            ...(isAdmin ? [{ id: 'all', name: '전체 부서' }] : []),
+            ...(canPickDept ? [{ id: 'all', name: '전체 부서' }] : []),
             ...result.departments.map((d: any) => ({ id: d.id, name: d.name })),
           ];
           setDepartments(deptList);
         }
       } catch (e) {
-        setDepartments(isAdmin ? [{ id: 'all', name: '전체 부서' }] : []);
+        setDepartments(canPickDept ? [{ id: 'all', name: '전체 부서' }] : []);
       }
     };
     loadDepartments();
-  }, [isAdmin]);
+  }, [user?.id, isSuperAdmin, selectedCompanyId, canPickDept]);
 
   return (
     <Spin spinning={loading}>
@@ -257,11 +291,32 @@ const ContractCalendar: React.FC = () => {
             인사 캘린더
           </Title>
           <Space>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/hr/leave')}>
+              내 상태 (연차·출장·재택)
+            </Button>
+            {canPickCompany && (
+              <Select
+                value={selectedCompanyId || 'all'}
+                onChange={(v) => {
+                  if (v === 'all') {
+                    setSelectedCompany(null, null);
+                  } else {
+                    const c = companies.find((x) => x.id === v);
+                    setSelectedCompany(v, c?.name || null);
+                  }
+                }}
+                style={{ width: 180 }}
+                options={[
+                  { value: 'all', label: '전체 회사' },
+                  ...companies.map((c) => ({ value: c.id, label: c.name })),
+                ]}
+              />
+            )}
             <Select
               value={filterDepartment}
               onChange={setFilterDepartment}
-              style={{ width: 150 }}
-              disabled={!isAdmin}
+              style={{ width: 160 }}
+              disabled={!canPickDept}
               options={departments.map((d) => ({ value: d.id, label: d.name }))}
             />
             <Select
@@ -367,6 +422,7 @@ const ContractCalendar: React.FC = () => {
           }
           open={modalVisible}
           onCancel={() => setModalVisible(false)}
+          destroyOnClose
           footer={[
             <Button key="close" onClick={() => setModalVisible(false)}>
               닫기
@@ -414,4 +470,4 @@ const ContractCalendar: React.FC = () => {
   );
 };
 
-export default ContractCalendar;
+export default HRCalendar;

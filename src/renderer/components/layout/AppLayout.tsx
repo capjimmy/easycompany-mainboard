@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Layout, Menu, Avatar, Dropdown, Button, Space, Typography, Badge, Drawer, Descriptions, Divider, Table, Tag, List, Popover, Empty, Progress, message, Modal, Result, Select } from 'antd';
+import { Layout, Menu, Avatar, Dropdown, Button, Space, Typography, Badge, Drawer, Descriptions, Divider, Table, Tag, List, Popover, Empty, Progress, message, Modal, Result, Select, Tooltip } from 'antd';
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -49,13 +49,18 @@ import {
   SafetyCertificateOutlined,
   FundProjectionScreenOutlined,
   SyncOutlined,
+  QuestionCircleOutlined,
+  EditOutlined,
+  HolderOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 
 import { useAuthStore } from '../../store/authStore';
 import { useThemeStore } from '../../store/themeStore';
-import { MENU_STRUCTURE } from '../../../shared/constants/menu';
+import { MENU_STRUCTURE, DEFAULT_PERMISSIONS } from '../../../shared/constants/menu';
 import type { MenuItem as MenuItemType } from '../../../shared/types';
+import MenuReorderModal from '../MenuReorderModal';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -93,14 +98,22 @@ const iconMap: Record<string, React.ReactNode> = {
   EnvironmentOutlined: <EnvironmentOutlined />,
   RobotOutlined: <RobotOutlined />,
   MessageOutlined: <MessageOutlined />,
+  IdcardOutlined: <IdcardOutlined />,
   SafetyCertificateOutlined: <SafetyCertificateOutlined />,
   FundProjectionScreenOutlined: <FundProjectionScreenOutlined />,
+  QuestionCircleOutlined: <QuestionCircleOutlined />,
 };
 
 const AppLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
+  const [menuReorderOpen, setMenuReorderOpen] = useState(false);
+  // 사이드바 드래그앤드롭 편집 모드
+  const [isMenuEditing, setIsMenuEditing] = useState(false);
+  const [tempMenuOrder, setTempMenuOrder] = useState<string[]>([]);
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [leaveInfo, setLeaveInfo] = useState<{ total: number; used: number; remaining: number } | null>(null);
   const [isMaximized, setIsMaximized] = useState(true);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -118,6 +131,13 @@ const AppLayout: React.FC = () => {
   // 회사 전환 (총괄관리자용)
   const [companyList, setCompanyList] = useState<any[]>([]);
   const { selectedCompanyId, selectedCompanyName, setSelectedCompany } = useAuthStore();
+  // 매뉴얼 모달
+  const [manualVisible, setManualVisible] = useState(false);
+  const [manualHtml, setManualHtml] = useState('');
+  const [manualTitle, setManualTitle] = useState('매뉴얼');
+  const [manualMenus, setManualMenus] = useState<{ key: string; label: string; group: string }[]>([]);
+  const [selectedManualKey, setSelectedManualKey] = useState<string>('');
+  const [manualCache, setManualCache] = useState<Record<string, { title: string; content: string }>>({});
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -125,20 +145,49 @@ const AppLayout: React.FC = () => {
   const { user, logout } = useAuthStore();
   const { isDark, toggle } = useThemeStore();
 
-  // 총괄관리자: 회사 목록 로드
+  // 회사 목록 로드 (총괄관리자 또는 다중 회사 소속자)
   useEffect(() => {
-    if (user?.role === 'super_admin' && user?.id) {
+    if (!user?.id) return;
+    if (user.role === 'super_admin') {
+      // 슈퍼관리자: 모든 회사
       window.electronAPI.companies.getAll(user.id).then((result: any) => {
         if (result.success) {
           setCompanyList(result.companies || []);
-          // 선택된 회사가 없으면 '전체' 모드
-          if (!selectedCompanyId) {
-            setSelectedCompany(null, '전체');
-          }
+          if (!selectedCompanyId) setSelectedCompany(null, '전체');
+        }
+      }).catch(() => {});
+    } else {
+      // 일반 사용자: user_companies에서 소속 회사 로드
+      (window as any).electronAPI.users.getUserCompanies(user.id).then((result: any) => {
+        if (result.success && result.data && result.data.length > 1) {
+          // 다중 회사 소속 → 회사 목록 로드
+          window.electronAPI.companies.getAll(user.id).then((cResult: any) => {
+            if (cResult.success) {
+              const myCompanyIds = new Set(result.data.map((uc: any) => uc.company_id));
+              const myCompanies = (cResult.companies || []).filter((c: any) => myCompanyIds.has(c.id));
+              setCompanyList(myCompanies);
+              if (!selectedCompanyId && user.company_id) {
+                const primary = myCompanies.find((c: any) => c.id === user.company_id);
+                setSelectedCompany(user.company_id, primary?.name || '');
+              }
+            }
+          }).catch(() => {});
         }
       }).catch(() => {});
     }
   }, [user?.id, user?.role]);
+
+  // 단축키: Ctrl+F5 → 홈(대시보드)으로 이동
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 'F5') {
+        e.preventDefault();
+        navigate('/dashboard');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [navigate]);
 
   // 앱 시작 시 버전 조회 및 업데이트 확인
   useEffect(() => {
@@ -262,6 +311,112 @@ const AppLayout: React.FC = () => {
     fetchNotifications();
   };
 
+  // 현재 경로에서 메뉴 키 찾기
+  const getCurrentMenuKey = (): { key: string; label: string } | null => {
+    const path = location.pathname;
+    for (const group of MENU_STRUCTURE) {
+      if (group.path === path) return { key: group.key, label: group.label };
+      if (group.children) {
+        for (const child of group.children) {
+          if (child.path === path) return { key: child.key, label: child.label };
+        }
+      }
+    }
+    return null;
+  };
+
+  // 사용자가 접근 가능한 메뉴 목록 (매뉴얼용)
+  const getAccessibleMenus = () => {
+    const menus: { key: string; label: string; group: string }[] = [];
+    for (const group of MENU_STRUCTURE) {
+      // 역할 기반 필터링
+      if (group.roles && user && !group.roles.includes(user.role)) continue;
+
+      if (group.children) {
+        for (const child of group.children) {
+          // 역할 기반 필터링
+          if (child.roles && user && !child.roles.includes(user.role)) continue;
+          // per-user 권한 필터링
+          const perm = effectivePermissions[child.key];
+          if (perm && !perm.view) continue;
+          menus.push({ key: child.key, label: child.label, group: group.label });
+        }
+      }
+    }
+    return menus;
+  };
+
+  // 매뉴얼 열기 (접근 가능한 전체 메뉴 목록 + 현재 메뉴 선택)
+  const handleOpenManual = async () => {
+    const accessibleMenus = getAccessibleMenus();
+    setManualMenus(accessibleMenus);
+
+    // 현재 메뉴 키 찾기
+    const currentMenu = getCurrentMenuKey();
+    const initialKey = currentMenu?.key || (accessibleMenus.length > 0 ? accessibleMenus[0].key : '');
+    setSelectedManualKey(initialKey);
+
+    // 모든 매뉴얼을 미리 로드
+    const cache: Record<string, { title: string; content: string }> = {};
+    let cid = selectedCompanyId || user?.company_id;
+    // super_admin이 '전체' 모드일 때 기본 회사 ID 사용
+    if (!cid) {
+      cid = 'a0000000-0000-0000-0000-000000000001';
+    }
+    if (cid) {
+      try {
+        const result = await (window as any).electronAPI.menuManuals.getAll(user?.id, cid);
+        if (result.success && result.manuals) {
+          for (const m of result.manuals) {
+            cache[m.menu_key] = { title: m.title, content: m.content };
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    setManualCache(cache);
+
+    // 선택된 메뉴의 매뉴얼 표시
+    if (initialKey && cache[initialKey]) {
+      setManualTitle(cache[initialKey].title);
+      setManualHtml(cache[initialKey].content);
+    } else {
+      const label = accessibleMenus.find(m => m.key === initialKey)?.label || '';
+      setManualTitle(`${label} 매뉴얼`);
+      setManualHtml(`
+        <div style="padding: 40px; text-align: center; color: #888;">
+          <h2 style="margin-bottom: 16px;">매뉴얼 준비 중</h2>
+          <p style="font-size: 15px; line-height: 1.8;">
+            <strong>${label}</strong> 메뉴에 대한 매뉴얼이 아직 등록되지 않았습니다.
+          </p>
+        </div>
+      `);
+    }
+
+    setManualVisible(true);
+  };
+
+  // 매뉴얼에서 메뉴 선택 변경
+  const handleManualMenuSelect = (menuKey: string) => {
+    setSelectedManualKey(menuKey);
+    const menu = manualMenus.find(m => m.key === menuKey);
+    const label = menu?.label || '';
+
+    if (manualCache[menuKey]) {
+      setManualTitle(manualCache[menuKey].title);
+      setManualHtml(manualCache[menuKey].content);
+    } else {
+      setManualTitle(`${label} 매뉴얼`);
+      setManualHtml(`
+        <div style="padding: 40px; text-align: center; color: #888;">
+          <h2 style="margin-bottom: 16px;">매뉴얼 준비 중</h2>
+          <p style="font-size: 15px; line-height: 1.8;">
+            <strong>${label}</strong> 메뉴에 대한 매뉴얼이 아직 등록되지 않았습니다.
+          </p>
+        </div>
+      `);
+    }
+  };
+
   // 창 제어
   const handleMinimize = () => window.electronAPI.window.minimize();
   const handleMaximize = async () => {
@@ -271,14 +426,60 @@ const AppLayout: React.FC = () => {
   };
   const handleClose = () => window.electronAPI.window.close();
 
+  // 사용자의 유효 권한 계산 (per-user 권한 > 역할 기본 권한)
+  const getUserPermissions = () => {
+    if (!user) return {};
+    // per-user 권한이 있으면 사용, 없으면 역할 기본 권한 사용
+    if (user.permissions && Object.keys(user.permissions).length > 0) {
+      return user.permissions;
+    }
+    return (DEFAULT_PERMISSIONS as any)[user.role] || DEFAULT_PERMISSIONS.employee;
+  };
+
+  const effectivePermissions = getUserPermissions();
+
   // 메뉴 아이템 빌드
+  // 사용자 정의 권한 모드: menu_permissions에 row가 1건이라도 있으면 true
+  // → 명시되지 않은 메뉴는 숨김 (super_admin은 항상 모두 표시)
+  const isCustomized = !!(user as any)?.permissionsCustomized && user?.role !== 'super_admin';
+
   const buildMenuItems = (items: MenuItemType[]): any[] => {
     return items
       .filter((item) => {
-        // 역할 기반 필터링
-        if (item.roles && user) {
-          return item.roles.includes(user.role);
+        if (!user) return false;
+
+        // 1. 역할 기반 필터링 (MENU_STRUCTURE에 roles가 지정된 경우)
+        if (item.roles && !item.roles.includes(user.role)) {
+          return false;
         }
+
+        // 2. per-user 권한 필터링 (leaf 메뉴 아이템만 - key로 확인)
+        //    부모 메뉴(children이 있는)는 자식이 있으면 표시
+        if (item.children) {
+          // 부모 메뉴: 표시 가능한 자식이 하나라도 있는지 확인
+          const visibleChildren = item.children.filter((child) => {
+            if (child.roles && !child.roles.includes(user.role)) return false;
+            const perm = effectivePermissions[child.key];
+            if (isCustomized) {
+              // 사용자 정의 권한: 명시적으로 view=true 인 메뉴만 표시
+              return !!perm?.view;
+            }
+            // 기본: perm 명시 + view=false 만 숨김
+            if (perm && !perm.view) return false;
+            return true;
+          });
+          return visibleChildren.length > 0;
+        }
+
+        // leaf 아이템
+        const perm = effectivePermissions[item.key];
+        if (isCustomized) {
+          return !!perm?.view;
+        }
+        if (perm && !perm.view) {
+          return false;
+        }
+
         return true;
       })
       .map((item) => ({
@@ -289,7 +490,83 @@ const AppLayout: React.FC = () => {
       }));
   };
 
-  const menuItems = buildMenuItems(MENU_STRUCTURE);
+  // 사용자별 메뉴 순서 적용 (저장된 순서가 있으면 그대로, 모르는 키는 끝에)
+  const orderedMenuStructure = React.useMemo(() => {
+    const userOrder = (user as any)?.menu_order;
+    if (!Array.isArray(userOrder) || userOrder.length === 0) return MENU_STRUCTURE;
+    const byKey: Record<string, any> = {};
+    MENU_STRUCTURE.forEach((g) => { byKey[g.key] = g; });
+    const ordered: any[] = [];
+    for (const k of userOrder) {
+      if (byKey[k]) {
+        ordered.push(byKey[k]);
+        delete byKey[k];
+      }
+    }
+    // 사용자 순서에 없는 그룹은 원본 순서대로 뒤에 붙임
+    for (const g of MENU_STRUCTURE) if (byKey[g.key]) ordered.push(g);
+    return ordered;
+  }, [user]);
+
+  const menuItems = buildMenuItems(orderedMenuStructure as any);
+
+  // ===== 사이드바 드래그앤드롭 메뉴 순서 편집 =====
+  const enterMenuEdit = () => {
+    setTempMenuOrder(orderedMenuStructure.map((g: any) => g.key));
+    setIsMenuEditing(true);
+  };
+  const cancelMenuEdit = () => {
+    setIsMenuEditing(false);
+    setDragKey(null);
+  };
+  const saveMenuOrder = async () => {
+    if (!user?.id) return;
+    try {
+      const res = await (window as any).electronAPI.users.updateMenuOrder(user.id, tempMenuOrder);
+      if (res?.success) {
+        const { updateUserMenuOrder } = useAuthStore.getState() as any;
+        if (typeof updateUserMenuOrder === 'function') updateUserMenuOrder(tempMenuOrder);
+        message.success('메뉴 순서가 저장되었습니다.');
+        setIsMenuEditing(false);
+      } else {
+        message.error(res?.error || '저장 실패');
+      }
+    } catch (err: any) {
+      message.error(err?.message || '저장 중 오류');
+    }
+  };
+  const resetMenuOrder = async () => {
+    if (!user?.id) return;
+    try {
+      const res = await (window as any).electronAPI.users.updateMenuOrder(user.id, null);
+      if (res?.success) {
+        const { updateUserMenuOrder } = useAuthStore.getState() as any;
+        if (typeof updateUserMenuOrder === 'function') updateUserMenuOrder(null);
+        message.success('기본 순서로 초기화되었습니다.');
+        setIsMenuEditing(false);
+      } else {
+        message.error(res?.error || '초기화 실패');
+      }
+    } catch (err: any) {
+      message.error(err?.message || '초기화 중 오류');
+    }
+  };
+  const handleDragStart = (key: string) => (e: React.DragEvent) => {
+    setDragKey(key);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  const handleDragOver = (overKey: string) => (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!dragKey || dragKey === overKey) return;
+    const next = [...tempMenuOrder];
+    const fromIdx = next.indexOf(dragKey);
+    const toIdx = next.indexOf(overKey);
+    if (fromIdx < 0 || toIdx < 0) return;
+    next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, dragKey);
+    setTempMenuOrder(next);
+  };
+  const handleDragEnd = () => setDragKey(null);
 
   // 사용자 드롭다운 메뉴
   const userMenuItems = [
@@ -297,13 +574,28 @@ const AppLayout: React.FC = () => {
       key: 'profile',
       icon: <IdcardOutlined />,
       label: '내 정보',
-      onClick: () => setProfileDrawerOpen(true),
+      onClick: async () => {
+        setProfileDrawerOpen(true);
+        // 연차 정보 로드
+        if (user?.id) {
+          try {
+            const result = await (window as any).electronAPI.leave.calculateAnnual(user.id);
+            if (result.success) setLeaveInfo(result.data);
+          } catch (_) {}
+        }
+      },
     },
     {
       key: 'settings',
       icon: <SettingOutlined />,
       label: '설정',
       onClick: () => navigate('/settings'),
+    },
+    {
+      key: 'menu-reorder',
+      icon: <AppstoreOutlined />,
+      label: '메뉴 순서 변경',
+      onClick: () => setMenuReorderOpen(true),
     },
     { type: 'divider' as const },
     {
@@ -381,7 +673,7 @@ const AppLayout: React.FC = () => {
                 </div>
                 {!collapsed && (
                   <div style={{ marginLeft: 12, flex: 1, minWidth: 0 }}>
-                    {user?.role === 'super_admin' ? (
+                    {(user?.role === 'super_admin' || companyList.length > 1) ? (
                       <Select
                         value={selectedCompanyId || 'all'}
                         onChange={(value) => {
@@ -401,7 +693,7 @@ const AppLayout: React.FC = () => {
                         dropdownStyle={{ minWidth: 200 }}
                         size="small"
                       >
-                        <Select.Option value="all">전체 (총괄)</Select.Option>
+                        {user?.role === 'super_admin' && <Select.Option value="all">전체 (총괄)</Select.Option>}
                         {companyList.map((c: any) => (
                           <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>
                         ))}
@@ -429,25 +721,98 @@ const AppLayout: React.FC = () => {
           })()}
         </div>
 
+        {/* 메뉴 영역 헤더 (편집 토글) — collapsed가 아닐 때만 */}
+        {!collapsed && (
+          <div
+            style={{
+              padding: '6px 12px',
+              borderBottom: `1px solid ${isDark ? '#262626' : '#f5f5f5'}`,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              fontSize: 11,
+              color: isDark ? '#888' : '#999',
+            }}
+          >
+            <span>{isMenuEditing ? '드래그하여 순서 변경' : '메뉴'}</span>
+            {isMenuEditing ? (
+              <Space size={4}>
+                <Tooltip title="기본값 복원">
+                  <Button size="small" type="text" icon={<ReloadOutlined />} onClick={resetMenuOrder} />
+                </Tooltip>
+                <Button size="small" type="text" onClick={cancelMenuEdit}>취소</Button>
+                <Button size="small" type="primary" onClick={saveMenuOrder}>저장</Button>
+              </Space>
+            ) : (
+              <Tooltip title="메뉴 순서 편집">
+                <Button size="small" type="text" icon={<EditOutlined />} onClick={enterMenuEdit} />
+              </Tooltip>
+            )}
+          </div>
+        )}
+
         {/* 메뉴 - 스크롤 가능 */}
         <div
           style={{
-            height: 'calc(100vh - 64px)',
+            height: `calc(100vh - 64px${!collapsed ? ' - 36px' : ''})`,
             overflowY: 'auto',
             overflowX: 'hidden',
           }}
         >
-          <Menu
-            mode="inline"
-            selectedKeys={[location.pathname]}
-            defaultOpenKeys={['home', 'contracts', 'calendar', 'communication', 'project', 'admin', 'system']}
-            items={menuItems}
-            onClick={({ key }) => navigate(key)}
-            style={{
-              border: 'none',
-              background: 'transparent',
-            }}
-          />
+          {isMenuEditing ? (
+            <div style={{ padding: 8 }}>
+              {tempMenuOrder.map((key) => {
+                const g = orderedMenuStructure.find((x: any) => x.key === key);
+                if (!g) return null;
+                // 권한 체크 (편집 모드에서도 권한 없는 그룹은 표시 안함)
+                if ((g as any).roles && user && !(g as any).roles.includes(user.role)) return null;
+                const isDragging = dragKey === key;
+                return (
+                  <div
+                    key={key}
+                    draggable
+                    onDragStart={handleDragStart(key)}
+                    onDragOver={handleDragOver(key)}
+                    onDragEnd={handleDragEnd}
+                    onDrop={(e) => { e.preventDefault(); handleDragEnd(); }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '10px 12px',
+                      marginBottom: 4,
+                      border: `1px dashed ${isDark ? '#444' : '#d9d9d9'}`,
+                      borderRadius: 6,
+                      background: isDragging ? (isDark ? '#1a3a5a' : '#e6f7ff') : (isDark ? '#1a1a1a' : '#fafafa'),
+                      cursor: 'grab',
+                      userSelect: 'none',
+                      opacity: isDragging ? 0.6 : 1,
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <HolderOutlined style={{ color: '#bbb', cursor: 'grab' }} />
+                    {iconMap[(g as any).icon]}
+                    <span style={{ flex: 1, fontWeight: 500 }}>{(g as any).label}</span>
+                  </div>
+                );
+              })}
+              <div style={{ marginTop: 12, padding: '0 4px', fontSize: 11, color: '#999' }}>
+                💡 항목을 잡고 위/아래로 끌어 순서를 바꾼 뒤 저장하세요.
+              </div>
+            </div>
+          ) : (
+            <Menu
+              mode="inline"
+              selectedKeys={[location.pathname]}
+              defaultOpenKeys={['home', 'contracts', 'finance', 'hr', 'calendar', 'communication', 'project', 'admin', 'system']}
+              items={menuItems}
+              onClick={({ key }) => navigate(key)}
+              style={{
+                border: 'none',
+                background: 'transparent',
+              }}
+            />
+          )}
         </div>
       </Sider>
 
@@ -574,28 +939,32 @@ const AppLayout: React.FC = () => {
               </Dropdown>
             </Space>
 
-            {/* 창 컨트롤 - Windows 11 스타일 */}
+            {/* 창 컨트롤 - 모던 스타일 */}
             <div className="window-controls">
+              <button className="window-btn manual-btn" onClick={handleOpenManual} title="매뉴얼">
+                <span style={{ fontSize: 11, fontWeight: 500, letterSpacing: 0.5 }}>매뉴얼</span>
+              </button>
               <button className="window-btn" onClick={handleMinimize} title="최소화">
-                <svg width="10" height="1" viewBox="0 0 10 1" fill="currentColor">
-                  <rect width="10" height="1" />
+                <svg width="12" height="12" viewBox="0 0 12 12">
+                  <line x1="2.5" y1="6" x2="9.5" y2="6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
                 </svg>
               </button>
               <button className="window-btn" onClick={handleMaximize} title={isMaximized ? '이전 크기로 복원' : '최대화'}>
                 {isMaximized ? (
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
-                    <rect x="1.5" y="3" width="6.5" height="6.5" />
-                    <polyline points="3,3 3,0.5 9.5,0.5 9.5,7 7.5,7" />
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <rect x="2" y="3.5" width="6" height="6" rx="1.2" stroke="currentColor" strokeWidth="1.1" />
+                    <path d="M4 3.5V2.8A1.2 1.2 0 015.2 1.6h3A1.2 1.2 0 019.4 2.8v3A1.2 1.2 0 018.2 7H7.5" stroke="currentColor" strokeWidth="1.1" />
                   </svg>
                 ) : (
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
-                    <rect x="0.5" y="0.5" width="9" height="9" />
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <rect x="2" y="2" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
                   </svg>
                 )}
               </button>
               <button className="window-btn close-btn" onClick={handleClose} title="닫기">
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
-                  <path d="M1.05 0.34L0.34 1.05 3.79 4.5 0.34 7.95 1.05 8.66 4.5 5.21 7.95 8.66 8.66 7.95 5.21 4.5 8.66 1.05 7.95 0.34 4.5 3.79Z" />
+                <svg width="12" height="12" viewBox="0 0 12 12">
+                  <line x1="2.75" y1="2.75" x2="9.25" y2="9.25" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                  <line x1="9.25" y1="2.75" x2="2.75" y2="9.25" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
                 </svg>
               </button>
             </div>
@@ -730,6 +1099,37 @@ const AppLayout: React.FC = () => {
           </Descriptions.Item>
         </Descriptions>
 
+        {/* 연차 정보 */}
+        {leaveInfo && (
+          <div style={{
+            marginBottom: 20,
+            padding: 16,
+            background: 'linear-gradient(135deg, #f0f5ff 0%, #e6f7ff 100%)',
+            borderRadius: 8,
+            border: '1px solid #d6e4ff',
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: '#1890ff' }}>
+              📅 내 연차 현황 ({new Date().getFullYear()}년)
+            </div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ flex: 1, textAlign: 'center', padding: '8px 0', background: 'white', borderRadius: 6 }}>
+                <div style={{ fontSize: 11, color: '#888' }}>총 연차</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#1890ff' }}>{leaveInfo.total}<span style={{ fontSize: 12, marginLeft: 2 }}>일</span></div>
+              </div>
+              <div style={{ flex: 1, textAlign: 'center', padding: '8px 0', background: 'white', borderRadius: 6 }}>
+                <div style={{ fontSize: 11, color: '#888' }}>사용</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#fa8c16' }}>{leaveInfo.used}<span style={{ fontSize: 12, marginLeft: 2 }}>일</span></div>
+              </div>
+              <div style={{ flex: 1, textAlign: 'center', padding: '8px 0', background: 'white', borderRadius: 6 }}>
+                <div style={{ fontSize: 11, color: '#888' }}>잔여</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: leaveInfo.remaining <= 3 ? '#cf1322' : '#52c41a' }}>
+                  {leaveInfo.remaining}<span style={{ fontSize: 12, marginLeft: 2 }}>일</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 학력 */}
         {user?.education && user.education.length > 0 && (
           <>
@@ -787,7 +1187,7 @@ const AppLayout: React.FC = () => {
 
         <Divider />
 
-        {/* 하단 버튼 */}
+        {/* 하단 버튼 — 개인 메뉴 (증명서/지출결의서/연차/운행) */}
         <Space direction="vertical" style={{ width: '100%' }}>
           <Button
             block
@@ -801,6 +1201,37 @@ const AppLayout: React.FC = () => {
           </Button>
           <Button
             block
+            icon={<FormOutlined />}
+            onClick={() => {
+              setProfileDrawerOpen(false);
+              navigate('/finance/expense-request');
+            }}
+          >
+            지출결의서
+          </Button>
+          <Button
+            block
+            icon={<CalendarOutlined />}
+            onClick={() => {
+              setProfileDrawerOpen(false);
+              navigate('/hr/leave');
+            }}
+          >
+            연차 신청
+          </Button>
+          <Button
+            block
+            icon={<CarOutlined />}
+            onClick={() => {
+              setProfileDrawerOpen(false);
+              navigate('/hr/vehicle-logs');
+            }}
+          >
+            운행일지
+          </Button>
+          <Divider style={{ margin: '8px 0' }} />
+          <Button
+            block
             icon={<SettingOutlined />}
             onClick={() => {
               setProfileDrawerOpen(false);
@@ -811,6 +1242,83 @@ const AppLayout: React.FC = () => {
           </Button>
         </Space>
       </Drawer>
+
+      {/* 매뉴얼 모달 - 좌측 메뉴 목록 + 우측 콘텐츠 */}
+      <Modal
+        title="매뉴얼"
+        open={manualVisible}
+        onCancel={() => { setManualVisible(false); setManualHtml(''); }}
+        footer={null}
+        width="85vw"
+        style={{ top: 20 }}
+        styles={{ body: { height: '80vh', overflow: 'hidden', padding: 0 } }}
+        destroyOnClose
+      >
+        <div style={{ display: 'flex', height: '100%' }}>
+          {/* 좌측 메뉴 목록 */}
+          <div style={{
+            width: 240,
+            minWidth: 240,
+            borderRight: `1px solid ${isDark ? '#303030' : '#f0f0f0'}`,
+            overflowY: 'auto',
+            background: isDark ? '#141414' : '#fafafa',
+          }}>
+            {(() => {
+              let currentGroup = '';
+              return manualMenus.map((menu) => {
+                const showGroup = menu.group !== currentGroup;
+                currentGroup = menu.group;
+                const hasManual = !!manualCache[menu.key];
+                return (
+                  <React.Fragment key={menu.key}>
+                    {showGroup && (
+                      <div style={{
+                        padding: '10px 16px 4px',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: '#999',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                      }}>
+                        {menu.group}
+                      </div>
+                    )}
+                    <div
+                      onClick={() => handleManualMenuSelect(menu.key)}
+                      style={{
+                        padding: '8px 16px',
+                        cursor: 'pointer',
+                        background: selectedManualKey === menu.key
+                          ? (isDark ? '#177ddc33' : '#e6f7ff')
+                          : 'transparent',
+                        borderRight: selectedManualKey === menu.key ? '3px solid #1890ff' : '3px solid transparent',
+                        fontSize: 13,
+                        color: hasManual
+                          ? (isDark ? '#fff' : '#333')
+                          : (isDark ? '#666' : '#aaa'),
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <span>{menu.label}</span>
+                      {hasManual && <span style={{ color: '#52c41a', fontSize: 10 }}>●</span>}
+                    </div>
+                  </React.Fragment>
+                );
+              });
+            })()}
+          </div>
+
+          {/* 우측 콘텐츠 */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: 0 }}>
+            <div
+              dangerouslySetInnerHTML={{ __html: manualHtml }}
+              style={{ width: '100%', minHeight: '100%', padding: 16 }}
+            />
+          </div>
+        </div>
+      </Modal>
 
       {/* 강제 업데이트 모달 - 닫을 수 없음 */}
       <Modal
@@ -854,6 +1362,12 @@ const AppLayout: React.FC = () => {
           )}
         </Result>
       </Modal>
+
+      {/* 메뉴 순서 변경 모달 */}
+      <MenuReorderModal
+        open={menuReorderOpen}
+        onClose={() => setMenuReorderOpen(false)}
+      />
     </Layout>
   );
 };

@@ -17,6 +17,7 @@ interface AuthState {
   checkAuth: () => Promise<void>;
   clearError: () => void;
   setSelectedCompany: (companyId: string | null, companyName: string | null) => void;
+  updateUserMenuOrder: (menuOrder: string[] | null) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -31,6 +32,13 @@ export const useAuthStore = create<AuthState>()(
 
       setSelectedCompany: (companyId: string | null, companyName: string | null) => {
         set({ selectedCompanyId: companyId, selectedCompanyName: companyName });
+      },
+
+      // 본인 메뉴 순서 즉시 반영 (IPC 저장과 별개로 store만 갱신)
+      updateUserMenuOrder: (menuOrder: string[] | null) => {
+        const current = get().user;
+        if (!current) return;
+        set({ user: { ...current, menu_order: menuOrder } as any });
       },
 
       login: async (username: string, password: string) => {
@@ -81,6 +89,8 @@ export const useAuthStore = create<AuthState>()(
             selectedCompanyId: null,
             selectedCompanyName: null,
           });
+          // 모든 캐시 완전 클리어 (React state, zustand, 메모리 전부 초기화)
+          setTimeout(() => window.location.reload(), 100);
         }
       },
 

@@ -1,3 +1,4 @@
+import ResizableTable from '../../components/ResizableTable';
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -38,8 +39,9 @@ interface Department {
 }
 
 const DepartmentManagement: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, selectedCompanyId } = useAuthStore();
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
@@ -49,15 +51,17 @@ const DepartmentManagement: React.FC = () => {
     if (!user?.id) return;
     setLoading(true);
     try {
-      const result = await (window as any).electronAPI.departments.getAll(user.id);
-      if (result.success) {
-        setDepartments(result.departments || []);
-      } else {
-        message.error(result.error || '부서 목록을 불러올 수 없습니다.');
-      }
-    } catch (err) {
+      const filterCompanyId = user.role === 'super_admin' ? selectedCompanyId : undefined;
+      const [depResult, compResult] = await Promise.all([
+        (window as any).electronAPI.departments.getAll(user.id, filterCompanyId),
+        (window as any).electronAPI.companies.getAll(user.id),
+      ]);
+      if (depResult.success) setDepartments(depResult.departments || []);
+      else message.error(depResult.error || '부서 목록을 불러올 수 없습니다.');
+      if (compResult.success) setCompanies(compResult.companies || []);
+    } catch (err: any) {
       console.error('Failed to load departments:', err);
-      message.error('부서 목록 로드 실패');
+      message.error(err?.message || '부서 목록 로드 실패');
     } finally {
       setLoading(false);
     }
@@ -65,11 +69,14 @@ const DepartmentManagement: React.FC = () => {
 
   useEffect(() => {
     fetchDepartments();
-  }, [user?.id]);
+  }, [user?.id, selectedCompanyId]);
+
+  const defaultCompanyId = selectedCompanyId || user?.company_id || companies[0]?.id;
 
   const handleAdd = () => {
     setEditingDepartment(null);
     form.resetFields();
+    form.setFieldsValue({ company_id: defaultCompanyId });
     setModalVisible(true);
   };
 
@@ -89,8 +96,8 @@ const DepartmentManagement: React.FC = () => {
       } else {
         message.error(result.error || '삭제 실패');
       }
-    } catch (err) {
-      message.error('삭제 중 오류 발생');
+    } catch (err: any) {
+      message.error(err?.message || '삭제 중 오류 발생');
     }
   };
 
@@ -115,17 +122,18 @@ const DepartmentManagement: React.FC = () => {
         }
       }
       setModalVisible(false);
-    } catch (err) {
-      message.error('처리 중 오류 발생');
+    } catch (err: any) {
+      message.error(err?.message || '처리 중 오류 발생');
     }
   };
 
   const columns = [
     {
-      title: '부서코드',
-      dataIndex: 'code',
-      key: 'code',
-      width: 120,
+      title: '회사',
+      dataIndex: 'company_name',
+      key: 'company_name',
+      width: 160,
+      render: (v: string) => v || '-',
     },
     {
       title: '부서명',
@@ -185,7 +193,7 @@ const DepartmentManagement: React.FC = () => {
       </div>
 
       <Card>
-        <Table
+        <ResizableTable
           columns={columns}
           dataSource={departments}
           rowKey="id"
@@ -208,11 +216,18 @@ const DepartmentManagement: React.FC = () => {
           style={{ marginTop: 16 }}
         >
           <Form.Item
-            name="code"
-            label="부서 코드"
-            rules={[{ required: true, message: '부서 코드를 입력하세요' }]}
+            name="company_id"
+            label="소속 회사"
+            rules={[{ required: true, message: '회사를 선택하세요' }]}
           >
-            <Input placeholder="예: DEV, SALES" />
+            <Select
+              placeholder="회사 선택"
+              disabled={user?.role !== 'super_admin'}
+            >
+              {companies.map((c: any) => (
+                <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>
+              ))}
+            </Select>
           </Form.Item>
 
           <Form.Item
@@ -224,18 +239,10 @@ const DepartmentManagement: React.FC = () => {
           </Form.Item>
 
           <Form.Item
-            name="parent_id"
-            label="상위 부서"
+            name="description"
+            label="설명"
           >
-            <Select placeholder="상위 부서 선택 (선택사항)" allowClear>
-              {departments
-                .filter((d) => d.id !== editingDepartment?.id)
-                .map((d) => (
-                  <Select.Option key={d.id} value={d.id}>
-                    {d.name}
-                  </Select.Option>
-                ))}
-            </Select>
+            <Input placeholder="부서 설명 (선택사항)" />
           </Form.Item>
 
           <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>

@@ -27,6 +27,7 @@ import {
   EditOutlined,
   CheckOutlined,
   CloseOutlined,
+  UsergroupAddOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '../../store/authStore';
 
@@ -84,6 +85,13 @@ const MessengerPage: React.FC = () => {
   // 대화방 이름 변경
   const [isRenamingConv, setIsRenamingConv] = useState(false);
   const [renameText, setRenameText] = useState('');
+
+  // 멤버 관리 모달
+  const [membersModalOpen, setMembersModalOpen] = useState(false);
+  const [addMemberModalOpen, setAddMemberModalOpen] = useState(false);
+  const [addMemberCandidates, setAddMemberCandidates] = useState<any[]>([]);
+  const [addMemberSelectedIds, setAddMemberSelectedIds] = useState<string[]>([]);
+  const [addMemberSearch, setAddMemberSearch] = useState('');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -331,6 +339,53 @@ const MessengerPage: React.FC = () => {
     }
   };
 
+  // 멤버 관리: 모달 열기
+  const handleOpenMembers = () => {
+    setMembersModalOpen(true);
+  };
+
+  // 멤버 추가 모달 열기
+  const handleOpenAddMember = async () => {
+    if (!user?.id || !selectedConv) return;
+    try {
+      const result = await window.electronAPI.messenger.getUsers(user.id);
+      if (result.success) {
+        // 이미 참여중인 사람 제외
+        const existingIds = new Set(selectedConv.participants || []);
+        const candidates = (result.data as any[]).filter((u: any) => !existingIds.has(u.id));
+        setAddMemberCandidates(candidates);
+      }
+    } catch (err) {
+      console.error('Failed to load users:', err);
+    }
+    setAddMemberSelectedIds([]);
+    setAddMemberSearch('');
+    setAddMemberModalOpen(true);
+  };
+
+  // 멤버 추가 실행
+  const handleAddMembers = async () => {
+    if (!user?.id || !selectedConvId || addMemberSelectedIds.length === 0) return;
+    try {
+      const result = await window.electronAPI.messenger.addParticipants(
+        user.id,
+        selectedConvId,
+        addMemberSelectedIds
+      );
+      if (result.success) {
+        messageApi.success(`${result.data.added.length}명을 추가했습니다.`);
+        setAddMemberModalOpen(false);
+        setMembersModalOpen(false);
+        await loadConversations();
+        await loadMessages(selectedConvId);
+      } else {
+        messageApi.error(result.error || '멤버 추가 실패');
+      }
+    } catch (err) {
+      messageApi.error('멤버 추가 중 오류가 발생했습니다.');
+    }
+  };
+
   // 시간 포맷팅
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -540,16 +595,25 @@ const MessengerPage: React.FC = () => {
                   </Text>
                 </div>
               </Space>
-              {selectedConv.type === 'group' && (
-                <Tooltip title="대화방 나가기">
+              <Space>
+                <Tooltip title="멤버">
                   <Button
                     type="text"
-                    icon={<LogoutOutlined />}
-                    danger
-                    onClick={() => handleLeaveConversation(selectedConv.id)}
+                    icon={<TeamOutlined />}
+                    onClick={handleOpenMembers}
                   />
                 </Tooltip>
-              )}
+                {selectedConv.type === 'group' && (
+                  <Tooltip title="대화방 나가기">
+                    <Button
+                      type="text"
+                      icon={<LogoutOutlined />}
+                      danger
+                      onClick={() => handleLeaveConversation(selectedConv.id)}
+                    />
+                  </Tooltip>
+                )}
+              </Space>
             </div>
 
             {/* 메시지 목록 */}
@@ -689,6 +753,7 @@ const MessengerPage: React.FC = () => {
         okText="대화 시작"
         cancelText="취소"
         okButtonProps={{ disabled: selectedUserIds.length === 0 }}
+        destroyOnClose
       >
         {selectedUserIds.length > 1 && (
           <div style={{ marginBottom: 16 }}>
@@ -735,6 +800,100 @@ const MessengerPage: React.FC = () => {
                 : `${selectedUserIds.length}명과 그룹 대화가 생성됩니다`
               }
             </Text>
+          </div>
+        )}
+      </Modal>
+
+      {/* 멤버 목록 모달 */}
+      <Modal
+        title="대화방 멤버"
+        open={membersModalOpen}
+        onCancel={() => setMembersModalOpen(false)}
+        destroyOnClose
+        footer={[
+          <Button key="add" type="primary" icon={<UsergroupAddOutlined />} onClick={handleOpenAddMember}>
+            멤버 추가
+          </Button>,
+          <Button key="close" onClick={() => setMembersModalOpen(false)}>닫기</Button>,
+        ]}
+      >
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          총 {selectedConv?.participantNames?.length || 0}명
+        </Text>
+        <div style={{ marginTop: 8, maxHeight: 360, overflow: 'auto' }}>
+          <List
+            dataSource={selectedConv?.participantNames || []}
+            renderItem={(p: any) => (
+              <List.Item key={p.id}>
+                <Space>
+                  <Avatar size="small" icon={<UserOutlined />} style={{ background: '#1890ff' }} />
+                  <Text>{p.name}</Text>
+                  {p.id === user?.id && <Text type="secondary" style={{ fontSize: 11 }}>(나)</Text>}
+                </Space>
+              </List.Item>
+            )}
+          />
+        </div>
+      </Modal>
+
+      {/* 멤버 추가 모달 */}
+      <Modal
+        title="멤버 추가"
+        open={addMemberModalOpen}
+        onCancel={() => setAddMemberModalOpen(false)}
+        onOk={handleAddMembers}
+        okText="추가"
+        cancelText="취소"
+        okButtonProps={{ disabled: addMemberSelectedIds.length === 0 }}
+        destroyOnClose
+      >
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          추가된 사람은 추가 시점 이후의 메시지만 볼 수 있습니다.
+        </Text>
+        <Input
+          prefix={<SearchOutlined />}
+          placeholder="이름으로 검색..."
+          value={addMemberSearch}
+          onChange={(e) => setAddMemberSearch(e.target.value)}
+          allowClear
+          style={{ marginTop: 12, marginBottom: 8 }}
+        />
+        <div style={{ maxHeight: 360, overflow: 'auto' }}>
+          {addMemberCandidates.filter((u: any) =>
+            !addMemberSearch || u.name.toLowerCase().includes(addMemberSearch.toLowerCase())
+          ).length === 0 ? (
+            <Empty description="추가할 수 있는 사용자가 없습니다" />
+          ) : (
+            <Checkbox.Group
+              value={addMemberSelectedIds}
+              onChange={(values) => setAddMemberSelectedIds(values as string[])}
+              style={{ width: '100%' }}
+            >
+              <Space direction="vertical" style={{ width: '100%' }}>
+                {addMemberCandidates
+                  .filter((u: any) =>
+                    !addMemberSearch || u.name.toLowerCase().includes(addMemberSearch.toLowerCase())
+                  )
+                  .map((u: any) => (
+                    <Checkbox key={u.id} value={u.id} style={{ width: '100%' }}>
+                      <Space>
+                        <Avatar size="small" icon={<UserOutlined />} style={{ background: '#1890ff' }} />
+                        <Text>{u.name}</Text>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          {u.role === 'super_admin' ? '슈퍼관리자' :
+                            u.role === 'company_admin' ? '회사 관리자' :
+                              u.role === 'department_manager' ? '부서 관리자' : '사원'}
+                        </Text>
+                      </Space>
+                    </Checkbox>
+                  ))}
+              </Space>
+            </Checkbox.Group>
+          )}
+        </div>
+        {addMemberSelectedIds.length > 0 && (
+          <div style={{ marginTop: 12 }}>
+            <Text type="secondary">{addMemberSelectedIds.length}명 선택됨</Text>
           </div>
         )}
       </Modal>

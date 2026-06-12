@@ -44,9 +44,9 @@ export function registerMessengerHandlers(): void {
       const conversations = await db.getConversationsByUserId(requesterId);
 
       // 각 대화방의 마지막 메시지, 안 읽은 수 계산
-      const enriched = [];
+      const enriched: any[] = [];
       for (const conv of conversations) {
-        const messages = await db.getMessagesByConversationId(conv.id);
+        const messages = await db.getMessagesByConversationIdForUser(conv.id, requesterId);
         const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
 
         // 안 읽은 메시지 수 계산
@@ -60,7 +60,7 @@ export function registerMessengerHandlers(): void {
         }
 
         // 참여자 이름 조회
-        const participantNames = [];
+        const participantNames: any[] = [];
         for (const pid of (conv.participants || [])) {
           const u = await db.getUserById(pid);
           participantNames.push(u ? { id: u.id, name: u.name, role: u.role } : { id: pid, name: '(탈퇴)', role: 'employee' });
@@ -128,7 +128,7 @@ export function registerMessengerHandlers(): void {
           const other = otherId ? await db.getUserById(otherId) : null;
           title = other ? other.name : '대화';
         } else {
-          const names = [];
+          const names: string[] = [];
           for (const pid of participants) {
             const u = await db.getUserById(pid);
             names.push(u ? u.name : '(탈퇴)');
@@ -137,14 +137,20 @@ export function registerMessengerHandlers(): void {
         }
       }
 
+      const nowIso = new Date().toISOString();
+      const participantJoinedAt: Record<string, string> = {};
+      for (const pid of participants) {
+        participantJoinedAt[pid] = nowIso;
+      }
       const conversation = {
         id: uuidv4(),
         type,
         title,
         participants,
+        participant_joined_at: participantJoinedAt,
         created_by: requesterId,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        created_at: nowIso,
+        updated_at: nowIso,
       };
 
       await db.addConversation(conversation);
@@ -170,7 +176,7 @@ export function registerMessengerHandlers(): void {
         return { success: false, error: '이 대화에 참여하고 있지 않습니다.' };
       }
 
-      const messages = await db.getMessagesByConversationId(conversationId);
+      const messages = await db.getMessagesByConversationIdForUser(conversationId, requesterId);
       return { success: true, data: messages };
     } catch (err: any) {
       return { success: false, error: err.message };
@@ -260,7 +266,7 @@ export function registerMessengerHandlers(): void {
         return { success: false, error: '권한이 없습니다.' };
       }
 
-      const messages = await db.getMessagesByConversationId(conversationId);
+      const messages = await db.getMessagesByConversationIdForUser(conversationId, requesterId);
       if (messages.length > 0) {
         const lastMsg = messages[messages.length - 1];
         await db.upsertReadReceipt(conversationId, requesterId, lastMsg.id);
@@ -287,7 +293,7 @@ export function registerMessengerHandlers(): void {
       const updates: any[] = [];
 
       for (const conv of conversations) {
-        const messages = await db.getMessagesByConversationId(conv.id);
+        const messages = await db.getMessagesByConversationIdForUser(conv.id, requesterId);
         const receipt = await db.getReadReceiptsByConversation(conv.id, requesterId);
 
         let unreadCount = 0;
@@ -326,7 +332,8 @@ export function registerMessengerHandlers(): void {
 
       const allUsers = await db.getUsers();
       const users = allUsers
-        .filter((u: any) => u.is_active && u.id !== requesterId)
+        .filter((u: any) => u.is_active && u.id !== requesterId &&
+          (requester.role === 'super_admin' || u.company_id === requester.company_id))
         .map((u: any) => ({
           id: u.id,
           name: u.name,
@@ -388,6 +395,66 @@ export function registerMessengerHandlers(): void {
       await db.addMessage(sysMsg);
 
       return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ========================================
+  // 대화방 멤버 추가
+  // ========================================
+  ipcMain.handle('messenger:addParticipants', async (_event, requesterId: string, conversationId: string, newUserIds: string[]) => {
+    try {
+      const requester = await db.getUserById(requesterId);
+      if (!requester) {
+        return { success: false, error: '권한이 없습니다.' };
+      }
+
+      const conv = await db.getConversationById(conversationId);
+      if (!conv) {
+        return { success: false, error: '대화방을 찾을 수 없습니다.' };
+      }
+
+      if (!conv.participants?.includes(requesterId)) {
+        return { success: false, error: '이 대화에 참여하고 있지 않습니다.' };
+      }
+
+      if (!Array.isArray(newUserIds) || newUserIds.length === 0) {
+        return { success: false, error: '추가할 사용자를 선택해주세요.' };
+      }
+
+      // 1:1 대화에 멤버 추가하면 그룹으로 승격
+      const joinedAt = new Date().toISOString();
+      const { added } = await db.addConversationParticipants(conversationId, newUserIds, joinedAt);
+
+      if (added.length === 0) {
+        return { success: false, error: '추가할 새 멤버가 없습니다.' };
+      }
+
+      // 1:1 → group 승격 처리
+      if (conv.type === 'direct') {
+        await db.updateConversation(conversationId, { type: 'group' });
+      }
+
+      // 시스템 메시지 (joined_at과 동일 시각으로 created_at 설정)
+      for (const uid of added) {
+        const user = await db.getUserById(uid);
+        const sysMsg = {
+          id: uuidv4(),
+          conversation_id: conversationId,
+          sender_id: 'system',
+          sender_name: '시스템',
+          content: `${user?.name || '알 수 없는 사용자'}님이 대화방에 참여했습니다.`,
+          type: 'system',
+          is_deleted: false,
+          created_at: joinedAt,
+        };
+        await db.addMessage(sysMsg);
+      }
+
+      await db.updateConversation(conversationId, { updated_at: new Date().toISOString() });
+
+      return { success: true, data: { added } };
     } catch (err: any) {
       return { success: false, error: err.message };
     }

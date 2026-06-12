@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>건설경제연구원 ERP - 통합 테스트 매뉴얼</title>
+<style>
+  :root { --primary: #1890ff; --bg: #f5f7fa; --card: #fff; --text: #333; --border: #e8e8e8; --accent: #13c2c2; --warn: #faad14; --hr: #13c2c2; --finance: #722ed1; --setup: #1890ff; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+  .container { max-width: 1080px; margin: 0 auto; padding: 40px 20px; }
+  header { background: linear-gradient(135deg, #1d1145, #0050b3, #006d75); color: #fff; padding: 56px 0; text-align: center; }
+  header h1 { font-size: 30px; margin-bottom: 8px; }
+  header .badge { display: inline-block; background: var(--warn); color: #333; padding: 4px 16px; border-radius: 20px; font-size: 14px; margin-top: 8px; font-weight: 700; }
+  header p { opacity: 0.85; font-size: 14px; margin-top: 12px; }
+  .toc { background: var(--card); border-radius: 12px; padding: 24px 32px; margin: 24px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .toc h2 { font-size: 18px; margin-bottom: 12px; color: var(--accent); }
+  .toc ol { padding-left: 20px; counter-reset: toc; list-style: none; }
+  .toc > ol > li { counter-increment: toc; margin: 8px 0; font-weight: 600; }
+  .toc > ol > li::before { content: counter(toc) ". "; color: var(--accent); }
+  .toc ol ol { padding-left: 18px; counter-reset: subtoc; margin-top: 4px; }
+  .toc ol ol li { counter-increment: subtoc; font-weight: 400; margin: 3px 0; font-size: 14px; }
+  .toc ol ol li::before { content: counter(toc) "-" counter(subtoc) ". "; color: #888; }
+  .toc a { color: #003a8c; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  section { background: var(--card); border-radius: 12px; padding: 32px; margin: 20px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  section h2 { font-size: 22px; color: #003a8c; padding-bottom: 8px; margin-bottom: 16px; }
+  section h2.setup { border-bottom: 3px solid var(--setup); }
+  section h2.hr { border-bottom: 3px solid var(--hr); }
+  section h2.finance { border-bottom: 3px solid var(--finance); }
+  section h3 { font-size: 17px; color: #006d75; margin: 20px 0 10px; }
+  section h4 { font-size: 15px; color: #333; margin: 14px 0 6px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+  th, td { border: 1px solid var(--border); padding: 10px 14px; text-align: left; vertical-align: top; }
+  th { background: #fafafa; font-weight: 600; white-space: nowrap; }
+  .tag { display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; margin: 0 2px; white-space: nowrap; }
+  .tag-blue { background: #e6f7ff; color: #1890ff; }
+  .tag-green { background: #f6ffed; color: #52c41a; }
+  .tag-red { background: #fff1f0; color: #ff4d4f; }
+  .tag-gold { background: #fffbe6; color: #faad14; }
+  .tag-purple { background: #f9f0ff; color: #722ed1; }
+  .tag-cyan { background: #e6fffb; color: #13c2c2; }
+  .tag-gray { background: #f5f5f5; color: #595959; }
+  .steps { counter-reset: step; list-style: none; padding: 0; }
+  .steps li { counter-increment: step; padding: 10px 0 10px 48px; position: relative; border-left: 2px solid var(--border); margin-left: 16px; }
+  .steps li::before { content: counter(step); position: absolute; left: -15px; top: 8px; width: 28px; height: 28px; background: var(--accent); color: #fff; border-radius: 50%; text-align: center; line-height: 28px; font-size: 13px; font-weight: 700; }
+  .steps li:last-child { border-left: none; }
+  .note { background: #e6fffb; border-left: 4px solid var(--accent); padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 14px; }
+  .warn { background: #fff7e6; border-left: 4px solid var(--warn); padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 14px; }
+  .danger { background: #fff1f0; border-left: 4px solid #ff4d4f; padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 14px; }
+  .check-list { padding-left: 20px; }
+  .check-list li { margin: 6px 0; list-style: none; position: relative; padding-left: 24px; }
+  .check-list li::before { content: "☐"; position: absolute; left: 0; font-size: 16px; color: #999; }
+  ul { padding-left: 20px; }
+  ul li { margin: 4px 0; }
+  code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-family: 'D2Coding','Consolas',monospace; font-size: 13px; color: #c41d7f; }
+  .path { display: inline-block; background: #f0f5ff; color: #1d39c4; padding: 2px 8px; border-radius: 4px; font-family: 'D2Coding','Consolas',monospace; font-size: 13px; margin: 4px 0; }
+  footer { text-align: center; padding: 32px; color: #999; font-size: 13px; }
+  .test-block { background: #fafafa; border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 12px 0; }
+  .test-block .title { font-weight: 700; color: #006d75; margin-bottom: 8px; font-size: 15px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
+  .role-pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; margin: 0 2px; }
+  .role-super { background: #f9f0ff; color: #722ed1; }
+  .role-co { background: #e6f7ff; color: #1890ff; }
+  .role-dept { background: #e6fffb; color: #13c2c2; }
+  .role-emp { background: #f6ffed; color: #52c41a; }
+  .field-table th { background: #f0f5ff; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>건설경제연구원 ERP</h1>
+  <div class="badge">통합 테스트 매뉴얼</div>
+  <p>v1.7.5 — 사전셋팅 · 권한 · 문서 · 인사 · 재무/회계 통합 가이드</p>
+</header>
+
+<div class="container">
+
+<nav class="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#roles">역할 / 권한 매트릭스</a>
+      <ol>
+        <li><a href="#roles-overview">4단계 역할 개요</a></li>
+        <li><a href="#roles-matrix">메뉴별 권한 매트릭스</a></li>
+      </ol>
+    </li>
+    <li><a href="#setup">사전 셋팅</a>
+      <ol>
+        <li><a href="#setup-company">회사 셋팅</a></li>
+        <li><a href="#setup-department">부서 셋팅</a></li>
+        <li><a href="#setup-user">사원 셋팅</a></li>
+        <li><a href="#setup-permission">권한 셋팅</a></li>
+        <li><a href="#setup-vehicle-space">차량 / 공간 셋팅</a></li>
+        <li><a href="#setup-doc">문서 셋팅 (템플릿/단가)</a></li>
+      </ol>
+    </li>
+    <li><a href="#hr">인사 / 총무</a>
+      <ol>
+        <li><a href="#hr-leave">연차 신청 / 승인</a></li>
+        <li><a href="#hr-vehicle-log">운행일지</a></li>
+        <li><a href="#hr-calendar">HR · 공간 캘린더</a></li>
+      </ol>
+    </li>
+    <li><a href="#finance">재무 / 회계</a>
+      <ol>
+        <li><a href="#finance-receivable">미수금 관리</a></li>
+        <li><a href="#finance-billing">청구 / 입금</a></li>
+        <li><a href="#finance-tax">세금계산서</a></li>
+        <li><a href="#finance-payable">미지급금 관리</a></li>
+        <li><a href="#finance-expense">경비 정산</a></li>
+        <li><a href="#finance-expense-request">지출결의서</a></li>
+        <li><a href="#finance-provisional">가수금 관리</a></li>
+      </ol>
+    </li>
+    <li><a href="#regression">회귀 체크리스트</a></li>
+  </ol>
+</nav>
+
+<!-- ================================================================== -->
+<section id="roles">
+  <h2 class="setup">1. 역할 / 권한 매트릭스</h2>
+
+  <h3 id="roles-overview">1-1. 4단계 역할 개요</h3>
+  <table>
+    <tr><th>역할</th><th>코드</th><th>범위</th><th>주요 권한</th></tr>
+    <tr><td><span class="role-pill role-super">슈퍼관리자</span></td><td><code>super_admin</code></td><td>모든 회사</td><td>회사 등록/수정 + 모든 메뉴</td></tr>
+    <tr><td><span class="role-pill role-co">회사관리자</span></td><td><code>company_admin</code></td><td>자기 회사</td><td>사용자/부서/권한 관리, 연차 최종승인</td></tr>
+    <tr><td><span class="role-pill role-dept">부서관리자</span></td><td><code>department_manager</code></td><td>자기 부서</td><td>연차 1차승인, 견적/계약/거래처 편집, 재무 조회/등록/수정</td></tr>
+    <tr><td><span class="role-pill role-emp">사원</span></td><td><code>employee</code></td><td>본인</td><td>견적/계약 신규 작성, 연차/지출결의서 신청, 운행일지</td></tr>
+  </table>
+
+  <h3 id="roles-matrix">1-2. 메뉴별 권한 매트릭스 (요약)</h3>
+  <table>
+    <tr><th>메뉴 그룹</th><th>메뉴</th><th>슈퍼</th><th>회사</th><th>부서</th><th>사원</th></tr>
+    <tr><td rowspan="4">홈</td><td>대시보드</td><td>✓</td><td>✓</td><td>-</td><td>-</td></tr>
+    <tr><td>프로젝트 현황</td><td>전체</td><td>전체</td><td>편집</td><td>조회</td></tr>
+    <tr><td>통합검색</td><td>전체</td><td>전체</td><td>편집</td><td>조회</td></tr>
+    <tr><td>AI 검색</td><td>✓</td><td>✓</td><td>조회</td><td>-</td></tr>
+    <tr><td rowspan="6">계약/매출</td><td>견적관리</td><td>전체</td><td>전체</td><td>편집</td><td>조회+생성</td></tr>
+    <tr><td>계약관리</td><td>전체</td><td>전체</td><td>편집</td><td>조회+생성</td></tr>
+    <tr><td>월별현황</td><td>전체</td><td>전체</td><td>조회</td><td>조회</td></tr>
+    <tr><td>계약변경이력</td><td>전체</td><td>전체</td><td>조회</td><td>조회</td></tr>
+    <tr><td>외주관리</td><td>전체</td><td>전체</td><td>편집</td><td>조회</td></tr>
+    <tr><td>거래처관리</td><td>전체</td><td>전체</td><td>편집</td><td>조회+생성</td></tr>
+    <tr><td rowspan="7">재무/회계</td><td>미수금관리</td><td>전체</td><td>전체</td><td>편집</td><td><span class="tag tag-gray">접근불가</span></td></tr>
+    <tr><td>청구/입금</td><td>전체</td><td>전체</td><td>편집</td><td><span class="tag tag-gray">접근불가</span></td></tr>
+    <tr><td>미지급금관리</td><td>전체</td><td>전체</td><td>편집</td><td><span class="tag tag-gray">접근불가</span></td></tr>
+    <tr><td>세금계산서</td><td>전체</td><td>전체</td><td>편집</td><td><span class="tag tag-gray">접근불가</span></td></tr>
+    <tr><td>경비정산</td><td>전체</td><td>전체</td><td>편집</td><td><span class="tag tag-gray">접근불가</span></td></tr>
+    <tr><td>지출결의서</td><td>전체</td><td>전체</td><td>조회</td><td>신청 가능</td></tr>
+    <tr><td>가수금관리</td><td>전체</td><td>전체</td><td>편집</td><td><span class="tag tag-gray">접근불가</span></td></tr>
+    <tr><td rowspan="3">인사/총무</td><td>연차 신청</td><td>전체</td><td>전체</td><td>편집</td><td>신청</td></tr>
+    <tr><td>연차 승인관리</td><td>전체</td><td>전체</td><td>1차 승인</td><td><span class="tag tag-gray">접근불가</span></td></tr>
+    <tr><td>운행일지</td><td>전체</td><td>전체</td><td>편집</td><td>등록</td></tr>
+    <tr><td rowspan="6">관리</td><td>사용자관리</td><td>✓</td><td>✓</td><td>-</td><td>-</td></tr>
+    <tr><td>부서관리</td><td>✓</td><td>✓</td><td>-</td><td>-</td></tr>
+    <tr><td>권한설정</td><td>✓</td><td>✓</td><td>-</td><td>-</td></tr>
+    <tr><td>회사관리</td><td>✓</td><td>-</td><td>-</td><td>-</td></tr>
+    <tr><td>차량관리</td><td>✓</td><td>✓</td><td>-</td><td>-</td></tr>
+    <tr><td>공간관리</td><td>✓</td><td>✓</td><td>-</td><td>-</td></tr>
+    <tr><td rowspan="5">시스템</td><td>설정</td><td>전체</td><td>편집</td><td>편집</td><td>조회</td></tr>
+    <tr><td>단가설정</td><td>✓</td><td>✓</td><td>-</td><td>-</td></tr>
+    <tr><td>문서 템플릿</td><td>✓</td><td>✓</td><td>✓</td><td>-</td></tr>
+    <tr><td>백업관리</td><td>전체</td><td>조회+등록</td><td>-</td><td>-</td></tr>
+    <tr><td>매뉴얼 관리</td><td>✓</td><td>✓</td><td>-</td><td>-</td></tr>
+  </table>
+  <div class="note">위 매트릭스는 <code>shared/constants/menu.ts</code>의 <code>DEFAULT_PERMISSIONS</code> 기준 기본값. 권한설정 메뉴에서 사용자별로 덮어쓸 수 있습니다.</div>
+</section>
+
+<!-- ================================================================== -->
+<section id="setup">
+  <h2 class="setup">2. 사전 셋팅 (테스트 진입 전 필수)</h2>
+
+  <p>아래 순서대로 셋팅해야 의존 메뉴가 정상 동작합니다. <b>회사 → 부서 → 사용자 → 권한 → 차량/공간 → 문서</b> 순서를 권장합니다.</p>
+
+  <h3 id="setup-company">2-1. 회사 셋팅</h3>
+  <p class="path">관리 → 회사관리 (슈퍼관리자 전용)</p>
+  <table class="field-table">
+    <tr><th>필드</th><th>설명</th><th>필수</th></tr>
+    <tr><td>회사명</td><td>화면 상단 회사 전환 드롭다운에 표시</td><td>O</td></tr>
+    <tr><td>사업자번호</td><td>세금계산서 발행자/수취자 정보에 사용</td><td>권장</td></tr>
+    <tr><td>대표자명</td><td>세금계산서/증명서 머지 필드</td><td>권장</td></tr>
+    <tr><td>주소 / 업태 / 종목</td><td>세금계산서/공식 문서 머지</td><td>선택</td></tr>
+  </table>
+  <div class="note">현재 등록 회사: <b>건설경제연구원, 건설환경연구소, 이지컨설턴트, 이지건축사사무소, 어반브릿지파트너스</b></div>
+
+  <h3 id="setup-department">2-2. 부서 셋팅</h3>
+  <p class="path">관리 → 부서관리</p>
+  <ol class="steps">
+    <li>회사 선택(슈퍼관리자) 후 부서 등록.</li>
+    <li>부서장(department_manager) 1명을 부서마다 지정 — 연차 1차 승인자가 됨.</li>
+    <li>한 사용자가 여러 회사/부서에 속할 수 있음 (junction 테이블 <code>user_companies</code>, <code>user_departments</code>).</li>
+  </ol>
+
+  <h3 id="setup-user">2-3. 사원 셋팅</h3>
+  <p class="path">관리 → 사용자관리</p>
+
+  <h4>필수 / 권장 필드</h4>
+  <table class="field-table">
+    <tr><th>필드</th><th>설명</th><th>영향 범위</th></tr>
+    <tr><td><code>username</code> 아이디</td><td>로그인 ID (영문)</td><td>로그인</td></tr>
+    <tr><td><code>password</code> 비밀번호</td><td>미입력 시 기본값 <code>password123</code></td><td>로그인</td></tr>
+    <tr><td><code>name</code> 이름</td><td>화면 전반 표시</td><td>전체</td></tr>
+    <tr><td><code>email</code></td><td>증명서/지출결의서 알림</td><td>알림</td></tr>
+    <tr><td><code>role</code></td><td>4단계 역할 중 1택</td><td>권한 라우팅</td></tr>
+    <tr><td><code>company_id</code> / <code>department_id</code></td><td>소속 회사/부서</td><td>데이터 격리, 연차 라우팅</td></tr>
+    <tr><td><code>employee_number</code> 사번</td><td>증명서 표기</td><td>HR</td></tr>
+    <tr><td><code>rank</code> / <code>position</code></td><td>직급 / 직책</td><td>HR / 결재</td></tr>
+    <tr><td><code>phone</code> / <code>direct_phone</code></td><td>휴대전화 / 내선</td><td>전체</td></tr>
+    <tr><td><code>hire_date</code> 입사일</td><td><b>연차 자동계산 기준</b> — 누락 시 연차 0일</td><td>HR</td></tr>
+    <tr><td><code>resignation_date</code> 퇴사일</td><td>퇴사자 처리</td><td>HR</td></tr>
+    <tr><td><code>annual_leave_override</code></td><td>입사일 무시하고 연차 일수 강제 부여</td><td>HR</td></tr>
+    <tr><td><code>annual_leave_used_offset</code></td><td>연도 시작 시점에 이미 사용한 일수 보정</td><td>HR</td></tr>
+  </table>
+
+  <h4>연차 자동 계산 규칙</h4>
+  <ul>
+    <li>입사 1년 미만: <b>근무 월수 × 1일</b> (최대 11일)</li>
+    <li>입사 1년~2년: <b>15일</b></li>
+    <li>이후 매 2년마다 +1일 (최대 25일 cap)</li>
+    <li><code>annual_leave_override</code>가 설정된 경우 위 규칙 무시</li>
+  </ul>
+
+  <h4>비밀번호 초기화</h4>
+  <ul>
+    <li>회사관리자/슈퍼관리자가 사용자관리 화면에서 "비밀번호 초기화" → 신규 비밀번호 또는 기본값 <code>password123</code> 설정</li>
+    <li>회사관리자는 자기 회사 사용자만 가능</li>
+    <li>슈퍼관리자 비밀번호는 슈퍼관리자만 초기화 가능</li>
+  </ul>
+
+  <div class="warn">테스트 계정 만들 때 입사일을 다양하게 설정하면 연차 계산 검증이 쉬움 (예: 6개월 전, 1년 전, 5년 전, 11년 전).</div>
+
+  <h3 id="setup-permission">2-4. 권한 셋팅</h3>
+  <p class="path">관리 → 권한설정 / 권한설정 → 매트릭스</p>
+
+  <h4>2가지 권한 모드</h4>
+  <ol>
+    <li><b>역할 기본값 (DEFAULT_PERMISSIONS)</b> — 사용자별 권한이 비어있으면 역할 기본값 적용. 위 1-2 매트릭스 참고.</li>
+    <li><b>사용자별 덮어쓰기</b> — 권한설정 화면에서 사용자를 선택하고 메뉴 키별로 view/create/edit/delete 토글. 한 항목이라도 설정되면 해당 사용자의 권한 전체가 덮어쓰기 모드로 전환.</li>
+  </ol>
+
+  <div class="test-block">
+    <div class="title">권한설정 검증</div>
+    <ul class="check-list">
+      <li>매트릭스 화면에서 행=사용자, 열=메뉴 키 토글 가능</li>
+      <li>토글 후 새로고침 시 즉시 반영 (해당 사용자 재로그인 또는 새 세션)</li>
+      <li>덮어쓰기된 사용자에게서 모든 키 OFF 시 메뉴 자체가 사이드바에서 사라짐</li>
+      <li>역할이 변경되면 기본 권한이 자동으로 새 역할의 DEFAULT_PERMISSIONS로 적용</li>
+    </ul>
+  </div>
+
+  <h3 id="setup-vehicle-space">2-5. 차량 / 공간 셋팅</h3>
+  <p class="path">관리 → 차량관리 / 공간관리</p>
+  <ul>
+    <li><b>차량</b>: 차량번호 필수, 차종/모델/색상 선택. 슈퍼관리자는 "공통(전 회사 공유)" 옵션으로 등록 가능.</li>
+    <li><b>공간</b>: 회의실/강의실. 활성 상태 ON인 공간만 캘린더에서 예약 가능.</li>
+    <li>둘 다 회사별/공통 등록 지원. 데이터는 운행일지 / 공간 캘린더에서 사용.</li>
+  </ul>
+
+  <h3 id="setup-doc">2-6. 문서 셋팅 (템플릿 / 단가)</h3>
+
+  <h4>2-6-1. 문서 템플릿</h4>
+  <p class="path">시스템 → 문서 템플릿</p>
+  <table class="field-table">
+    <tr><th>템플릿 종류</th><th>용도</th><th>출력 형식</th></tr>
+    <tr><td>견적서</td><td>견적관리에서 다운로드</td><td>.xlsx / .docx / .hwpx</td></tr>
+    <tr><td>계약서</td><td>계약관리에서 다운로드</td><td>.docx / .hwpx</td></tr>
+    <tr><td>세금계산서</td><td>발행 시 다운로드</td><td>.xlsx</td></tr>
+    <tr><td>지출결의서</td><td>경비정산/지출결의서에서 다운로드</td><td>.xlsx / .docx</td></tr>
+    <tr><td>증명서 (재직/경력 등)</td><td>인사 → 증명서 발급에서 다운로드</td><td>.docx</td></tr>
+  </table>
+  <div class="note">템플릿 파일 안에 머지 필드 사용: <code>{{회사명}}</code> <code>{{거래처명}}</code> <code>{{계약금액}}</code> <code>{{name}}</code> <code>{{rank}}</code> <code>{{hire_date}}</code> 등. 미리보기 모달에서 변수 목록 확인 가능.</div>
+
+  <h4>2-6-2. 단가 설정</h4>
+  <p class="path">시스템 → 단가 설정</p>
+  <ul>
+    <li>견적서 작성 시 자동으로 호출되는 항목별 단가 카탈로그</li>
+    <li>회사별 / 카테고리별로 등록 — 슈퍼/회사관리자가 등록</li>
+  </ul>
+
+  <h4>2-6-3. 백업 (선택)</h4>
+  <p class="path">시스템 → 백업관리</p>
+  <ul>
+    <li>전체 DB 스냅샷을 zip으로 다운로드 (관리자만)</li>
+    <li>복원 기능은 슈퍼관리자만 노출</li>
+  </ul>
+
+  <div class="danger">
+    <b>테스트 진입 전 최종 체크리스트</b>
+    <ul class="check-list">
+      <li>회사 1개 이상 등록 / 부서장 지정된 부서 1개 이상</li>
+      <li>역할별 테스트 계정 1개씩 (super_admin, company_admin, department_manager, employee)</li>
+      <li>계정마다 hire_date / department_id 셋팅 완료</li>
+      <li>차량 1대 이상, 공간 1개 이상 (활성 상태)</li>
+      <li>문서 템플릿 (견적/계약/세금계산서) 최소 1개씩 업로드</li>
+      <li>단가 카탈로그 항목 1개 이상 (견적서 테스트용)</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================================================================== -->
+<section id="hr">
+  <h2 class="hr">3. 인사 / 총무</h2>
+
+  <h3 id="hr-leave">3-1. 연차 신청 / 승인</h3>
+
+  <h4>3-1-1. 신청자 화면</h4>
+  <p class="path">인사/총무 → 연차 신청</p>
+
+  <table>
+    <tr><th>휴가 유형</th><th>차감</th><th>비고</th></tr>
+    <tr><td>연차 (annual)</td><td>일수만큼 차감</td><td>기본값</td></tr>
+    <tr><td>오전반차 / 오후반차</td><td>0.5일 차감</td><td>일수 자동으로 0.5 설정</td></tr>
+    <tr><td>병가 (sick)</td><td>차감 없음</td><td>증빙 별도 관리</td></tr>
+    <tr><td>특별휴가 (special)</td><td>차감 없음</td><td>경조사 등</td></tr>
+    <tr><td>출장 (business_trip)</td><td>차감 없음</td><td>HR 캘린더 표시</td></tr>
+    <tr><td>재택근무 (remote)</td><td>차감 없음</td><td>HR 캘린더 표시</td></tr>
+  </table>
+
+  <div class="test-block">
+    <div class="title">T3.1 신청 → 일수 자동 계산</div>
+    <ul class="check-list">
+      <li>휴가 유형 = 연차, 기간 = 3일 → 사용일수 자동 3일</li>
+      <li>유형을 오전반차로 변경 → 자동 0.5일</li>
+      <li>병가 5일 → 잔여연차 차감 안 됨</li>
+    </ul>
+  </div>
+  <div class="test-block">
+    <div class="title">T3.2 잔여연차 카운터</div>
+    <ul class="check-list">
+      <li>총 / 사용 / 잔여 카드가 입사일 기반으로 표시</li>
+      <li>잔여 ≤ 3일이면 빨간색</li>
+      <li>승인된 연차 취소 시 잔여 즉시 환원</li>
+    </ul>
+  </div>
+
+  <h4>3-1-2. 승인자 화면 (2단계 승인)</h4>
+  <p class="path">인사/총무 → 연차 승인관리</p>
+  <table>
+    <tr><th>단계</th><th>상태 전이</th><th>처리 권한</th></tr>
+    <tr><td>1. 신청</td><td>(없음) → <span class="tag tag-blue">대기</span></td><td>본인</td></tr>
+    <tr><td>2. 부서승인</td><td>대기 → <span class="tag tag-gold">부서승인</span></td><td>department_manager</td></tr>
+    <tr><td>3. 최종승인</td><td>부서승인 → <span class="tag tag-green">최종승인</span></td><td>company_admin / super_admin</td></tr>
+    <tr><td>3'. 직접승인</td><td>대기 → <span class="tag tag-green">최종승인</span></td><td>company_admin / super_admin</td></tr>
+    <tr><td>X. 반려</td><td>임의 → <span class="tag tag-red">반려</span></td><td>해당 단계 권한자</td></tr>
+  </table>
+
+  <div class="test-block">
+    <div class="title">T3.3 부서장 1차 승인</div>
+    <ul class="check-list">
+      <li>부서장 계정으로 로그인 → 본인 부서원의 신청만 보임</li>
+      <li>"부서승인" → 상태 전환 후 회사관리자 화면에 노출</li>
+    </ul>
+  </div>
+  <div class="test-block">
+    <div class="title">T3.4 회사관리자 최종승인</div>
+    <ul class="check-list">
+      <li>회사관리자 → "직접승인" 또는 "최종승인" 동작</li>
+      <li>최종승인 시 신청자 잔여연차 즉시 차감</li>
+      <li>반려 시 사유 입력 모달, 신청자에게 사유 노출</li>
+    </ul>
+  </div>
+
+  <h3 id="hr-vehicle-log">3-2. 운행일지</h3>
+  <p class="path">인사/총무 → 운행일지</p>
+  <div class="warn">사전조건: 차량관리에 차량 1대 이상 등록.</div>
+
+  <div class="test-block">
+    <div class="title">T3.5 운행 등록</div>
+    <ul class="check-list">
+      <li>운행일자 / 차량 / 출발지 / 도착지 / 출발·도착 시간 / 시작·종료 km / 목적</li>
+      <li>운행자(driver_name) 자동 채움 (로그인 사용자)</li>
+      <li>주행거리 = 종료 - 시작 km 자동 표시</li>
+      <li>본인 등록만 수정/삭제 가능 (관리자는 전체)</li>
+    </ul>
+  </div>
+
+  <h3 id="hr-calendar">3-3. HR · 공간 캘린더</h3>
+  <div class="test-block">
+    <div class="title">T3.6 HR 캘린더</div>
+    <p class="path">캘린더 → 인사 캘린더</p>
+    <ul class="check-list">
+      <li>최종승인된 연차/출장/재택만 표시</li>
+      <li>유형별 색상 구분, 셀 클릭 시 상세 모달</li>
+    </ul>
+  </div>
+  <div class="test-block">
+    <div class="title">T3.7 공간 캘린더</div>
+    <p class="path">캘린더 → 공간 캘린더</p>
+    <ul class="check-list">
+      <li>활성 공간만 노출</li>
+      <li>날짜 / 시간 / 사용 목적 입력 후 예약</li>
+      <li>같은 공간 + 시간 충돌 시 저장 거부</li>
+      <li>예약자 본인만 수정/삭제 (관리자는 전체)</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================================================================== -->
+<section id="finance">
+  <h2 class="finance">4. 재무 / 회계</h2>
+
+  <div class="warn">재무/회계 메뉴는 <span class="role-pill role-emp">사원</span>에게는 <b>지출결의서를 제외하고</b> 노출되지 않습니다. 부서관리자 이상으로 테스트.</div>
+
+  <h3 id="finance-receivable">4-1. 미수금 관리</h3>
+  <p class="path">재무/회계 → 미수금관리</p>
+  <p>계약별로 청구된 금액 중 아직 입금되지 않은 잔액을 한눈에 봄.</p>
+  <div class="test-block">
+    <div class="title">T4.1 미수금 조회</div>
+    <ul class="check-list">
+      <li>거래처 / 부서 / 기간 / 상태 필터 동작</li>
+      <li>총 청구 / 입금 / 미수 합계 카드 표시</li>
+      <li>회사 전환 시 데이터가 회사별로 격리</li>
+      <li>모든 컬럼 드래그로 폭 조절 가능 (ResizableTable)</li>
+    </ul>
+  </div>
+
+  <h3 id="finance-billing">4-2. 청구 / 입금</h3>
+  <p class="path">재무/회계 → 청구/입금</p>
+  <p>계약별로 청구 단계(선금 / 중도금 / 잔금)와 입금 내역을 등록.</p>
+  <div class="test-block">
+    <div class="title">T4.2 청구 등록</div>
+    <ul class="check-list">
+      <li>계약 검색/선택 → 청구 단계, 청구일, 청구금액 입력</li>
+      <li>VAT 포함/별도 옵션 동작 (포함=금액÷11, 별도=금액×0.1)</li>
+      <li>등록 후 미수금관리 카드에 즉시 반영</li>
+    </ul>
+  </div>
+  <div class="test-block">
+    <div class="title">T4.3 입금 등록</div>
+    <ul class="check-list">
+      <li>청구 행 → "입금 등록" → 입금일/금액 입력</li>
+      <li>부분 입금 가능 (미수금이 줄어드는 만큼만)</li>
+      <li>수금률이 자동 계산 (입금합계 ÷ 총청구액)</li>
+      <li>100% 초과 시 경고 또는 거부</li>
+    </ul>
+  </div>
+
+  <h3 id="finance-tax">4-3. 세금계산서</h3>
+  <p class="path">재무/회계 → 세금계산서</p>
+  <p>매출(발행) / 매입(수취) 양방향 관리. 계약 / 외주와 연결.</p>
+  <table>
+    <tr><th>방향</th><th>의미</th><th>비고</th></tr>
+    <tr><td><span class="tag tag-blue">issued</span> 발행</td><td>거래처에게 발행한 매출 계산서</td><td>계약과 연결 권장</td></tr>
+    <tr><td><span class="tag tag-purple">received</span> 수취</td><td>거래처/외주로부터 받은 매입 계산서</td><td>외주와 연결 권장</td></tr>
+  </table>
+  <table>
+    <tr><th>상태</th><th>의미</th></tr>
+    <tr><td><span class="tag tag-gray">draft</span> 작성</td><td>임시 저장</td></tr>
+    <tr><td><span class="tag tag-blue">issued</span> 발행</td><td>실제 발행 완료</td></tr>
+    <tr><td><span class="tag tag-blue">sent</span> 전송</td><td>국세청/거래처에 전송</td></tr>
+    <tr><td><span class="tag tag-green">confirmed</span> 확인</td><td>상대방 확인</td></tr>
+    <tr><td><span class="tag tag-green">paid</span> 입금완료</td><td>대금 입금됨</td></tr>
+    <tr><td><span class="tag tag-red">cancelled</span> 취소</td><td>취소</td></tr>
+  </table>
+  <div class="test-block">
+    <div class="title">T4.4 발행 등록 + 다운로드</div>
+    <ul class="check-list">
+      <li>발행/수취 탭 전환 동작</li>
+      <li>계약 검색 → 자동으로 거래처/사업자번호/공급가액 채움</li>
+      <li>VAT 자동 계산 (10%)</li>
+      <li>저장 후 .xlsx 다운로드 (템플릿 머지 검증)</li>
+      <li>모든 컬럼 드래그로 폭 조절 가능</li>
+    </ul>
+  </div>
+
+  <h3 id="finance-payable">4-4. 미지급금 관리</h3>
+  <p class="path">재무/회계 → 미지급금관리</p>
+  <p>외주 발생 후 아직 지급하지 않은 금액 추적.</p>
+  <div class="test-block">
+    <div class="title">T4.5 미지급 조회 / 지급 처리</div>
+    <ul class="check-list">
+      <li>외주관리에서 등록한 외주가 미지급금에 자동 노출</li>
+      <li>지급 등록 → 지급일 / 지급금액 → 미지급 잔액 차감</li>
+      <li>거래처/기간 필터, 합계 카드 동작</li>
+    </ul>
+  </div>
+
+  <h3 id="finance-expense">4-5. 경비 정산</h3>
+  <p class="path">재무/회계 → 경비정산</p>
+  <p>회사 차원의 경비 정산 (지출결의서와는 별개로 회사관리자가 일괄 등록).</p>
+  <div class="test-block">
+    <div class="title">T4.6 경비 등록</div>
+    <ul class="check-list">
+      <li>일자 / 부서 / 항목 / 금액 / 증빙 입력</li>
+      <li>월별 / 항목별 합계 통계 카드 동작</li>
+    </ul>
+  </div>
+
+  <h3 id="finance-expense-request">4-6. 지출결의서</h3>
+  <p class="path">재무/회계 → 지출결의서</p>
+  <p>사원이 자기 지출에 대해 결의서를 신청하고 회사관리자가 승인하는 플로우.</p>
+
+  <h4>카테고리 (입력 시 선택)</h4>
+  <p>교통비 / 식비 / 숙박비 / 소모품비 / 통신비 / 회의비 / 접대비 / 교육비 / 택배비 / 제본비 / 기타</p>
+
+  <h4>승인 플로우</h4>
+  <table>
+    <tr><th>단계</th><th>상태</th><th>권한</th></tr>
+    <tr><td>1. 신청</td><td><span class="tag tag-blue">대기</span></td><td>사원 / 회사관리자 / 슈퍼관리자<br>(부서관리자는 신청 불가, 조회만)</td></tr>
+    <tr><td>2. 승인</td><td><span class="tag tag-green">승인</span></td><td>회사관리자 / 슈퍼관리자</td></tr>
+    <tr><td>X. 반려</td><td><span class="tag tag-red">반려</span></td><td>회사관리자 / 슈퍼관리자</td></tr>
+  </table>
+
+  <div class="test-block">
+    <div class="title">T4.7 사원 신청</div>
+    <ul class="check-list">
+      <li>사원 계정 → "+ 지출결의서 작성"</li>
+      <li>신청일 / 부서(자기 부서) / 카테고리 / 금액 / 사용 내역 / 증빙</li>
+      <li>저장 시 대기 상태로 등록 → 회사관리자 화면에 노출</li>
+    </ul>
+  </div>
+  <div class="test-block">
+    <div class="title">T4.8 관리자 승인</div>
+    <ul class="check-list">
+      <li>회사관리자 화면 → 부서 필터 + 신청자 이름 검색 동작</li>
+      <li>"승인" / "반려(사유)" 버튼 동작</li>
+      <li>승인 후 신청자 화면에서 상태 즉시 갱신</li>
+      <li>지출결의서 .xlsx / .docx 다운로드 (템플릿 머지)</li>
+    </ul>
+  </div>
+
+  <h3 id="finance-provisional">4-7. 가수금 관리</h3>
+  <p class="path">재무/회계 → 가수금관리</p>
+  <p>입금되었지만 아직 어느 계약/거래처에 대응되는지 미확정인 금액. 매칭 후 청구/입금에 반영.</p>
+  <div class="test-block">
+    <div class="title">T4.9 가수금 등록 / 매칭</div>
+    <ul class="check-list">
+      <li>입금일 / 입금자명 / 금액 / 메모 입력 후 등록</li>
+      <li>"매칭" → 계약/청구 검색 후 적용</li>
+      <li>매칭 시 가수금 잔액 차감, 청구 입금에 반영</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================================================================== -->
+<section id="regression">
+  <h2 class="setup">5. 회귀 체크리스트 (역할별 시나리오)</h2>
+
+  <p>위 단위 테스트가 끝나면 아래 시나리오로 통합 점검.</p>
+
+  <div class="grid-2">
+    <div class="test-block">
+      <div class="title">시나리오 A — <span class="role-pill role-emp">사원</span></div>
+      <ul class="check-list">
+        <li>사이드바에 재무/회계 그룹은 <b>지출결의서만</b> 보임</li>
+        <li>관리 / 권한설정 / 회사관리 메뉴 모두 미노출</li>
+        <li>견적/계약 신규 작성 가능 (수정/삭제 불가)</li>
+        <li>연차 1일 신청 → 부서장에게 라우팅</li>
+        <li>지출결의서 1건 작성 → 대기 상태로 등록</li>
+        <li>운행일지 1건 등록</li>
+      </ul>
+    </div>
+    <div class="test-block">
+      <div class="title">시나리오 B — <span class="role-pill role-dept">부서관리자</span></div>
+      <ul class="check-list">
+        <li>"연차 승인관리"에서 부서원 신청 1차승인</li>
+        <li>지출결의서 메뉴는 <b>조회만</b> 가능 (작성 버튼 없음)</li>
+        <li>견적/계약/거래처/외주 편집 가능</li>
+        <li>미수금/청구·입금/세금계산서/미지급/경비/가수금 모두 편집 가능</li>
+        <li>관리 / 권한설정 / 회사관리 / 차량관리 / 공간관리 미노출</li>
+      </ul>
+    </div>
+    <div class="test-block">
+      <div class="title">시나리오 C — <span class="role-pill role-co">회사관리자</span></div>
+      <ul class="check-list">
+        <li>전 부서 연차 → 부서승인된 건 최종승인</li>
+        <li>지출결의서 승인 + 다운로드</li>
+        <li>세금계산서 발행 + .xlsx 다운로드</li>
+        <li>사용자 1명 추가 + 권한 매트릭스에서 1개 메뉴 OFF → 그 사용자 재로그인 시 즉시 반영</li>
+        <li>차량 1대 + 공간 1개 추가 등록 → 운행일지/공간 캘린더에서 즉시 사용 가능</li>
+        <li>HR 캘린더에서 최종승인 건 표시</li>
+      </ul>
+    </div>
+    <div class="test-block">
+      <div class="title">시나리오 D — <span class="role-pill role-super">슈퍼관리자</span></div>
+      <ul class="check-list">
+        <li>회사 전환 드롭다운으로 데이터 격리 검증</li>
+        <li>차량/공간을 "공통"으로 등록 → 모든 회사에서 사용</li>
+        <li>회사관리에서 신규 회사 등록 / 삭제</li>
+        <li>슈퍼관리자 본인 비밀번호 초기화 (다른 슈퍼관리자만 가능)</li>
+        <li>백업 다운로드 → 복원 옵션 노출 확인</li>
+        <li>매뉴얼 관리에서 본 매뉴얼 등록 / 게시</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="danger">
+    <b>발견 시 즉시 신고할 결함</b>
+    <ul>
+      <li>잔여 연차가 음수 / 25일 초과로 표시되는 경우</li>
+      <li>부서장 라우팅이 안 되어 신청이 사라지는 경우 (<code>department_id</code> 누락 의심)</li>
+      <li>승인된 연차 취소 시 잔여 환원 안 되는 경우</li>
+      <li>세금계산서 .xlsx 다운로드에 머지 필드(<code>{{...}}</code>)가 그대로 남아있는 경우</li>
+      <li>수금률 100% 초과되는 청구/입금</li>
+      <li>회사 전환 시 다른 회사 데이터가 노출되는 경우</li>
+      <li>사원 계정에서 재무/회계 메뉴(지출결의서 외)가 노출되는 경우</li>
+      <li>공간 캘린더에서 시간 충돌 예약이 저장되는 경우</li>
+      <li>권한 매트릭스 변경이 새로고침해도 반영 안 되는 경우</li>
+    </ul>
+  </div>
+</section>
+
+</div>
+
+<footer>
+  © 건설경제연구원 ERP · v1.7.5 · 통합 테스트 매뉴얼<br>
+  업데이트 : 2026-04-29
+</footer>
+
+</body>
+</html>

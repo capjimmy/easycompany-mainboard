@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Card,
   Button,
@@ -7,7 +7,6 @@ import {
   Typography,
   List,
   Tag,
-  Progress,
   Alert,
   Divider,
   Modal,
@@ -39,51 +38,12 @@ interface BackupRecord {
 
 const BackupSettings: React.FC = () => {
   const { user } = useAuthStore();
-  const [backups, setBackups] = useState<BackupRecord[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [backups] = useState<BackupRecord[]>([]);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [autoBackupEnabled, setAutoBackupEnabled] = useState(true);
   const [backupInterval, setBackupInterval] = useState(7);
-
-  // 백업 목록 조회 (더미 데이터)
-  const fetchBackups = async () => {
-    setLoading(true);
-    // TODO: API 연동 시 실제 데이터로 교체
-    const dummyData: BackupRecord[] = [
-      {
-        id: '1',
-        filename: 'backup_2024-12-01_103045.json',
-        size: '2.3 MB',
-        created_at: '2024-12-01 10:30:45',
-        type: 'auto',
-        status: 'completed',
-      },
-      {
-        id: '2',
-        filename: 'backup_2024-11-24_093012.json',
-        size: '2.1 MB',
-        created_at: '2024-11-24 09:30:12',
-        type: 'auto',
-        status: 'completed',
-      },
-      {
-        id: '3',
-        filename: 'backup_2024-11-20_143520.json',
-        size: '2.0 MB',
-        created_at: '2024-11-20 14:35:20',
-        type: 'manual',
-        status: 'completed',
-      },
-    ];
-    setBackups(dummyData);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchBackups();
-  }, []);
 
   const handleExport = async () => {
     if (!user) return;
@@ -93,7 +53,6 @@ const BackupSettings: React.FC = () => {
       const result = await window.electronAPI.settings.exportData(user.id);
       if (result.success) {
         message.success('백업이 완료되었습니다.');
-        fetchBackups();
       } else if (result.canceled) {
         message.info('백업이 취소되었습니다.');
       } else {
@@ -212,7 +171,6 @@ const BackupSettings: React.FC = () => {
       {/* 백업 이력 */}
       <Card title={<Space><HistoryOutlined /> 백업 이력</Space>}>
         <List
-          loading={loading}
           dataSource={backups}
           renderItem={(item) => (
             <List.Item
@@ -271,6 +229,7 @@ const BackupSettings: React.FC = () => {
         title="자동 백업 설정"
         open={settingsVisible}
         onCancel={() => setSettingsVisible(false)}
+        destroyOnClose
         footer={[
           <Button key="cancel" onClick={() => setSettingsVisible(false)}>
             취소

@@ -713,7 +713,7 @@ export function initDatabase(customPath?: string): Store<StoreSchema> {
     const existingQuotes = store.get('quotes', []);
     const existingContracts = store.get('contracts', []);
 
-    if (existingQuotes.length === 0 && existingContracts.length === 0) {
+    if (existingQuotes.length === 0 && existingContracts.length === 0 && defaultCompanyId) {
       console.log('Adding real data to existing database...');
 
       // 실제 견적서 데이터

@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron';
 import { db } from '../database';
 import { v4 as uuidv4 } from 'uuid';
+import { recalculateContractReceivedFromPayments } from './contract.ipc';
 
 export function registerPaymentConditionHandlers(): void {
   // ========================================
@@ -79,19 +80,24 @@ export function registerPaymentConditionHandlers(): void {
       return { success: false, error: '권한이 없습니다.' };
     }
 
-    // 기존 조건 조회를 위해 모든 조건에서 찾기
-    // payment_conditions 테이블에서 직접 조회
-    const allConditions = await db.getPaymentConditions(data.contract_id || '');
-    let condition: any = null;
-
-    // contract_id가 있으면 해당 계약의 조건에서 찾기
-    if (data.contract_id) {
-      condition = allConditions.find((c: any) => c.id === paymentId);
+    if (!data.contract_id) {
+      return { success: false, error: '계약 ID가 필요합니다.' };
     }
 
-    // 없으면 직접 조회 시도 (supabase에서 직접)
+    // 계약 소유권 확인
+    const contract = await db.getContractById(data.contract_id);
+    if (!contract) {
+      return { success: false, error: '계약서를 찾을 수 없습니다.' };
+    }
+    if (requester.role !== 'super_admin' && requester.company_id !== contract.company_id) {
+      return { success: false, error: '권한이 없습니다.' };
+    }
+
+    // 해당 계약의 대금조건에서 찾기
+    const allConditions = await db.getPaymentConditions(data.contract_id);
+    const condition = allConditions.find((c: any) => c.id === paymentId);
     if (!condition) {
-      // contract_id 없이는 조회 어려움 - 에러 반환보다는 update 시도
+      return { success: false, error: '대금조건을 찾을 수 없습니다.' };
     }
 
     const updates: any = {};
@@ -123,31 +129,46 @@ export function registerPaymentConditionHandlers(): void {
       return { success: false, error: '권한이 없습니다.' };
     }
 
+    // 관리자 이상만 삭제 가능
+    if (requester.role === 'employee') {
+      return { success: false, error: '삭제 권한이 없습니다.' };
+    }
+
+    // contractId 없으면 paymentId로 lookup해서 계약 ID 확보
+    let resolvedContractId = contractId;
+    if (!resolvedContractId) {
+      const cond = await (db as any).getPaymentConditionById(paymentId);
+      if (!cond) return { success: false, error: '대상 대금조건을 찾을 수 없습니다.' };
+      resolvedContractId = cond.contract_id;
+    }
+
+    // 계약 소유권 확인 (super_admin은 통과)
+    if (resolvedContractId && requester.role !== 'super_admin') {
+      const contract = await db.getContractById(resolvedContractId);
+      if (!contract) {
+        return { success: false, error: '연결된 계약을 찾을 수 없습니다.' };
+      }
+      if (requester.company_id !== contract.company_id) {
+        return { success: false, error: '권한이 없습니다.' };
+      }
+    }
+
     await db.deletePaymentCondition(paymentId);
 
     // 계약 금액 재계산
-    if (contractId) {
-      await recalculateContractReceivedAmount(contractId);
+    if (resolvedContractId) {
+      await recalculateContractReceivedAmount(resolvedContractId);
     }
 
     return { success: true };
   });
 }
 
-// 계약의 received_amount를 대금조건의 paid_amount 합계로 업데이트
+// 계약의 received_amount를 contract_payments 합계로 재계산 (단일 소스)
+// 대금조건(payment_conditions)의 paid_amount 변경 시에도 contract_payments 기반으로 재계산
 async function recalculateContractReceivedAmount(contractId: string) {
   try {
-    const conditions = await db.getPaymentConditions(contractId);
-    const totalPaid = conditions.reduce((sum: number, c: any) => sum + (c.paid_amount || 0), 0);
-
-    const contract = await db.getContractById(contractId);
-    if (contract) {
-      const remaining = (contract.total_amount || 0) - totalPaid;
-      await db.updateContract(contractId, {
-        received_amount: totalPaid,
-        remaining_amount: remaining,
-      });
-    }
+    await recalculateContractReceivedFromPayments(contractId);
   } catch (err) {
     console.error('Failed to recalculate contract received amount:', err);
   }

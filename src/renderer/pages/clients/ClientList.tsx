@@ -1,3 +1,4 @@
+import ResizableTable from '../../components/ResizableTable';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -51,9 +52,9 @@ const ClientList: React.FC = () => {
       } else {
         message.error(result.error || '거래처 목록을 불러올 수 없습니다.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load clients:', err);
-      message.error('거래처 목록 로드 실패');
+      message.error(err?.message || '거래처 목록 로드 실패');
     } finally {
       setLoading(false);
     }
@@ -85,8 +86,8 @@ const ClientList: React.FC = () => {
       } else {
         message.error(result.error || '등록에 실패했습니다.');
       }
-    } catch (err) {
-      message.error('거래처 등록 실패');
+    } catch (err: any) {
+      message.error(err?.message || '거래처 등록 실패');
     }
   };
 
@@ -100,8 +101,8 @@ const ClientList: React.FC = () => {
       } else {
         message.error(result.error || '삭제에 실패했습니다.');
       }
-    } catch (err) {
-      message.error('거래처 삭제 실패');
+    } catch (err: any) {
+      message.error(err?.message || '거래처 삭제 실패');
     }
   };
 
@@ -256,13 +257,15 @@ const ClientList: React.FC = () => {
           >
             상세
           </Button>
-          <Popconfirm
-            title="이 거래처를 삭제하시겠습니까?"
-            description="담당자 정보도 함께 삭제됩니다."
-            onConfirm={() => handleDelete(record.id)}
-          >
-            <Button type="link" danger size="small" icon={<DeleteOutlined />} />
-          </Popconfirm>
+          {(user?.role === 'super_admin' || user?.role === 'company_admin') && (
+            <Popconfirm
+              title="이 거래처를 삭제하시겠습니까?"
+              description="담당자 정보도 함께 삭제됩니다."
+              onConfirm={() => handleDelete(record.id)}
+            >
+              <Button type="link" danger size="small" icon={<DeleteOutlined />} />
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -279,12 +282,14 @@ const ClientList: React.FC = () => {
           <span style={{ color: '#888' }}>거래처 및 담당자 정보를 관리합니다.</span>
         </div>
         <Space>
+          {/* 엑셀 내보내기 - 임시 비활성화
           <Button
             icon={<DownloadOutlined />}
             onClick={handleExportCSV}
           >
             Excel 내보내기
           </Button>
+          */}
           <Button
             type="primary"
             icon={<PlusOutlined />}
@@ -322,7 +327,7 @@ const ClientList: React.FC = () => {
 
       {/* 테이블 */}
       <Card>
-        <Table
+        <ResizableTable
           dataSource={clients}
           columns={columns}
           rowKey="id"
@@ -349,6 +354,7 @@ const ClientList: React.FC = () => {
         onOk={() => createForm.submit()}
         okText="등록"
         cancelText="취소"
+        destroyOnClose
       >
         <Form
           form={createForm}

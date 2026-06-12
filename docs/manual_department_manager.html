@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>건설경제연구원 ERP - 부서관리자 매뉴얼</title>
+<style>
+  :root { --primary: #13c2c2; --bg: #f5f7fa; --card: #fff; --text: #333; --border: #e8e8e8; --accent: #13c2c2; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+  .container { max-width: 960px; margin: 0 auto; padding: 40px 20px; }
+  header { background: linear-gradient(135deg, #00474f, #13c2c2); color: #fff; padding: 48px 0; text-align: center; }
+  header h1 { font-size: 28px; margin-bottom: 8px; }
+  header .badge { display: inline-block; background: #fff; color: #00474f; padding: 4px 16px; border-radius: 20px; font-size: 14px; margin-top: 8px; font-weight: 700; }
+  header p { opacity: 0.8; font-size: 14px; margin-top: 12px; }
+  .toc { background: var(--card); border-radius: 12px; padding: 24px 32px; margin: 24px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .toc h2 { font-size: 18px; margin-bottom: 12px; color: var(--accent); }
+  .toc ol { padding-left: 20px; } .toc li { margin: 6px 0; }
+  .toc a { color: #006d75; text-decoration: none; } .toc a:hover { text-decoration: underline; }
+  section { background: var(--card); border-radius: 12px; padding: 32px; margin: 20px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  section h2 { font-size: 22px; color: #00474f; border-bottom: 3px solid var(--accent); padding-bottom: 8px; margin-bottom: 20px; }
+  section h3 { font-size: 17px; color: #006d75; margin: 20px 0 10px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+  th, td { border: 1px solid var(--border); padding: 10px 14px; text-align: left; }
+  th { background: #fafafa; font-weight: 600; white-space: nowrap; }
+  .steps { counter-reset: step; list-style: none; padding: 0; }
+  .steps li { counter-increment: step; padding: 10px 0 10px 48px; position: relative; border-left: 2px solid var(--border); margin-left: 16px; }
+  .steps li::before { content: counter(step); position: absolute; left: -15px; top: 8px; width: 28px; height: 28px; background: var(--accent); color: #fff; border-radius: 50%; text-align: center; line-height: 28px; font-size: 13px; font-weight: 700; }
+  .steps li:last-child { border-left: none; }
+  .note { background: #e6fffb; border-left: 4px solid var(--accent); padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 14px; }
+  .warn { background: #fff7e6; border-left: 4px solid #faad14; padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 14px; }
+  .no-access { background: #f5f5f5; color: #999; padding: 8px 16px; border-radius: 4px; margin: 8px 0; font-size: 13px; }
+  ul { padding-left: 20px; } ul li { margin: 4px 0; }
+  footer { text-align: center; padding: 32px; color: #999; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>건설경제연구원 ERP 시스템</h1>
+  <div class="badge">부서 관리자 (Department Manager)</div>
+  <p>소속 부서의 업무 관리 및 1차 승인 권한</p>
+</header>
+
+<div class="container">
+
+<nav class="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#overview">권한 개요</a></li>
+    <li><a href="#home">홈 메뉴</a></li>
+    <li><a href="#quotes">견적관리</a></li>
+    <li><a href="#contracts">계약관리</a></li>
+    <li><a href="#clients">거래처관리</a></li>
+    <li><a href="#hr">인사/총무</a></li>
+    <li><a href="#calendar">캘린더</a></li>
+    <li><a href="#project">프로젝트</a></li>
+    <li><a href="#admin">관리</a></li>
+    <li><a href="#settings">설정</a></li>
+  </ol>
+</nav>
+
+<section id="overview">
+  <h2>1. 권한 개요</h2>
+  <p>부서관리자는 소속 부서의 업무를 관리하고, 연차 신청에 대한 1차(부서) 승인 권한을 가집니다.</p>
+  <table>
+    <tr><th>기능</th><th>권한</th><th>비고</th></tr>
+    <tr><td>견적서/계약서</td><td>조회/생성/수정</td><td>삭제 불가</td></tr>
+    <tr><td>거래처</td><td>조회/생성/수정</td><td>삭제 불가</td></tr>
+    <tr><td>연차 승인</td><td>부서 승인 (1단계)</td><td>최종승인은 회사관리자</td></tr>
+    <tr><td>메일 승인</td><td>승인/반려</td><td>같은 부서원 요청만</td></tr>
+    <tr><td>프로젝트</td><td>조회/수정</td><td>상태변경 가능</td></tr>
+    <tr><td>부서관리</td><td>조회만</td><td>수정 불가</td></tr>
+    <tr><td>문서 템플릿</td><td>업로드/관리</td><td></td></tr>
+    <tr><td style="color:#999">대시보드</td><td style="color:#999">접근 불가</td><td style="color:#999">관리자 전용</td></tr>
+    <tr><td style="color:#999">AI검색</td><td style="color:#999">접근 불가</td><td style="color:#999">관리자 전용</td></tr>
+    <tr><td style="color:#999">사용자/회사/권한관리</td><td style="color:#999">접근 불가</td><td style="color:#999">관리자 전용</td></tr>
+  </table>
+</section>
+
+<section id="home">
+  <h2>2. 홈 메뉴</h2>
+  <ul>
+    <li><strong>프로젝트 현황</strong>: 계약 목록 기반 프로젝트 현황 확인</li>
+    <li><strong>통합검색</strong>: 계약/견적/외주/파일 통합 검색</li>
+  </ul>
+  <div class="no-access">대시보드, AI검색은 관리자 전용 메뉴입니다.</div>
+</section>
+
+<section id="quotes">
+  <h2>3. 견적관리</h2>
+  <h3>가능한 작업</h3>
+  <ul>
+    <li>견적서 작성 (인건비 + 경비 + 상세내역)</li>
+    <li>견적서 수정 (초안 상태)</li>
+    <li>견적서 제출</li>
+    <li>이메일 발송 / PDF 미리보기</li>
+    <li>견적서 복제</li>
+  </ul>
+  <div class="warn">견적서 삭제 및 승인/반려는 회사관리자 이상만 가능합니다.</div>
+</section>
+
+<section id="contracts">
+  <h2>4. 계약관리</h2>
+  <ul>
+    <li>계약 등록 및 수정</li>
+    <li>진행상태 변경</li>
+    <li>입금 등록</li>
+    <li>외주 등록/관리</li>
+    <li>월별현황 조회 / 변경이력 조회</li>
+  </ul>
+  <div class="warn">계약 삭제는 회사관리자 이상만 가능합니다.</div>
+</section>
+
+<section id="clients">
+  <h2>5. 거래처관리</h2>
+  <ul>
+    <li>거래처 조회 및 추가</li>
+    <li>거래처 정보 수정</li>
+  </ul>
+  <div class="warn">거래처 삭제는 회사관리자 이상만 가능합니다.</div>
+</section>
+
+<section id="hr">
+  <h2>6. 인사/총무</h2>
+
+  <h3>연차 신청</h3>
+  <p>본인 연차 신청 가능. 잔여일수 자동 계산됩니다.</p>
+
+  <h3>연차 승인관리 (부서 승인)</h3>
+  <div class="note">
+    <strong>부서관리자의 승인 역할:</strong>
+    <ul>
+      <li>같은 부서 직원의 연차 신청에 대해 <strong>부서 승인</strong>(1단계) 처리</li>
+      <li>대기중(pending) → 부서승인(dept_approved) 상태로 변경</li>
+      <li>반려 시 사유를 입력하면 신청자에게 알림 전송</li>
+      <li>부서 승인 후 회사관리자의 최종승인이 필요합니다</li>
+    </ul>
+  </div>
+
+  <h3>메일 승인</h3>
+  <p>같은 부서 직원의 이메일 발송 요청을 승인/반려합니다. 승인 시 자동 발송됩니다.</p>
+
+  <h3>증명서 발급</h3>
+  <p>본인 증명서 신청 가능 (승인은 회사관리자).</p>
+</section>
+
+<section id="calendar">
+  <h2>7. 캘린더</h2>
+  <ul>
+    <li><strong>계약 캘린더</strong>: 계약 일정 확인</li>
+    <li><strong>인사 캘린더</strong>: 소속 부서의 연차/병가 일정 확인</li>
+    <li><strong>공간 캘린더</strong>: 회의실 예약 및 관리</li>
+  </ul>
+</section>
+
+<section id="project">
+  <h2>8. 프로젝트</h2>
+  <ul>
+    <li>프로젝트 현황 확인 (진행률, 수금현황)</li>
+    <li>프로젝트 상태 변경 가능</li>
+    <li>하위작업 확인</li>
+    <li>일정관리 타임라인</li>
+  </ul>
+</section>
+
+<section id="admin">
+  <h2>9. 관리</h2>
+  <ul>
+    <li><strong>부서관리</strong>: 소속 부서 정보 조회 (수정 불가)</li>
+  </ul>
+  <div class="no-access">사용자관리, 권한설정, 회사관리는 접근할 수 없습니다.</div>
+</section>
+
+<section id="settings">
+  <h2>10. 설정</h2>
+  <ul>
+    <li><strong>문서 템플릿</strong>: 부서용 문서 템플릿 업로드 및 관리</li>
+    <li><strong>일반 설정</strong>: 프로필, 비밀번호 변경, 테마 설정</li>
+  </ul>
+  <div class="no-access">양식설정, 백업관리는 회사관리자 이상만 접근 가능합니다.</div>
+</section>
+
+</div>
+
+<footer>
+  건설경제연구원 ERP 시스템 v1.2.1 | 부서관리자 매뉴얼 | 2026년 3월
+</footer>
+
+</body>
+</html>

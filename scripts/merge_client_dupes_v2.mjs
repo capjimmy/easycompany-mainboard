@@ -1,0 +1,85 @@
+// Task 3: 거래처 ㈜/(주) 중복 병합
+import { createClient } from '@supabase/supabase-js';
+const sb = createClient('https://silvsqcwearelrumtqqm.supabase.co', 'sb_publishable_pAS3A3nCHvsuS0ew46MD5A_RpnMdt4J');
+async function fetchAll(t,c){const all=[];let f=0;while(true){const{data}=await sb.from(t).select(c).order('id').range(f,f+999);if(!data||!data.length)break;all.push(...data);if(data.length<1000)break;f+=1000;}return all;}
+
+function norm(s) {
+  if (!s) return '';
+  // 강력 정규화: 법인 표시 모두 제거 (㈜ 와 (주) 같은 회사로 인식)
+  return String(s).trim()
+    .replace(/㈜/g, '')
+    .replace(/㈔/g, '')
+    .replace(/\(주\)/g, '')
+    .replace(/\(유\)/g, '')
+    .replace(/\(사\)/g, '')
+    .replace(/\(재\)/g, '')
+    .replace(/주식회사/g, '')
+    .replace(/유한회사/g, '')
+    .replace(/사단법인/g, '')
+    .replace(/재단법인/g, '')
+    .replace(/\s+/g, '')
+    .toLowerCase();
+}
+
+const clients = await fetchAll('client_companies', 'id, company_id, name, business_number, ceo_name, email, phone, address, notes, fax, website, industry, client_type');
+console.log(`총 거래처: ${clients.length}`);
+
+// 그룹핑
+const groups = new Map();
+for (const c of clients) {
+  const key = `${c.company_id}::${norm(c.name)}`;
+  if (!groups.has(key)) groups.set(key, []);
+  groups.get(key).push(c);
+}
+const dups = [...groups.entries()].filter(([,v]) => v.length > 1);
+const totalDupRows = dups.reduce((s, [,v]) => s + v.length, 0);
+console.log(`중복 그룹: ${dups.length}개 / 총 ${totalDupRows}행`);
+
+const refTables = [
+  { table: 'tax_invoices', col: 'client_company_id' },
+  { table: 'contracts', col: 'client_company_id' },
+  { table: 'client_contacts', col: 'client_company_id' },
+];
+
+let merged = 0;
+let groupCount = 0;
+for (const [key, group] of dups) {
+  groupCount++;
+  group.sort((a, b) => {
+    const aScore = (a.business_number ? 100 : 0) + (a.email ? 50 : 0) + (a.ceo_name ? 30 : 0) + (a.phone ? 20 : 0) + (a.address ? 10 : 0) + (a.notes ? 5 : 0) + (a.fax ? 3 : 0);
+    const bScore = (b.business_number ? 100 : 0) + (b.email ? 50 : 0) + (b.ceo_name ? 30 : 0) + (b.phone ? 20 : 0) + (b.address ? 10 : 0) + (b.notes ? 5 : 0) + (b.fax ? 3 : 0);
+    return bScore - aScore;
+  });
+  const keeper = group[0];
+  const dupes = group.slice(1);
+
+  // keeper 정보 보강
+  const updates = {};
+  for (const d of dupes) {
+    if (!keeper.business_number && d.business_number) updates.business_number = d.business_number;
+    if (!keeper.ceo_name && d.ceo_name) updates.ceo_name = d.ceo_name;
+    if (!keeper.email && d.email) updates.email = d.email;
+    if (!keeper.phone && d.phone) updates.phone = d.phone;
+    if (!keeper.address && d.address) updates.address = d.address;
+    if (!keeper.fax && d.fax) updates.fax = d.fax;
+    if (!keeper.website && d.website) updates.website = d.website;
+    if (!keeper.industry && d.industry) updates.industry = d.industry;
+  }
+  if (Object.keys(updates).length > 0) {
+    updates.updated_at = new Date().toISOString();
+    await sb.from('client_companies').update(updates).eq('id', keeper.id);
+  }
+
+  for (const d of dupes) {
+    for (const ref of refTables) {
+      await sb.from(ref.table).update({ [ref.col]: keeper.id }).eq(ref.col, d.id);
+    }
+    await sb.from('client_companies').delete().eq('id', d.id);
+    merged++;
+  }
+  if (groupCount % 20 === 0) process.stdout.write(`${groupCount}/${dups.length} `);
+}
+
+console.log(`\n✅ ${merged}개 중복 거래처 병합`);
+const { count } = await sb.from('client_companies').select('*', { count: 'exact', head: true });
+console.log(`남은 거래처: ${count}`);

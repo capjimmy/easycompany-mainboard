@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   Card, Typography, Button, Space, Table, Modal, Form, Input, InputNumber, Select,
-  message, Tabs, Popconfirm, Tag, Tooltip, Empty
+  message, Tabs, Popconfirm, Tag, Tooltip, Empty, Tree
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, DollarOutlined,
-  PercentageOutlined, CalculatorOutlined
+  PercentageOutlined, CalculatorOutlined, AppstoreOutlined,
+  UploadOutlined, FileTextOutlined
 } from '@ant-design/icons';
 
 import { useAuthStore } from '../../store/authStore';
@@ -32,23 +33,77 @@ const PriceSettings: React.FC = () => {
 
   // 권한 확인 (company_admin 이상)
   const canEdit = user?.role === 'super_admin' || user?.role === 'company_admin';
-  const companyId = user?.company_id;
+  const canEditPreset = canEdit || user?.role === 'department_manager';
+  const { selectedCompanyId } = useAuthStore();
+  const companyId = selectedCompanyId || user?.company_id;
+
+  // 사전 항목 관리
+  interface PresetSection {
+    id: string;
+    company_id: string;
+    level: number;
+    title: string;
+    parent_id: string | null;
+    sort_order: number;
+    is_active: boolean;
+    default_amount?: number;
+  }
+  const [presetSections, setPresetSections] = useState<PresetSection[]>([]);
+  const [presetModalVisible, setPresetModalVisible] = useState(false);
+  const [editingPreset, setEditingPreset] = useState<PresetSection | null>(null);
+  const [presetParentId, setPresetParentId] = useState<string | null>(null);
+  const [presetLevel, setPresetLevel] = useState(1);
+  const [presetForm] = Form.useForm();
+
+  // 견적서 양식 템플릿
+  const [quoteTemplatePath, setQuoteTemplatePath] = useState<string | null>(null);
+  const [templateUploading, setTemplateUploading] = useState(false);
 
   // 데이터 로드
   useEffect(() => {
     if (companyId) {
       loadData();
+    } else if (user?.role === 'super_admin') {
+      // 슈퍼관리자가 회사를 선택하지 않은 경우 첫 번째 회사 사용
+      window.electronAPI.companies.getAll(user.id).then((result: any) => {
+        if (result.success && result.companies?.length > 0) {
+          loadDataWithCompany(result.companies[0].id);
+        }
+      }).catch(() => {});
     }
-  }, [companyId]);
+  }, [companyId, user?.id]);
+
+  const loadDataWithCompany = async (cid: string) => {
+    if (!user?.id || !cid) return;
+    setLoading(true);
+    try {
+      const [laborResult, expenseResult, presetResult, templatePathResult] = await Promise.all([
+        window.electronAPI.laborGrades.getByCompany(user.id, cid),
+        window.electronAPI.expenseCategories.getByCompany(user.id, cid),
+        window.electronAPI.quotePresetSections.getByCompany(user.id, cid),
+        window.electronAPI.settings.get('quote_template_path'),
+      ]);
+      if (laborResult.success) setLaborGrades(laborResult.laborGrades);
+      if (expenseResult.success) setExpenseCategories(expenseResult.expenseCategories);
+      if (presetResult.success) setPresetSections(presetResult.sections || []);
+      if (templatePathResult.success) setQuoteTemplatePath(templatePathResult.value || null);
+    } catch (err) {
+      console.error('Failed to load data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadData = async () => {
     if (!user?.id || !companyId) return;
 
     setLoading(true);
     try {
-      const [laborResult, expenseResult] = await Promise.all([
+      const [laborResult, expenseResult, presetResult, templatePathResult] = await Promise.all([
         window.electronAPI.laborGrades.getByCompany(user.id, companyId),
         window.electronAPI.expenseCategories.getByCompany(user.id, companyId),
+        window.electronAPI.quotePresetSections.getByCompany(user.id, companyId),
+        window.electronAPI.settings.get('quote_template_path'),
       ]);
 
       if (laborResult.success) {
@@ -56,6 +111,12 @@ const PriceSettings: React.FC = () => {
       }
       if (expenseResult.success) {
         setExpenseCategories(expenseResult.expenseCategories);
+      }
+      if (presetResult.success) {
+        setPresetSections(presetResult.sections || []);
+      }
+      if (templatePathResult) {
+        setQuoteTemplatePath(templatePathResult);
       }
     } catch (err) {
       message.error('데이터를 불러오는 중 오류가 발생했습니다.');
@@ -325,6 +386,183 @@ const PriceSettings: React.FC = () => {
     }] : []),
   ];
 
+  // ========================================
+  // 사전 항목 관련
+  // ========================================
+
+  const handlePresetAdd = (level: number, parentId: string | null = null) => {
+    setEditingPreset(null);
+    setPresetLevel(level);
+    setPresetParentId(parentId);
+    presetForm.resetFields();
+    setPresetModalVisible(true);
+  };
+
+  const handlePresetEdit = (record: PresetSection) => {
+    setEditingPreset(record);
+    setPresetLevel(record.level);
+    setPresetParentId(record.parent_id);
+    presetForm.setFieldsValue({ title: record.title, default_amount: record.default_amount || null });
+    setPresetModalVisible(true);
+  };
+
+  const handlePresetDelete = async (id: string) => {
+    if (!user?.id) return;
+    try {
+      const result = await window.electronAPI.quotePresetSections.delete(user.id, id);
+      if (result.success) {
+        message.success('항목이 삭제되었습니다.');
+        loadData();
+      } else {
+        message.error(result.error || '삭제에 실패했습니다.');
+      }
+    } catch (err) {
+      message.error('오류가 발생했습니다.');
+    }
+  };
+
+  const handlePresetSubmit = async (values: any) => {
+    if (!user?.id || !companyId) return;
+    try {
+      let result;
+      if (editingPreset) {
+        result = await window.electronAPI.quotePresetSections.update(user.id, editingPreset.id, {
+          title: values.title,
+          default_amount: values.default_amount,
+        });
+      } else {
+        result = await window.electronAPI.quotePresetSections.create(user.id, {
+          company_id: companyId,
+          level: presetLevel,
+          title: values.title,
+          parent_id: presetParentId,
+          default_amount: values.default_amount || null,
+        });
+      }
+      if (result.success) {
+        message.success(editingPreset ? '항목이 수정되었습니다.' : '항목이 추가되었습니다.');
+        setPresetModalVisible(false);
+        loadData();
+      } else {
+        message.error(result.error || '저장에 실패했습니다.');
+      }
+    } catch (err) {
+      message.error('오류가 발생했습니다.');
+    }
+  };
+
+  const levelLabels: Record<number, { name: string; color: string }> = {
+    1: { name: '대분류', color: 'blue' },
+    2: { name: '세분류', color: 'cyan' },
+    3: { name: '세세분류', color: 'default' },
+  };
+
+  const renderPresetTree = () => {
+    const level1 = presetSections.filter(s => s.level === 1 && !s.parent_id).sort((a, b) => a.sort_order - b.sort_order);
+
+    if (level1.length === 0) {
+      return <Empty description="등록된 사전 항목이 없습니다." image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+    }
+
+    return level1.map((cat, idx) => {
+      const level2 = presetSections.filter(s => s.parent_id === cat.id && s.level === 2).sort((a, b) => a.sort_order - b.sort_order);
+
+      return (
+        <div key={cat.id} style={{ marginBottom: 12, border: '1px solid #f0f0f0', borderRadius: 8, padding: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <Tag color="blue">{idx + 1}. 대분류</Tag>
+            <Text strong style={{ flex: 1 }}>{cat.title}</Text>
+            {canEditPreset && (
+              <Space size="small">
+                <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={() => handlePresetAdd(2, cat.id)}>세분류</Button>
+                <Tooltip title="수정"><Button size="small" type="text" icon={<EditOutlined />} onClick={() => handlePresetEdit(cat)} /></Tooltip>
+                <Popconfirm title="이 항목과 하위 항목을 모두 삭제하시겠습니까?" onConfirm={() => handlePresetDelete(cat.id)} okText="삭제" cancelText="취소">
+                  <Tooltip title="삭제"><Button size="small" type="text" danger icon={<DeleteOutlined />} /></Tooltip>
+                </Popconfirm>
+              </Space>
+            )}
+          </div>
+
+          {level2.map((sub, subIdx) => {
+            const level3 = presetSections.filter(s => s.parent_id === sub.id && s.level === 3).sort((a, b) => a.sort_order - b.sort_order);
+
+            return (
+              <div key={sub.id} style={{ marginLeft: 24, marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <Tag color="cyan">{idx + 1}-{subIdx + 1}. 세분류</Tag>
+                  <Text style={{ flex: 1 }}>{sub.title}</Text>
+                  {sub.default_amount ? <Tag color="orange">{sub.default_amount.toLocaleString()}원</Tag> : null}
+                  {canEditPreset && (
+                    <Space size="small">
+                      <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={() => handlePresetAdd(3, sub.id)}>세세분류</Button>
+                      <Tooltip title="수정"><Button size="small" type="text" icon={<EditOutlined />} onClick={() => handlePresetEdit(sub)} /></Tooltip>
+                      <Popconfirm title="삭제하시겠습니까?" onConfirm={() => handlePresetDelete(sub.id)} okText="삭제" cancelText="취소">
+                        <Tooltip title="삭제"><Button size="small" type="text" danger icon={<DeleteOutlined />} /></Tooltip>
+                      </Popconfirm>
+                    </Space>
+                  )}
+                </div>
+
+                {level3.map((detail, detailIdx) => (
+                  <div key={detail.id} style={{ marginLeft: 24, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <Tag>{idx + 1}-{subIdx + 1}-{detailIdx + 1}</Tag>
+                    <Text style={{ flex: 1 }}>{detail.title}</Text>
+                    {detail.default_amount ? <Tag color="orange">{detail.default_amount.toLocaleString()}원</Tag> : null}
+                    {canEditPreset && (
+                      <Space size="small">
+                        <Tooltip title="수정"><Button size="small" type="text" icon={<EditOutlined />} onClick={() => handlePresetEdit(detail)} /></Tooltip>
+                        <Popconfirm title="삭제하시겠습니까?" onConfirm={() => handlePresetDelete(detail.id)} okText="삭제" cancelText="취소">
+                          <Tooltip title="삭제"><Button size="small" type="text" danger icon={<DeleteOutlined />} /></Tooltip>
+                        </Popconfirm>
+                      </Space>
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      );
+    });
+  };
+
+  // ========================================
+  // 견적서 양식 관련
+  // ========================================
+
+  const handleQuoteTemplateUpload = async () => {
+    if (!user?.id) return;
+    setTemplateUploading(true);
+    try {
+      const result = await window.electronAPI.quotes.uploadTemplate(user.id);
+      if (result.success) {
+        message.success(`견적서 양식이 업로드되었습니다: ${result.fileName}`);
+        setQuoteTemplatePath(result.templatePath);
+      } else if (result.error !== 'canceled') {
+        message.error(result.error || '업로드에 실패했습니다.');
+      }
+    } catch (err) {
+      message.error('오류가 발생했습니다.');
+    } finally {
+      setTemplateUploading(false);
+    }
+  };
+
+  const handleQuoteTemplateRemove = async () => {
+    if (!user?.id) return;
+    try {
+      const result = await window.electronAPI.quotes.removeTemplate(user.id);
+      if (result.success) {
+        message.success('견적서 양식이 삭제되었습니다.');
+        setQuoteTemplatePath(null);
+      } else {
+        message.error(result.error || '삭제에 실패했습니다.');
+      }
+    } catch (err) {
+      message.error('오류가 발생했습니다.');
+    }
+  };
+
   const tabItems = [
     {
       key: 'labor',
@@ -402,6 +640,123 @@ const PriceSettings: React.FC = () => {
         </Card>
       ),
     },
+    {
+      key: 'preset',
+      label: (
+        <span>
+          <AppstoreOutlined />
+          견적 항목 관리
+        </span>
+      ),
+      children: (
+        <Card
+          extra={
+            canEditPreset && (
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => handlePresetAdd(1, null)}>
+                대분류 추가
+              </Button>
+            )
+          }
+        >
+          {renderPresetTree()}
+          <div style={{ marginTop: 16 }}>
+            <Text type="secondary">
+              * 사전 항목은 견적서 작성 시 "사전 항목 불러오기"로 빠르게 추가할 수 있습니다.
+            </Text>
+            <br />
+            <Text type="secondary">
+              * 대분류 / 세분류 / 세세분류 3단계 계층 구조로 관리됩니다.
+            </Text>
+          </div>
+        </Card>
+      ),
+    },
+    {
+      key: 'quoteTemplate',
+      label: (
+        <span>
+          <FileTextOutlined />
+          견적서 양식
+        </span>
+      ),
+      children: (
+        <Card>
+          <div style={{ marginBottom: 16 }}>
+            <Title level={5}>견적서 출력 양식</Title>
+            <Text type="secondary">
+              견적서 출력 시 사용할 양식 파일을 업로드합니다. (docx, xlsx, hwp 파일 지원)
+            </Text>
+          </div>
+
+          {quoteTemplatePath ? (
+            <div style={{ padding: 16, background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 8, marginBottom: 16 }}>
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Space>
+                  <FileTextOutlined style={{ color: '#52c41a', fontSize: 18 }} />
+                  <Text strong>현재 양식 파일:</Text>
+                  <Text>{quoteTemplatePath.split(/[/\\]/).pop()}</Text>
+                </Space>
+                <Space>
+                  <Text type="secondary" style={{ fontSize: 12 }}>경로: {quoteTemplatePath}</Text>
+                </Space>
+                {canEdit && (
+                  <Space style={{ marginTop: 8 }}>
+                    <Button
+                      icon={<UploadOutlined />}
+                      onClick={handleQuoteTemplateUpload}
+                      loading={templateUploading}
+                    >
+                      양식 교체
+                    </Button>
+                    <Popconfirm
+                      title="견적서 양식 삭제"
+                      description="등록된 양식을 삭제하시겠습니까? 삭제 후에는 기본 형식으로 출력됩니다."
+                      onConfirm={handleQuoteTemplateRemove}
+                      okText="삭제"
+                      cancelText="취소"
+                    >
+                      <Button danger icon={<DeleteOutlined />}>양식 삭제</Button>
+                    </Popconfirm>
+                  </Space>
+                )}
+              </Space>
+            </div>
+          ) : (
+            <div style={{ padding: 24, background: '#fafafa', border: '1px dashed #d9d9d9', borderRadius: 8, textAlign: 'center', marginBottom: 16 }}>
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description="등록된 견적서 양식이 없습니다."
+              />
+              {canEdit && (
+                <Button
+                  type="primary"
+                  icon={<UploadOutlined />}
+                  onClick={handleQuoteTemplateUpload}
+                  loading={templateUploading}
+                  style={{ marginTop: 12 }}
+                >
+                  양식 파일 업로드
+                </Button>
+              )}
+            </div>
+          )}
+
+          <div style={{ marginTop: 16 }}>
+            <Text type="secondary">
+              * 양식 파일을 등록하면 견적서 출력 시 AI가 양식에 맞춰 데이터를 채워넣습니다.
+            </Text>
+            <br />
+            <Text type="secondary">
+              * 양식이 없으면 기본 견적서 형식으로 출력됩니다.
+            </Text>
+            <br />
+            <Text type="secondary">
+              * AI 출력 기능을 사용하려면 설정에서 OpenAI API 키가 등록되어 있어야 합니다.
+            </Text>
+          </div>
+        </Card>
+      ),
+    },
   ];
 
   if (!companyId) {
@@ -417,13 +772,13 @@ const PriceSettings: React.FC = () => {
   return (
     <div className="fade-in">
       <div className="page-header" style={{ marginBottom: 24 }}>
-        <Title level={4} style={{ margin: 0 }}>양식 설정</Title>
+        <Title level={4} style={{ margin: 0 }}>단가 설정</Title>
         <span style={{ color: '#888' }}>견적서 작성에 사용되는 단가표와 경비 항목을 관리합니다.</span>
       </div>
 
       {!canEdit && (
         <Card style={{ marginBottom: 16, background: '#fffbe6', borderColor: '#ffe58f' }}>
-          <Text>양식 설정을 수정하려면 회사 관리자 권한이 필요합니다.</Text>
+          <Text>단가 설정을 수정하려면 회사 관리자 권한이 필요합니다.</Text>
         </Card>
       )}
 
@@ -484,6 +839,52 @@ const PriceSettings: React.FC = () => {
               <Button onClick={() => setLaborModalVisible(false)}>취소</Button>
               <Button type="primary" htmlType="submit">
                 {editingLaborGrade ? '수정' : '추가'}
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 사전 항목 모달 */}
+      <Modal
+        title={editingPreset ? `${levelLabels[presetLevel]?.name || ''} 수정` : `${levelLabels[presetLevel]?.name || ''} 추가`}
+        open={presetModalVisible}
+        onCancel={() => setPresetModalVisible(false)}
+        footer={null}
+        destroyOnClose
+      >
+        <Form
+          form={presetForm}
+          layout="vertical"
+          onFinish={handlePresetSubmit}
+          style={{ marginTop: 16 }}
+        >
+          <Form.Item
+            name="title"
+            label="항목명"
+            rules={[{ required: true, message: '항목명을 입력해주세요.' }]}
+          >
+            <Input placeholder={`예: ${presetLevel === 1 ? '인건비' : presetLevel === 2 ? '책임연구원' : '현장조사'}`} />
+          </Form.Item>
+
+          {presetLevel >= 2 && (
+            <Form.Item name="default_amount" label="기본 금액 (선택)">
+              <InputNumber
+                style={{ width: '100%' }}
+                formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                parser={(value) => value!.replace(/,/g, '') as unknown as number}
+                placeholder="금액을 미리 설정하면 불러오기 시 자동 입력됩니다"
+                min={0}
+                addonAfter="원"
+              />
+            </Form.Item>
+          )}
+
+          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+            <Space>
+              <Button onClick={() => setPresetModalVisible(false)}>취소</Button>
+              <Button type="primary" htmlType="submit">
+                {editingPreset ? '수정' : '추가'}
               </Button>
             </Space>
           </Form.Item>

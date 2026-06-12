@@ -45,6 +45,7 @@ export async function sendQuoteEmail(options: {
   body: string;
   attachmentPath?: string;
   attachmentName?: string;
+  attachments?: Array<{ path: string; name: string }>;
 }) {
   if (!transporter) throw new Error('이메일 설정이 되어있지 않습니다.');
   const mailOptions: any = {
@@ -53,11 +54,27 @@ export async function sendQuoteEmail(options: {
     subject: options.subject,
     html: options.body,
   };
+
+  const attachmentList: Array<{ filename: string; path: string }> = [];
+
+  // 기존 단일 첨부파일 지원
   if (options.attachmentPath) {
-    mailOptions.attachments = [{
+    attachmentList.push({
       filename: options.attachmentName || 'document.pdf',
       path: options.attachmentPath,
-    }];
+    });
   }
+
+  // 다중 첨부파일 지원
+  if (options.attachments && options.attachments.length > 0) {
+    for (const att of options.attachments) {
+      attachmentList.push({ filename: att.name, path: att.path });
+    }
+  }
+
+  if (attachmentList.length > 0) {
+    mailOptions.attachments = attachmentList;
+  }
+
   return transporter.sendMail(mailOptions);
 }

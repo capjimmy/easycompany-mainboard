@@ -16,6 +16,91 @@ function now() { return new Date().toISOString(); }
 const allContracts = JSON.parse(fs.readFileSync(path.join(__dirname, '../src/main/database/allContracts.json'), 'utf-8'));
 const allQuotes = JSON.parse(fs.readFileSync(path.join(__dirname, '../src/main/database/allQuotes.json'), 'utf-8'));
 
+// ============ vector_index 데이터 로드 (파일명 파싱) ============
+let viContracts = [];
+let viQuotes = [];
+const viDataPath = path.join(__dirname, '../vector_index (1)/extracted_texts_ds.json');
+if (fs.existsSync(viDataPath)) {
+  console.log('vector_index 데이터 로드 중...');
+  const viData = JSON.parse(fs.readFileSync(viDataPath, 'utf-8'));
+  const viKeys = Object.keys(viData);
+  const filenameRegex = /(\d{4}-\d{3,4}[^ .]*)\.\s*\((\d{2})\)\s*(.+?)[-—](.+?)$/;
+
+  // 용역코드별 금액 범위 (현실적 더미 금액)
+  const amountRanges = {
+    '01': { min: 30000000, max: 200000000 },  // 종합
+    '02': { min: 5000000, max: 50000000 },     // ESC
+    '03': { min: 10000000, max: 80000000 },    // 설계변경
+    '04': { min: 15000000, max: 100000000 },   // 간접비/돌관
+    '05': { min: 10000000, max: 60000000 },    // 공정분석
+    '06': { min: 5000000, max: 40000000 },     // 법원감정
+    '07': { min: 5000000, max: 30000000 },     // 계약관리
+    '08': { min: 3000000, max: 20000000 },     // 기타
+    '99': { min: 5000000, max: 50000000 },     // 타견적
+  };
+
+  function randomAmount(code) {
+    const range = amountRanges[code] || amountRanges['08'];
+    // 1만원 단위로 반올림
+    return Math.round((range.min + Math.random() * (range.max - range.min)) / 10000) * 10000;
+  }
+
+  // 기존 시드의 회사+서비스 조합 (중복 방지)
+  const existingContracts = new Set(allContracts.map(c => c.company + '|' + c.service));
+  const existingQuoteNums = new Set(allQuotes.map(q => q.quote_number));
+
+  // 계약서 파싱
+  viKeys.filter(k => k.includes('01. 계약서') && !k.includes('원본 계약서') && !k.includes('sample') && !k.includes('★'))
+    .forEach(k => {
+      const fname = k.split('/').pop() || '';
+      const m = fname.match(filenameRegex);
+      if (!m) return;
+      const company = m[3].trim();
+      const project = m[4].trim().replace(/\.(hwp|pdf|xlsx|docx)$/, '');
+      const code = m[2];
+      const contractNo = m[1].trim();
+      const year = 2000 + parseInt(contractNo.substring(0, 2));
+      if (existingContracts.has(company + '|' + project)) return;
+      existingContracts.add(company + '|' + project);
+
+      const amt = randomAmount(code);
+      viContracts.push({
+        year, company, service: project, contract_amount: amt,
+        contractNo, serviceCode: code,
+        payments: [], total_received: 0, outstanding_invoiced: 0, uninvoiced: amt
+      });
+    });
+
+  // 견적서 파싱
+  viKeys.filter(k => k.includes('02. 견적서') && !k.includes('sample') && !k.includes('코드번호'))
+    .forEach(k => {
+      const fname = k.split('/').pop() || '';
+      const m = fname.match(filenameRegex);
+      if (!m) return;
+      const company = m[3].trim();
+      const project = m[4].trim().replace(/\.(hwp|pdf|xlsx|docx)$/, '');
+      const code = m[2];
+      const quoteNo = m[1].trim();
+      if (existingQuoteNums.has(quoteNo)) return;
+      existingQuoteNums.add(quoteNo);
+
+      const year = 2000 + parseInt(quoteNo.substring(0, 2));
+      const month = parseInt(quoteNo.substring(2, 4)) || 2;
+      const amt = randomAmount(code);
+      const vat = Math.round(amt * 0.1);
+      viQuotes.push({
+        quote_number: quoteNo, year, month: Math.min(month, 12),
+        company, service: project,
+        grand_total: amt + vat, total_amount: amt, vat_amount: vat,
+        file_name: fname, serviceCode: code
+      });
+    });
+
+  console.log(`vector_index: 계약 ${viContracts.length}건, 견적 ${viQuotes.length}건 추가`);
+} else {
+  console.log('vector_index 데이터 없음 - 기존 시드만 사용');
+}
+
 // ============ 고정 ID ============
 const COMPANY_ID = 'a0000000-0000-0000-0000-000000000001'; // (주)이지컨설턴트
 const COMPANY_ID_2 = 'a0000000-0000-0000-0000-000000000002'; // (사)건설경제연구원
@@ -144,6 +229,17 @@ for (const q of allQuotes) {
   addLine(`INSERT INTO quotes (id, company_id, quote_number, recipient_company, title, service_name, total_amount, vat_amount, grand_total, status, quote_date, notes, created_at, updated_at) VALUES ('${id}', '${COMPANY_ID}', '${esc(q.quote_number)}', '${esc(recipientCompany)}', '${esc(serviceName)}', '${esc(serviceName)}', ${q.total_amount || 0}, ${q.vat_amount || 0}, ${q.grand_total || 0}, '${status}', '${qDate}', '파일: ${esc(q.file_name)}', NOW(), NOW()) ON CONFLICT DO NOTHING;`);
 }
 
+// vector_index 견적서
+if (viQuotes.length > 0) {
+  addSection('견적서 (quotes) - vector_index 추가분');
+  for (const q of viQuotes) {
+    const id = uuid();
+    const status = q.year <= 2023 ? 'converted' : q.year === 2024 ? 'submitted' : 'draft';
+    const qDate = `${q.year}-${String(q.month).padStart(2, '0')}-01`;
+    addLine(`INSERT INTO quotes (id, company_id, quote_number, recipient_company, title, service_name, total_amount, vat_amount, grand_total, status, quote_date, notes, created_at, updated_at) VALUES ('${id}', '${COMPANY_ID}', '${esc(q.quote_number)}', '${esc(q.company)}', '${esc(q.service)}', '${esc(q.service)}', ${q.total_amount}, ${q.vat_amount}, ${q.grand_total}, '${status}', '${qDate}', 'VI: ${esc(q.file_name)}', NOW(), NOW()) ON CONFLICT DO NOTHING;`);
+  }
+}
+
 // ============ 7. 계약서 (Contracts) ============
 addSection('계약서 (contracts) - 2025년 수작업');
 
@@ -229,6 +325,30 @@ for (const r of allContracts) {
   addLine(`INSERT INTO contracts (id, company_id, contract_number, contract_code, client_company, contract_type, service_name, contract_start_date, contract_end_date, contract_amount, vat_amount, total_amount, received_amount, remaining_amount, progress, created_by, created_at, updated_at) VALUES ('${id}', '${COMPANY_ID}', '${contractNumber}', '${contractNumber}', '${esc(r.company)}', 'service', '${esc(r.service)}', '${r.year}-01-01', '${r.year}-12-31', ${contractAmount}, 0, ${contractAmount}, ${totalReceived}, ${remaining}, '${progress}', '${ADMIN_USER_ID}', NOW(), NOW()) ON CONFLICT DO NOTHING;`);
 }
 
+// vector_index 계약서
+if (viContracts.length > 0) {
+  addSection('계약서 (contracts) - vector_index 추가분');
+  const viYearCounters = {};
+  for (const r of viContracts) {
+    if (!viYearCounters[r.year]) viYearCounters[r.year] = 0;
+    viYearCounters[r.year]++;
+    const seq = String(viYearCounters[r.year]).padStart(3, '0');
+    const yearStr = String(r.year).slice(2);
+    const contractNumber = `VI${yearStr}-${seq}`;
+
+    const id = uuid();
+    contractIdMap[contractNumber] = id;
+    const contractAmount = r.contract_amount;
+    const totalReceived = Math.round(r.total_received || 0);
+    const remaining = Math.max(0, contractAmount - totalReceived);
+    const progress = r.year <= 2024 ? 'completed' : 'in_progress';
+    const startDate = `${r.year}-01-01`;
+    const endDate = `${r.year}-12-31`;
+
+    addLine(`INSERT INTO contracts (id, company_id, contract_number, contract_code, client_company, contract_type, service_name, contract_start_date, contract_end_date, contract_amount, vat_amount, total_amount, received_amount, remaining_amount, progress, created_by, created_at, updated_at) VALUES ('${id}', '${COMPANY_ID}', '${contractNumber}', '${esc(r.contractNo)}', '${esc(r.company)}', 'service', '${esc(r.service)}', '${startDate}', '${endDate}', ${contractAmount}, 0, ${contractAmount}, ${totalReceived}, ${remaining}, '${progress}', '${ADMIN_USER_ID}', NOW(), NOW()) ON CONFLICT DO NOTHING;`);
+  }
+}
+
 // ============ 8. 입금 내역 (Contract Payments) ============
 addSection('입금 내역 (contract_payments) - 2025');
 
@@ -295,6 +415,13 @@ for (const q of allQuotes) {
 for (const q of handcraftedQuotes) {
   clientSet.add(q.co);
 }
+// vector_index 거래처 추가
+for (const c of viContracts) {
+  if (c.company && c.company.trim().length >= 2) clientSet.add(c.company.trim());
+}
+for (const q of viQuotes) {
+  if (q.company && q.company.trim().length >= 2) clientSet.add(q.company.trim());
+}
 
 for (const name of clientSet) {
   if (!name || name.length < 2) continue;
@@ -303,8 +430,8 @@ for (const name of clientSet) {
 
 // ============ 10. Sequences 초기값 ============
 addSection('시퀀스 초기값');
-const totalQuotes = allQuotes.length + handcraftedQuotes.length;
-const totalContracts = contracts2025.length + Object.keys(yearCounters).reduce((sum, k) => sum + yearCounters[k], 0);
+const totalQuotes = allQuotes.length + handcraftedQuotes.length + viQuotes.length;
+const totalContracts = contracts2025.length + Object.keys(yearCounters).reduce((sum, k) => sum + yearCounters[k], 0) + viContracts.length;
 addLine(`INSERT INTO sequences (key, current_value) VALUES ('${COMPANY_ID}_quote', ${totalQuotes}) ON CONFLICT (key) DO UPDATE SET current_value = EXCLUDED.current_value;`);
 addLine(`INSERT INTO sequences (key, current_value) VALUES ('${COMPANY_ID}_contract', ${totalContracts}) ON CONFLICT (key) DO UPDATE SET current_value = EXCLUDED.current_value;`);
 

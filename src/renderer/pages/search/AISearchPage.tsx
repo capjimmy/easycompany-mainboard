@@ -487,6 +487,7 @@ const AISearchPage: React.FC = () => {
         onCancel={() => { setSettingsVisible(false); setApiKey(''); }}
         okText="저장"
         cancelText="취소"
+        destroyOnClose
       >
         <Form layout="vertical">
           <Form.Item

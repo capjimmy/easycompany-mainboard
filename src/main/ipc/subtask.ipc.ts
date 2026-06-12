@@ -1,5 +1,16 @@
 import { ipcMain } from 'electron';
 import { db } from '../database';
+import { supabase } from '../database/supabaseClient';
+
+// subtask ID로 contract_id를 조회하는 헬퍼
+async function getSubtaskContractId(subtaskId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('contract_subtasks')
+    .select('contract_id')
+    .eq('id', subtaskId)
+    .single();
+  return data?.contract_id || null;
+}
 
 export function registerSubtaskHandlers(): void {
   // ========================================
@@ -14,6 +25,12 @@ export function registerSubtaskHandlers(): void {
     }
 
     try {
+      const contract = await db.getContractById(contractId);
+      if (!contract) return { success: false, error: '계약을 찾을 수 없습니다.' };
+      if (requester.role !== 'super_admin' && contract.company_id !== requester.company_id) {
+        return { success: false, error: '권한이 없습니다.' };
+      }
+
       const subtasks = await db.getContractSubtasks(contractId);
       return { success: true, subtasks };
     } catch (err: any) {
@@ -30,6 +47,12 @@ export function registerSubtaskHandlers(): void {
 
     try {
       const { contractId, parentId, level, title, description, assigneeId, assigneeName, startDate, endDate } = data;
+
+      const contract = await db.getContractById(contractId);
+      if (!contract) return { success: false, error: '계약을 찾을 수 없습니다.' };
+      if (requester.role !== 'super_admin' && contract.company_id !== requester.company_id) {
+        return { success: false, error: '권한이 없습니다.' };
+      }
 
       // sort_order 결정: 같은 부모(또는 같은 contract의 최상위) 중 마지막 + 1
       const allSubtasks = await db.getContractSubtasks(contractId);
@@ -67,6 +90,15 @@ export function registerSubtaskHandlers(): void {
     }
 
     try {
+      // subtask의 contract_id로 권한 확인
+      const subtaskContractId = await getSubtaskContractId(subtaskId);
+      if (!subtaskContractId) return { success: false, error: '세부작업을 찾을 수 없습니다.' };
+      const contract = await db.getContractById(subtaskContractId);
+      if (!contract) return { success: false, error: '계약을 찾을 수 없습니다.' };
+      if (requester.role !== 'super_admin' && contract.company_id !== requester.company_id) {
+        return { success: false, error: '권한이 없습니다.' };
+      }
+
       const updates: any = {};
       if (data.title !== undefined) updates.title = data.title;
       if (data.description !== undefined) updates.description = data.description;
@@ -115,19 +147,20 @@ export function registerSubtaskHandlers(): void {
 
     try {
       // 삭제 전에 contract_id와 parent_id 보존
-      const allContracts = await db.getContracts();
-      // subtask 정보를 먼저 가져오기 위해 모든 subtask 조회
-      let contractId: string | null = null;
-      let parentId: string | null = null;
+      const { data: subtaskData } = await supabase
+        .from('contract_subtasks')
+        .select('contract_id, parent_id')
+        .eq('id', subtaskId)
+        .single();
 
-      // 모든 계약의 subtask를 순회하여 해당 subtask 찾기
-      for (const contract of allContracts) {
-        const subtasks = await db.getContractSubtasks(contract.id);
-        const found = subtasks.find((s: any) => s.id === subtaskId);
-        if (found) {
-          contractId = found.contract_id;
-          parentId = found.parent_id;
-          break;
+      let contractId: string | null = subtaskData?.contract_id || null;
+      let parentId: string | null = subtaskData?.parent_id || null;
+
+      if (contractId) {
+        const contract = await db.getContractById(contractId);
+        if (!contract) return { success: false, error: '계약을 찾을 수 없습니다.' };
+        if (requester.role !== 'super_admin' && contract.company_id !== requester.company_id) {
+          return { success: false, error: '권한이 없습니다.' };
         }
       }
 
@@ -157,6 +190,12 @@ export function registerSubtaskHandlers(): void {
     }
 
     try {
+      const contract = await db.getContractById(contractId);
+      if (!contract) return { success: false, error: '계약을 찾을 수 없습니다.' };
+      if (requester.role !== 'super_admin' && contract.company_id !== requester.company_id) {
+        return { success: false, error: '권한이 없습니다.' };
+      }
+
       // items: [{ id: string, sort_order: number }]
       for (const item of items) {
         await db.updateContractSubtask(item.id, { sort_order: item.sort_order });

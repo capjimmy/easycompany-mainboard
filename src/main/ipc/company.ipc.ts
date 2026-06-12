@@ -167,7 +167,7 @@ export function registerCompanyHandlers(): void {
 
     const allUsers = await db.getUsers();
     const users = allUsers.filter((u: any) => u.company_id === companyId);
-    const usersWithoutPassword = [];
+    const usersWithoutPassword: any[] = [];
     for (const u of users) {
       const { password_hash, ...userWithoutPassword } = u;
       const department = u.department_id ? await db.getDepartmentById(u.department_id) : null;

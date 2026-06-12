@@ -1,3 +1,4 @@
+import ResizableTable from '../../components/ResizableTable';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -67,7 +68,9 @@ const ContractMonthly: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const result = await window.electronAPI.contracts.getMonthlyStats(user.id, selectedYear);
+      const filters: any = {};
+      if (selectedCompanyId) filters.company_id = selectedCompanyId;
+      const result = await window.electronAPI.contracts.getMonthlyStats(user.id, selectedYear, filters);
       if (result.success) {
         setMonthlyStats(result.stats || []);
       }
@@ -320,7 +323,7 @@ const ContractMonthly: React.FC = () => {
 
       {/* 월별 테이블 */}
       <Card title={`${selectedYear}년 월별 현황`} style={{ marginBottom: 24 }}>
-        <Table
+        <ResizableTable
           columns={statsColumns}
           dataSource={statsArray}
           rowKey="month"
@@ -361,7 +364,7 @@ const ContractMonthly: React.FC = () => {
             </Button>
           }
         >
-          <Table
+          <ResizableTable
             columns={contractColumns}
             dataSource={contracts}
             rowKey="id"

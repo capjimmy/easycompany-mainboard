@@ -12,7 +12,7 @@ import { db } from '../database';
 
 // ===== 타입 정의 =====
 
-export type DocumentType = 'contract' | 'commencement' | 'task_plan' | 'completion' | 'invoice' | 'settlement';
+export type DocumentType = 'contract' | 'commencement' | 'task_plan' | 'completion' | 'invoice' | 'settlement' | 'official_letter' | 'quote_doc' | 'service_cost';
 
 export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   contract: '계약서',
@@ -21,6 +21,9 @@ export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   completion: '준공계',
   invoice: '청구서(대금청구서)',
   settlement: '정산 세부내역',
+  official_letter: '공문',
+  quote_doc: '견적서',
+  service_cost: '용역비산출',
 };
 
 export interface ContractData {

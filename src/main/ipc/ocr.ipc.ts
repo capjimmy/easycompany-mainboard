@@ -25,7 +25,7 @@ export function registerOCRHandlers(): void {
         const result = await dialog.showOpenDialog({
           title: '문서 스캔 - 파일 선택',
           filters: [
-            { name: '이미지/PDF', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf'] },
+            { name: '문서 파일', extensions: ['xlsx', 'xls', 'pdf', 'docx', 'hwp', 'png', 'jpg', 'jpeg', 'gif', 'webp'] },
             { name: '모든 파일', extensions: ['*'] },
           ],
           properties: ['openFile'],

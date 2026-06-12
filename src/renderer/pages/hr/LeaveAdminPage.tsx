@@ -1,3 +1,4 @@
+import ResizableTable from '../../components/ResizableTable';
 import React, { useState, useEffect } from 'react';
 import {
   Table, Button, Tag, Space, Typography, message, Card, Select, Modal, Input,
@@ -15,6 +16,8 @@ const LEAVE_TYPE_LABELS: Record<string, string> = {
   half_pm: '오후반차',
   sick: '병가',
   special: '특별휴가',
+  business_trip: '출장',
+  remote: '재택근무',
 };
 
 const STATUS_MAP: Record<string, { color: string; label: string }> = {
@@ -22,10 +25,11 @@ const STATUS_MAP: Record<string, { color: string; label: string }> = {
   dept_approved: { color: 'warning', label: '부서승인' },
   approved: { color: 'success', label: '최종승인' },
   rejected: { color: 'error', label: '반려' },
+  cancelled: { color: 'default', label: '취소됨' },
 };
 
 const LeaveAdminPage: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, selectedCompanyId } = useAuthStore();
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
@@ -39,8 +43,10 @@ const LeaveAdminPage: React.FC = () => {
     if (!user?.id) return;
     setLoading(true);
     try {
-      const filters = statusFilter ? { status: statusFilter } : undefined;
-      const result = await (window as any).electronAPI.leave.getAllRequests(user.id, filters);
+      const filters: any = {};
+      if (statusFilter) filters.status = statusFilter;
+      if (user.role === 'super_admin' && selectedCompanyId) filters.company_id = selectedCompanyId;
+      const result = await (window as any).electronAPI.leave.getAllRequests(user.id, Object.keys(filters).length ? filters : undefined);
       if (result.success) {
         setRequests(result.requests || []);
       } else {
@@ -55,7 +61,7 @@ const LeaveAdminPage: React.FC = () => {
 
   useEffect(() => {
     fetchRequests();
-  }, [user?.id, statusFilter]);
+  }, [user?.id, statusFilter, selectedCompanyId]);
 
   const handleApprove = async (leaveId: string) => {
     try {
@@ -66,8 +72,8 @@ const LeaveAdminPage: React.FC = () => {
       } else {
         message.error(result.error || '승인 실패');
       }
-    } catch (err) {
-      message.error('승인 중 오류 발생');
+    } catch (err: any) {
+      message.error(err?.message || '승인 중 오류 발생');
     }
   };
 
@@ -83,8 +89,8 @@ const LeaveAdminPage: React.FC = () => {
       } else {
         message.error(result.error || '반려 실패');
       }
-    } catch (err) {
-      message.error('반려 중 오류 발생');
+    } catch (err: any) {
+      message.error(err?.message || '반려 중 오류 발생');
     }
   };
 
@@ -236,12 +242,13 @@ const LeaveAdminPage: React.FC = () => {
             { value: 'dept_approved', label: '부서승인' },
             { value: 'approved', label: '최종승인' },
             { value: 'rejected', label: '반려' },
+            { value: 'cancelled', label: '취소됨' },
           ]}
         />
       </div>
 
       <Card style={{ marginTop: 16 }}>
-        <Table
+        <ResizableTable
           dataSource={requests}
           columns={columns}
           rowKey="id"
@@ -259,6 +266,7 @@ const LeaveAdminPage: React.FC = () => {
         okText="반려"
         okButtonProps={{ danger: true }}
         cancelText="취소"
+        destroyOnClose
       >
         <TextArea
           rows={3}

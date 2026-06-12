@@ -1,3 +1,4 @@
+import ResizableTable from '../../components/ResizableTable';
 import React, { useState, useEffect } from 'react';
 import {
   Table, Button, Modal, Form, Select, DatePicker, InputNumber, Input,
@@ -17,6 +18,8 @@ const LEAVE_TYPE_OPTIONS = [
   { value: 'half_pm', label: '오후반차' },
   { value: 'sick', label: '병가' },
   { value: 'special', label: '특별휴가' },
+  { value: 'business_trip', label: '출장' },
+  { value: 'remote', label: '재택근무' },
 ];
 
 const LEAVE_TYPE_LABELS: Record<string, string> = {
@@ -25,13 +28,21 @@ const LEAVE_TYPE_LABELS: Record<string, string> = {
   half_pm: '오후반차',
   sick: '병가',
   special: '특별휴가',
+  business_trip: '출장',
+  remote: '재택근무',
 };
+
+// 연차 차감 대상 유형 (출장/재택/특별휴가/병가는 차감 안 함 → days=0)
+const ANNUAL_DEDUCT_TYPES = ['annual', 'half_am', 'half_pm'];
+// 사용일수를 0으로 고정하는 유형
+const ZERO_DAYS_TYPES = ['business_trip', 'remote', 'special', 'sick'];
 
 const STATUS_MAP: Record<string, { color: string; label: string }> = {
   pending: { color: 'processing', label: '대기' },
   dept_approved: { color: 'warning', label: '부서승인' },
   approved: { color: 'success', label: '최종승인' },
   rejected: { color: 'error', label: '반려' },
+  cancelled: { color: 'default', label: '취소됨' },
 };
 
 const LeavePage: React.FC = () => {
@@ -76,11 +87,36 @@ const LeavePage: React.FC = () => {
   }, [user?.id]);
 
   const handleLeaveTypeChange = (value: string) => {
-    if (value === 'half_am' || value === 'half_pm') {
+    if (ZERO_DAYS_TYPES.includes(value)) {
+      form.setFieldsValue({ days: 0 });
+    } else if (value === 'half_am' || value === 'half_pm') {
       form.setFieldsValue({ days: 0.5 });
     } else {
-      form.setFieldsValue({ days: 1 });
+      // 날짜가 이미 선택되어 있으면 일수 재계산
+      const range = form.getFieldValue('dateRange');
+      if (range && range[0] && range[1]) {
+        const days = range[1].diff(range[0], 'day') + 1;
+        form.setFieldsValue({ days });
+      } else {
+        form.setFieldsValue({ days: 1 });
+      }
     }
+  };
+
+  const handleDateRangeChange = (range: any) => {
+    if (!range || !range[0] || !range[1]) return;
+    const leaveType = form.getFieldValue('leave_type');
+    if (ZERO_DAYS_TYPES.includes(leaveType)) {
+      form.setFieldsValue({ days: 0 });
+      return;
+    }
+    if (leaveType === 'half_am' || leaveType === 'half_pm') {
+      form.setFieldsValue({ days: 0.5 });
+      return;
+    }
+    // 시작일~종료일 일수 계산 (양 끝 포함)
+    const days = range[1].diff(range[0], 'day') + 1;
+    form.setFieldsValue({ days });
   };
 
   const handleSubmit = async () => {
@@ -124,8 +160,8 @@ const LeavePage: React.FC = () => {
       } else {
         message.error(result.error || '취소 실패');
       }
-    } catch (err) {
-      message.error('취소 중 오류가 발생했습니다.');
+    } catch (err: any) {
+      message.error(err?.message || '취소 중 오류가 발생했습니다.');
     }
   };
 
@@ -189,11 +225,18 @@ const LeavePage: React.FC = () => {
     {
       title: '',
       key: 'actions',
-      width: 80,
+      width: 100,
       render: (_: any, record: any) => {
-        if (record.status !== 'pending' && record.status !== 'dept_approved') return null;
+        if (record.status === 'rejected' || record.status === 'cancelled') return null;
+        const isApproved = record.status === 'approved';
         return (
-          <Popconfirm title="신청을 취소하시겠습니까?" onConfirm={() => handleCancel(record.id)} okText="취소" cancelText="아니오">
+          <Popconfirm
+            title={isApproved ? '승인된 신청을 취소하시겠습니까?' : '신청을 취소하시겠습니까?'}
+            description={isApproved && ANNUAL_DEDUCT_TYPES.includes(record.leave_type) ? '연차가 환원됩니다.' : undefined}
+            onConfirm={() => handleCancel(record.id)}
+            okText="취소"
+            cancelText="아니오"
+          >
             <Button type="text" danger icon={<DeleteOutlined />} size="small">취소</Button>
           </Popconfirm>
         );
@@ -232,7 +275,7 @@ const LeavePage: React.FC = () => {
       )}
 
       <Card style={{ marginTop: 16 }}>
-        <Table
+        <ResizableTable
           dataSource={requests}
           columns={columns}
           rowKey="id"
@@ -251,13 +294,14 @@ const LeavePage: React.FC = () => {
         okText="신청"
         cancelText="취소"
         width={500}
+        destroyOnClose
       >
         <Form form={form} layout="vertical" initialValues={{ leave_type: 'annual', days: 1 }}>
           <Form.Item name="leave_type" label="휴가 유형" rules={[{ required: true }]}>
             <Select options={LEAVE_TYPE_OPTIONS} onChange={handleLeaveTypeChange} />
           </Form.Item>
           <Form.Item name="dateRange" label="기간" rules={[{ required: true, message: '기간을 선택해주세요' }]}>
-            <RangePicker style={{ width: '100%' }} />
+            <RangePicker style={{ width: '100%' }} onChange={handleDateRangeChange} />
           </Form.Item>
           <Form.Item name="days" label="사용일수" rules={[{ required: true }]}>
             <InputNumber min={0.5} max={30} step={0.5} style={{ width: '100%' }} />

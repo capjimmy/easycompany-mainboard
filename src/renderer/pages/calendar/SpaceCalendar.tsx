@@ -49,7 +49,10 @@ interface MeetingRoom {
   floor: string;
   color: string;
   equipment?: string[];
+  description?: string;
 }
+
+const ROOM_COLORS = ['#1890ff', '#52c41a', '#fa8c16', '#eb2f96', '#722ed1', '#13c2c2', '#f5222d'];
 
 interface Reservation {
   id: string;
@@ -69,12 +72,9 @@ interface Reservation {
   createdAt: string;
 }
 
-const meetingRooms: MeetingRoom[] = [
-  { id: 'room1', name: '회의실', capacity: 10, floor: '사무실', color: '#1890ff', equipment: ['프로젝터', '화이트보드'] },
-];
-
 const SpaceCalendar: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, selectedCompanyId } = useAuthStore();
+  const [meetingRooms, setMeetingRooms] = useState<MeetingRoom[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
@@ -86,20 +86,46 @@ const SpaceCalendar: React.FC = () => {
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [form] = Form.useForm();
 
+  // 공간 목록 로드
+  const loadSpaces = async () => {
+    if (!user?.id) return;
+    try {
+      const filters: any = {};
+      if (user.role === 'super_admin' && selectedCompanyId) filters.company_id = selectedCompanyId;
+      const res = await (window as any).electronAPI.spaces?.getAll(user.id, filters);
+      if (res?.success) {
+        const active = (res.data || []).filter((s: any) => s.is_active !== false);
+        const mapped: MeetingRoom[] = active.map((s: any, idx: number) => ({
+          id: s.id,
+          name: s.name,
+          capacity: s.capacity || 0,
+          floor: s.location || '',
+          color: ROOM_COLORS[idx % ROOM_COLORS.length],
+          description: s.description || '',
+        }));
+        setMeetingRooms(mapped);
+      }
+    } catch (err) {
+      console.error('Failed to load spaces:', err);
+    }
+  };
+
   // DB에서 예약 데이터 로드
   const loadReservations = async () => {
     if (!user?.id) return;
     setLoading(true);
     try {
-      const result = await window.electronAPI.meeting.getAll(user.id);
+      const filters: any = {};
+      if (user.role === 'super_admin' && selectedCompanyId) filters.company_id = selectedCompanyId;
+      const result = await window.electronAPI.meeting.getAll(user.id, filters);
       if (result.success && result.reservations) {
         const mapped: Reservation[] = result.reservations.map((r: any) => ({
           id: r.id,
-          roomId: 'room1', // 현재 회의실 1개
-          roomName: '회의실',
+          roomId: r.space_id || r.room_id || '',
+          roomName: r.space_name || r.room_name || '회의실',
           date: r.reservation_date,
-          startTime: r.start_time,
-          endTime: r.end_time,
+          startTime: (r.start_time || '').substring(0, 5),
+          endTime: (r.end_time || '').substring(0, 5),
           title: r.title,
           organizer: r.reserved_by_name || '',
           organizerId: r.reserved_by,
@@ -109,7 +135,8 @@ const SpaceCalendar: React.FC = () => {
           attendees: r.attendees || 1,
           description: r.notes || '',
           createdAt: r.created_at,
-        }));
+          color: r.color || null,
+        } as any));
         setReservations(mapped);
       }
     } catch (err) {
@@ -120,8 +147,9 @@ const SpaceCalendar: React.FC = () => {
   };
 
   useEffect(() => {
+    loadSpaces();
     loadReservations();
-  }, [user?.id]);
+  }, [user?.id, selectedCompanyId]);
 
   const getReservationsForDate = (date: Dayjs): Reservation[] => {
     const dateStr = date.format('YYYY-MM-DD');
@@ -135,23 +163,36 @@ const SpaceCalendar: React.FC = () => {
     const dayReservations = getReservationsForDate(date);
     if (dayReservations.length === 0) return null;
 
+    const showRoomName = selectedRoom === 'all';
+
     return (
       <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
         {dayReservations.slice(0, 3).map((res) => {
           const room = meetingRooms.find((r) => r.id === res.roomId);
+          // 우선순위: 예약자가 지정한 색 > 공간 색
+          const bgColor = (res as any).color || room?.color || '#667eea';
+          const display = showRoomName
+            ? `${res.startTime}~${res.endTime} ${res.title}(${res.roomName})`
+            : `${res.startTime}~${res.endTime} ${res.title}`;
           return (
-            <li key={res.id} style={{ marginBottom: 2 }}>
-              <Badge
-                color={room?.color || 'default'}
-                text={
-                  <Text
-                    style={{ fontSize: 11 }}
-                    ellipsis={{ tooltip: `${res.startTime} ${res.title} (${res.organizer})` }}
-                  >
-                    {res.startTime} {res.roomName.slice(0, 3)}
-                  </Text>
-                }
-              />
+            <li key={res.id} style={{ marginBottom: 3 }}>
+              <div
+                style={{
+                  background: bgColor,
+                  color: '#fff',
+                  padding: '2px 6px',
+                  borderRadius: 4,
+                  fontSize: 11,
+                  lineHeight: 1.4,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  fontWeight: 500,
+                }}
+                title={`${res.startTime}~${res.endTime} ${res.title} (${res.roomName}, ${res.organizer})`}
+              >
+                {display}
+              </div>
             </li>
           );
         })}
@@ -193,22 +234,16 @@ const SpaceCalendar: React.FC = () => {
     if (!user?.id) return;
 
     const room = meetingRooms.find((r) => r.id === values.roomId);
+    const spaceName = room?.name || '';
     const dateStr = values.date.format('YYYY-MM-DD');
     const startTimeStr = values.timeRange[0].format('HH:mm');
     const endTimeStr = values.timeRange[1].format('HH:mm');
 
-    // 참석 인원이 회의실 수용 인원 초과 체크
-    if (room && values.attendees > room.capacity) {
-      Modal.warning({
-        title: '수용 인원 초과',
-        content: `${room.name}의 최대 수용 인원은 ${room.capacity}명입니다. 더 큰 회의실을 선택해주세요.`,
-      });
-      return;
-    }
-
     try {
       const result = await window.electronAPI.meeting.create(user.id, {
         title: values.title,
+        space_id: values.roomId,
+        space_name: spaceName,
         department: values.department || user?.department_name || '',
         reservation_date: dateStr,
         start_time: startTimeStr,
@@ -217,6 +252,7 @@ const SpaceCalendar: React.FC = () => {
         phone: values.phone || '',
         email: values.email || '',
         notes: values.description || '',
+        color: values.color || null,
       });
 
       if (result.success) {
@@ -396,6 +432,7 @@ const SpaceCalendar: React.FC = () => {
           open={modalVisible}
           onCancel={() => setModalVisible(false)}
           width={600}
+          destroyOnClose
           footer={[
             <Button key="reserve" type="primary" icon={<PlusOutlined />} onClick={handleReserve}>
               예약하기
@@ -410,7 +447,7 @@ const SpaceCalendar: React.FC = () => {
             renderItem={(res) => {
               const room = meetingRooms.find((r) => r.id === res.roomId);
               const isOwner = res.organizerId === user?.id;
-              const isAdmin = user?.role === 'super_admin' || user?.role === 'company_admin';
+              const isAdmin = user?.role === 'super_admin';
               return (
                 <List.Item
                   actions={[
@@ -478,6 +515,7 @@ const SpaceCalendar: React.FC = () => {
           title="예약 상세 정보"
           open={detailModalVisible}
           onCancel={() => setDetailModalVisible(false)}
+          destroyOnClose
           footer={[
             ...(selectedReservation && (selectedReservation.organizerId === user?.id || user?.role === 'super_admin' || user?.role === 'company_admin')
               ? [
@@ -654,6 +692,28 @@ const SpaceCalendar: React.FC = () => {
 
             <Form.Item name="description" label="회의 내용 (선택)">
               <TextArea rows={2} placeholder="회의 목적이나 안건을 간략히 입력하세요" />
+            </Form.Item>
+
+            <Form.Item name="color" label="강조색 (캘린더 표시 배경)" tooltip="비워두면 회의실 기본색 사용">
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {['', '#667eea', '#52c41a', '#fa8c16', '#eb2f96', '#722ed1', '#13c2c2', '#f5222d', '#1890ff', '#faad14'].map((c) => (
+                  <button
+                    key={c || 'none'}
+                    type="button"
+                    onClick={() => form.setFieldsValue({ color: c })}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 6,
+                      border: form.getFieldValue('color') === c ? '2px solid #1f2937' : '1px solid #d9d9d9',
+                      background: c || 'repeating-linear-gradient(45deg, #f0f0f0, #f0f0f0 3px, #fff 3px, #fff 6px)',
+                      cursor: 'pointer',
+                      transition: 'transform 0.15s',
+                    }}
+                    title={c || '기본 (회의실 색)'}
+                  />
+                ))}
+              </div>
             </Form.Item>
 
             <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>

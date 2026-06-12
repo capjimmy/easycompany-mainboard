@@ -51,7 +51,7 @@ const statusLabels: Record<string, { color: string; label: string }> = {
 
 const SearchPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, selectedCompanyId } = useAuthStore();
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -71,7 +71,9 @@ const SearchPage: React.FC = () => {
     setHasSearched(true);
 
     try {
-      const result = await window.electronAPI.search.global(user.id, searchQuery.trim());
+      const filters: any = {};
+      if (user.role === 'super_admin' && selectedCompanyId) filters.company_id = selectedCompanyId;
+      const result = await window.electronAPI.search.global(user.id, searchQuery.trim(), filters);
       if (result.success) {
         setResults(result.results || []);
         setTotalCount(result.total || 0);
@@ -81,7 +83,7 @@ const SearchPage: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [user?.id]);
+  }, [user?.id, user?.role, selectedCompanyId]);
 
   const handleSearch = (value: string) => {
     setQuery(value);

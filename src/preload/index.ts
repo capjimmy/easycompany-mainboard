@@ -23,8 +23,8 @@ const electronAPI = {
 
   // 사용자 관련
   users: {
-    getAll: (requesterId: string) =>
-      ipcRenderer.invoke('users:getAll', requesterId),
+    getAll: (requesterId: string, options?: any) =>
+      ipcRenderer.invoke('users:getAll', requesterId, options),
     create: (requesterId: string, userData: any) =>
       ipcRenderer.invoke('users:create', requesterId, userData),
     update: (requesterId: string, userId: string, userData: any) =>
@@ -39,6 +39,16 @@ const electronAPI = {
       ipcRenderer.invoke('users:importEmployees', requesterId),
     generateUsername: (name: string, hireYear: string) =>
       ipcRenderer.invoke('users:generateUsername', name, hireYear),
+    getUserCompanies: (requesterId: string, userId: string) =>
+      ipcRenderer.invoke('users:getUserCompanies', requesterId, userId),
+    getUserDepartments: (requesterId: string, userId: string) =>
+      ipcRenderer.invoke('users:getUserDepartments', requesterId, userId),
+    setUserCompanies: (requesterId: string, userId: string, companyIds: string[], primaryCompanyId?: string) =>
+      ipcRenderer.invoke('users:setUserCompanies', requesterId, userId, companyIds, primaryCompanyId),
+    setUserDepartments: (requesterId: string, userId: string, departmentIds: string[], primaryDepartmentId?: string) =>
+      ipcRenderer.invoke('users:setUserDepartments', requesterId, userId, departmentIds, primaryDepartmentId),
+    updateMenuOrder: (requesterId: string, menuOrder: string[] | null) =>
+      ipcRenderer.invoke('users:updateMenuOrder', requesterId, menuOrder),
   },
 
   // 회사 관련
@@ -101,6 +111,8 @@ const electronAPI = {
     selectSourceDataFolder: () => ipcRenderer.invoke('settings:selectSourceDataFolder'),
     openOriginalFile: (relativePath: string) =>
       ipcRenderer.invoke('settings:openOriginalFile', relativePath),
+    getManual: (role: string) =>
+      ipcRenderer.invoke('settings:getManual', role),
     // 문서 저장 경로 (네트워크 드라이브)
     getDocumentStoragePath: () => ipcRenderer.invoke('settings:getDocumentStoragePath'),
     setDocumentStoragePath: (requesterId: string, newPath: string) =>
@@ -177,6 +189,19 @@ const electronAPI = {
     // 금액 변경 이력
     getAmountHistories: (requesterId: string, quoteId: string) =>
       ipcRenderer.invoke('quotes:getAmountHistories', requesterId, quoteId),
+    // 견적서 양식 템플릿
+    uploadTemplate: (requesterId: string) =>
+      ipcRenderer.invoke('quotes:uploadTemplate', requesterId),
+    removeTemplate: (requesterId: string) =>
+      ipcRenderer.invoke('quotes:removeTemplate', requesterId),
+    // 견적서 출력 (AI 기반 문서 생성)
+    generateDocument: (requesterId: string, quoteId: string) =>
+      ipcRenderer.invoke('quotes:generateDocument', requesterId, quoteId),
+    // 멤버 관리
+    getMembers: (requesterId: string, quoteId: string) =>
+      ipcRenderer.invoke('quotes:getMembers', requesterId, quoteId),
+    setMembers: (requesterId: string, quoteId: string, members: any[]) =>
+      ipcRenderer.invoke('quotes:setMembers', requesterId, quoteId, members),
   },
 
   // ========================================
@@ -235,11 +260,16 @@ const electronAPI = {
     getAllHistories: (requesterId: string) =>
       ipcRenderer.invoke('contracts:getAllHistories', requesterId),
     // 월별 현황
-    getMonthlyStats: (requesterId: string, year: number, month?: number) =>
-      ipcRenderer.invoke('contracts:getMonthlyStats', requesterId, year, month),
+    getMonthlyStats: (requesterId: string, year: number, filters?: { company_id?: string }) =>
+      ipcRenderer.invoke('contracts:getMonthlyStats', requesterId, year, filters),
     // 추천 기능
     getRecommendations: (requesterId: string, searchParams: { clientCompany?: string; serviceName?: string }) =>
       ipcRenderer.invoke('contracts:getRecommendations', requesterId, searchParams),
+    // 멤버 관리
+    getMembers: (requesterId: string, contractId: string) =>
+      ipcRenderer.invoke('contracts:getMembers', requesterId, contractId),
+    setMembers: (requesterId: string, contractId: string, members: any[]) =>
+      ipcRenderer.invoke('contracts:setMembers', requesterId, contractId, members),
   },
 
   // ========================================
@@ -332,6 +362,12 @@ const electronAPI = {
       ipcRenderer.invoke('documents:delete', requesterId, documentId),
     openFolder: (requesterId: string, type: 'templates' | 'generated') =>
       ipcRenderer.invoke('documents:openFolder', requesterId, type),
+    fillXlsx: (requesterId: string, sourceId: string, templatePath: string, sourceType?: 'contract' | 'quote') =>
+      ipcRenderer.invoke('documents:fillXlsx', requesterId, sourceId, templatePath, sourceType || 'contract'),
+    fillDocx: (requesterId: string, sourceId: string, templatePath: string, sourceType?: 'contract' | 'quote') =>
+      ipcRenderer.invoke('documents:fillDocx', requesterId, sourceId, templatePath, sourceType || 'contract'),
+    fillTemplate: (requesterId: string, sourceId: string, templatePath: string, sourceType?: 'contract' | 'quote') =>
+      ipcRenderer.invoke('documents:fillTemplate', requesterId, sourceId, templatePath, sourceType || 'contract'),
   },
 
   // ========================================
@@ -359,10 +395,12 @@ const electronAPI = {
     }) => ipcRenderer.invoke('attachedDocs:add', data),
     getByParent: (parentType: string, parentId: string) =>
       ipcRenderer.invoke('attachedDocs:getByParent', parentType, parentId),
-    remove: (docId: string) => ipcRenderer.invoke('attachedDocs:remove', docId),
-    updateCategory: (docId: string, category: string) =>
-      ipcRenderer.invoke('attachedDocs:updateCategory', docId, category),
-    openFile: (docId: string) => ipcRenderer.invoke('attachedDocs:openFile', docId),
+    remove: (requesterId: string, docId: string) =>
+      ipcRenderer.invoke('attachedDocs:remove', requesterId, docId),
+    updateCategory: (requesterId: string, docId: string, category: string) =>
+      ipcRenderer.invoke('attachedDocs:updateCategory', requesterId, docId, category),
+    openFile: (requesterId: string, docId: string) =>
+      ipcRenderer.invoke('attachedDocs:openFile', requesterId, docId),
   },
 
   // ========================================
@@ -405,6 +443,8 @@ const electronAPI = {
       ipcRenderer.invoke('messenger:leaveConversation', requesterId, conversationId),
     renameConversation: (requesterId: string, conversationId: string, newTitle: string) =>
       ipcRenderer.invoke('messenger:renameConversation', requesterId, conversationId, newTitle),
+    addParticipants: (requesterId: string, conversationId: string, newUserIds: string[]) =>
+      ipcRenderer.invoke('messenger:addParticipants', requesterId, conversationId, newUserIds),
     // Realtime 이벤트 리스너
     onNewMessage: (callback: (message: any) => void) => {
       const handler = (_event: any, message: any) => callback(message);
@@ -497,6 +537,10 @@ const electronAPI = {
     testConnection: (config: any) => ipcRenderer.invoke('email:testConnection', config),
     getConfig: (requesterId: string) => ipcRenderer.invoke('email:getConfig', requesterId),
     saveConfig: (requesterId: string, config: any) => ipcRenderer.invoke('email:saveConfig', requesterId, config),
+    requestApproval: (requesterId: string, data: any) => ipcRenderer.invoke('email:requestApproval', requesterId, data),
+    getApprovals: (requesterId: string, filters?: any) => ipcRenderer.invoke('email:getApprovals', requesterId, filters),
+    processApproval: (requesterId: string, approvalId: string, action: 'approved' | 'rejected', reason?: string) =>
+      ipcRenderer.invoke('email:processApproval', requesterId, approvalId, action, reason),
   },
 
   // ========================================
@@ -513,6 +557,40 @@ const electronAPI = {
       ipcRenderer.invoke('pdf:saveAs', sourcePath, defaultName),
     searchContacts: (requesterId: string, clientName: string) =>
       ipcRenderer.invoke('pdf:searchContacts', requesterId, clientName),
+    previewQuote: (requesterId: string, quoteId: string) =>
+      ipcRenderer.invoke('pdf:previewQuote', requesterId, quoteId),
+    previewContract: (requesterId: string, contractId: string) =>
+      ipcRenderer.invoke('pdf:previewContract', requesterId, contractId),
+  },
+
+  // ========================================
+  // Quote Sections (견적서 계층 구조)
+  // ========================================
+  quoteSections: {
+    getByQuote: (requesterId: string, quoteId: string) =>
+      ipcRenderer.invoke('quoteSections:getByQuote', requesterId, quoteId),
+    saveAll: (requesterId: string, quoteId: string, sections: any[]) =>
+      ipcRenderer.invoke('quoteSections:saveAll', requesterId, quoteId, sections),
+    add: (requesterId: string, data: any) =>
+      ipcRenderer.invoke('quoteSections:add', requesterId, data),
+    update: (requesterId: string, sectionId: string, data: any) =>
+      ipcRenderer.invoke('quoteSections:update', requesterId, sectionId, data),
+    delete: (requesterId: string, sectionId: string) =>
+      ipcRenderer.invoke('quoteSections:delete', requesterId, sectionId),
+  },
+
+  // ========================================
+  // Quote Preset Sections (견적 사전 항목 분류)
+  // ========================================
+  quotePresetSections: {
+    getByCompany: (requesterId: string, companyId: string) =>
+      ipcRenderer.invoke('quotePresetSections:getByCompany', requesterId, companyId),
+    create: (requesterId: string, data: any) =>
+      ipcRenderer.invoke('quotePresetSections:create', requesterId, data),
+    update: (requesterId: string, sectionId: string, data: any) =>
+      ipcRenderer.invoke('quotePresetSections:update', requesterId, sectionId, data),
+    delete: (requesterId: string, sectionId: string) =>
+      ipcRenderer.invoke('quotePresetSections:delete', requesterId, sectionId),
   },
 
   // ========================================
@@ -529,6 +607,7 @@ const electronAPI = {
   // 자동 업데이트 (Auto Updater)
   // ========================================
   updater: {
+    configure: (accessToken: string) => ipcRenderer.invoke('update:configure', accessToken),
     check: () => ipcRenderer.invoke('update:check'),
     download: () => ipcRenderer.invoke('update:download'),
     install: () => ipcRenderer.invoke('update:install'),
@@ -564,6 +643,28 @@ const electronAPI = {
       ipcRenderer.invoke('certificates:approve', requesterId, certificateId),
     reject: (requesterId: string, certificateId: string, reason?: string) =>
       ipcRenderer.invoke('certificates:reject', requesterId, certificateId, reason),
+    generate: (requesterId: string, certificateId: string) =>
+      ipcRenderer.invoke('certificates:generate', requesterId, certificateId),
+    download: (requesterId: string, certificateId: string) =>
+      ipcRenderer.invoke('certificates:download', requesterId, certificateId),
+  },
+
+  // ========================================
+  // 증명서 종류 관리 (Certificate Types)
+  // ========================================
+  certificateTypes: {
+    getAll: (requesterId: string) =>
+      ipcRenderer.invoke('certificateTypes:getAll', requesterId),
+    create: (requesterId: string, data: any) =>
+      ipcRenderer.invoke('certificateTypes:create', requesterId, data),
+    update: (requesterId: string, typeId: string, data: any) =>
+      ipcRenderer.invoke('certificateTypes:update', requesterId, typeId, data),
+    delete: (requesterId: string, typeId: string) =>
+      ipcRenderer.invoke('certificateTypes:delete', requesterId, typeId),
+    uploadTemplate: (requesterId: string, typeId: string) =>
+      ipcRenderer.invoke('certificateTypes:uploadTemplate', requesterId, typeId),
+    removeTemplate: (requesterId: string, typeId: string) =>
+      ipcRenderer.invoke('certificateTypes:removeTemplate', requesterId, typeId),
   },
 
   // ========================================
@@ -584,6 +685,8 @@ const electronAPI = {
       ipcRenderer.invoke('export:contracts', requesterId, filters),
     projects: (requesterId: string, filters?: any) =>
       ipcRenderer.invoke('export:projects', requesterId, filters),
+    financeGeneric: (requesterId: string, sheetName: string, columns: any[], data: any[]) =>
+      ipcRenderer.invoke('export:financeGeneric', requesterId, sheetName, columns, data),
   },
 
   // ========================================
@@ -622,6 +725,265 @@ const electronAPI = {
       ipcRenderer.invoke('leave:cancel', requesterId, leaveId),
     calculateAnnual: (userId: string) =>
       ipcRenderer.invoke('leave:calculateAnnual', userId),
+  },
+
+  // ========================================
+  // Menu Manuals (메뉴별 매뉴얼)
+  // ========================================
+  menuManuals: {
+    getAll: (requesterId: string, companyId: string) =>
+      ipcRenderer.invoke('menuManuals:getAll', requesterId, companyId),
+    get: (requesterId: string, companyId: string, menuKey: string) =>
+      ipcRenderer.invoke('menuManuals:get', requesterId, companyId, menuKey),
+    save: (requesterId: string, data: any) =>
+      ipcRenderer.invoke('menuManuals:save', requesterId, data),
+    delete: (requesterId: string, id: string) =>
+      ipcRenderer.invoke('menuManuals:delete', requesterId, id),
+  },
+
+  // ========================================
+  // 미수금관리 (Receivables)
+  // ========================================
+  receivables: {
+    getAll: (requesterId: string, filters?: any) =>
+      ipcRenderer.invoke('receivables:getAll', requesterId, filters),
+    create: (requesterId: string, data: any) =>
+      ipcRenderer.invoke('receivables:create', requesterId, data),
+    update: (requesterId: string, id: string, data: any) =>
+      ipcRenderer.invoke('receivables:update', requesterId, id, data),
+    delete: (requesterId: string, id: string) =>
+      ipcRenderer.invoke('receivables:delete', requesterId, id),
+    syncFromContracts: (requesterId: string, companyId?: string) =>
+      ipcRenderer.invoke('receivables:syncFromContracts', requesterId, companyId),
+  },
+
+  // ========================================
+  // 청구/입금관리 (Billings & Payment Receipts)
+  // ========================================
+  billings: {
+    getAll: (requesterId: string, filters?: any) =>
+      ipcRenderer.invoke('billings:getAll', requesterId, filters),
+    create: (requesterId: string, data: any) =>
+      ipcRenderer.invoke('billings:create', requesterId, data),
+    update: (requesterId: string, id: string, data: any) =>
+      ipcRenderer.invoke('billings:update', requesterId, id, data),
+    delete: (requesterId: string, id: string) =>
+      ipcRenderer.invoke('billings:delete', requesterId, id),
+  },
+
+  paymentReceipts: {
+    getAll: (requesterId: string, filters?: any) =>
+      ipcRenderer.invoke('paymentReceipts:getAll', requesterId, filters),
+    create: (requesterId: string, data: any) =>
+      ipcRenderer.invoke('paymentReceipts:create', requesterId, data),
+  },
+
+  // ========================================
+  // 미지급금관리 (Payables)
+  // ========================================
+  payables: {
+    getAll: (requesterId: string, filters?: any) =>
+      ipcRenderer.invoke('payables:getAll', requesterId, filters),
+    create: (requesterId: string, data: any) =>
+      ipcRenderer.invoke('payables:create', requesterId, data),
+    update: (requesterId: string, id: string, data: any) =>
+      ipcRenderer.invoke('payables:update', requesterId, id, data),
+    delete: (requesterId: string, id: string) =>
+      ipcRenderer.invoke('payables:delete', requesterId, id),
+    syncFromOutsourcings: (requesterId: string, companyId?: string) =>
+      ipcRenderer.invoke('payables:syncFromOutsourcings', requesterId, companyId),
+  },
+
+  // ========================================
+  // 보증금관리 (Deposits)
+  // ========================================
+  deposits: {
+    getAll: (requesterId: string, filters?: any) =>
+      ipcRenderer.invoke('deposits:getAll', requesterId, filters),
+    create: (requesterId: string, data: any) =>
+      ipcRenderer.invoke('deposits:create', requesterId, data),
+    update: (requesterId: string, id: string, data: any) =>
+      ipcRenderer.invoke('deposits:update', requesterId, id, data),
+    delete: (requesterId: string, id: string) =>
+      ipcRenderer.invoke('deposits:delete', requesterId, id),
+  },
+
+  // ========================================
+  // 세금계산서관리 (Tax Invoices)
+  // ========================================
+  taxInvoices: {
+    getAll: (requesterId: string, filters?: any) =>
+      ipcRenderer.invoke('taxInvoices:getAll', requesterId, filters),
+    create: (requesterId: string, data: any) =>
+      ipcRenderer.invoke('taxInvoices:create', requesterId, data),
+    update: (requesterId: string, id: string, data: any) =>
+      ipcRenderer.invoke('taxInvoices:update', requesterId, id, data),
+    delete: (requesterId: string, id: string) =>
+      ipcRenderer.invoke('taxInvoices:delete', requesterId, id),
+  },
+
+  // ========================================
+  // 계약 회의록/기타자료 (Contract Meeting Notes)
+  // ========================================
+  contractMeetingNotes: {
+    getByContract: (requesterId: string, contractId: string) =>
+      ipcRenderer.invoke('contractMeetingNotes:getByContract', requesterId, contractId),
+    create: (requesterId: string, data: any) =>
+      ipcRenderer.invoke('contractMeetingNotes:create', requesterId, data),
+    delete: (requesterId: string, id: string) =>
+      ipcRenderer.invoke('contractMeetingNotes:delete', requesterId, id),
+  },
+
+  // ========================================
+  // 경비정산 (Expense Settlements)
+  // ========================================
+  expenses: {
+    getAll: (requesterId: string, filters?: any) =>
+      ipcRenderer.invoke('expenses:getAll', requesterId, filters),
+    create: (requesterId: string, data: any) =>
+      ipcRenderer.invoke('expenses:create', requesterId, data),
+    update: (requesterId: string, id: string, data: any) =>
+      ipcRenderer.invoke('expenses:update', requesterId, id, data),
+    delete: (requesterId: string, id: string) =>
+      ipcRenderer.invoke('expenses:delete', requesterId, id),
+    getItems: (requesterId: string, settlementId: string) =>
+      ipcRenderer.invoke('expenses:getItems', requesterId, settlementId),
+    approve: (requesterId: string, id: string) =>
+      ipcRenderer.invoke('expenses:approve', requesterId, id),
+    reject: (requesterId: string, id: string, reason?: string) =>
+      ipcRenderer.invoke('expenses:reject', requesterId, id, reason),
+  },
+
+  // ========================================
+  // 직원 월급 (super_admin 전용)
+  // ========================================
+  userSalary: {
+    get: (requesterId: string, userId: string) => ipcRenderer.invoke('userSalary:get', requesterId, userId),
+    getAll: (requesterId: string) => ipcRenderer.invoke('userSalary:getAll', requesterId),
+    set: (requesterId: string, userId: string, monthlySalary: number, notes?: string) =>
+      ipcRenderer.invoke('userSalary:set', requesterId, userId, monthlySalary, notes),
+    delete: (requesterId: string, userId: string) => ipcRenderer.invoke('userSalary:delete', requesterId, userId),
+  },
+
+  // ========================================
+  // 양식 보관소
+  // ========================================
+  templates: {
+    list: () => ipcRenderer.invoke('templates:list'),
+    upload: (requesterId: string, category: string, filename: string, bytes: number[]) =>
+      ipcRenderer.invoke('templates:upload', requesterId, category, filename, bytes),
+    download: (requesterId: string, fullPath: string) =>
+      ipcRenderer.invoke('templates:download', requesterId, fullPath),
+    delete: (requesterId: string, fullPath: string) =>
+      ipcRenderer.invoke('templates:delete', requesterId, fullPath),
+  },
+
+  // ========================================
+  // 순이익 대시보드
+  // ========================================
+  profitDashboard: {
+    getData: (requesterId: string, filters: any) =>
+      ipcRenderer.invoke('profit:getData', requesterId, filters),
+    setOverhead: (requesterId: string, year: number, month: number, amount: number) =>
+      ipcRenderer.invoke('profit:setOverhead', requesterId, year, month, amount),
+    getOverhead: (requesterId: string, year: number) =>
+      ipcRenderer.invoke('profit:getOverhead', requesterId, year),
+  },
+
+  // ========================================
+  // 지출결의서 (Expense Requests)
+  // ========================================
+  expenseRequests: {
+    getAll: (requesterId: string, filters?: any) =>
+      ipcRenderer.invoke('expenseRequests:getAll', requesterId, filters),
+    create: (requesterId: string, data: any) =>
+      ipcRenderer.invoke('expenseRequests:create', requesterId, data),
+    approve: (requesterId: string, id: string) =>
+      ipcRenderer.invoke('expenseRequests:approve', requesterId, id),
+    reject: (requesterId: string, id: string, reason?: string) =>
+      ipcRenderer.invoke('expenseRequests:reject', requesterId, id, reason),
+    delete: (requesterId: string, id: string) =>
+      ipcRenderer.invoke('expenseRequests:delete', requesterId, id),
+  },
+
+  // ========================================
+  // 차량관리 (Vehicles)
+  // ========================================
+  vehicles: {
+    getAll: (requesterId: string, filters?: any) =>
+      ipcRenderer.invoke('vehicles:getAll', requesterId, filters),
+    create: (requesterId: string, data: any) =>
+      ipcRenderer.invoke('vehicles:create', requesterId, data),
+    update: (requesterId: string, id: string, data: any) =>
+      ipcRenderer.invoke('vehicles:update', requesterId, id, data),
+    delete: (requesterId: string, id: string) =>
+      ipcRenderer.invoke('vehicles:delete', requesterId, id),
+  },
+
+  // ========================================
+  // 공간관리 (Spaces)
+  // ========================================
+  spaces: {
+    getAll: (requesterId: string, filters?: any) =>
+      ipcRenderer.invoke('spaces:getAll', requesterId, filters),
+    create: (requesterId: string, data: any) =>
+      ipcRenderer.invoke('spaces:create', requesterId, data),
+    update: (requesterId: string, id: string, data: any) =>
+      ipcRenderer.invoke('spaces:update', requesterId, id, data),
+    delete: (requesterId: string, id: string) =>
+      ipcRenderer.invoke('spaces:delete', requesterId, id),
+  },
+
+  // ========================================
+  // 운행일지 (Vehicle Logs)
+  // ========================================
+  vehicleLogs: {
+    getAll: (requesterId: string, filters?: any) =>
+      ipcRenderer.invoke('vehicleLogs:getAll', requesterId, filters),
+    create: (requesterId: string, data: any) =>
+      ipcRenderer.invoke('vehicleLogs:create', requesterId, data),
+    update: (requesterId: string, id: string, data: any) =>
+      ipcRenderer.invoke('vehicleLogs:update', requesterId, id, data),
+    delete: (requesterId: string, id: string) =>
+      ipcRenderer.invoke('vehicleLogs:delete', requesterId, id),
+  },
+
+  // ========================================
+  // 가수금관리 (Provisional Payments)
+  // ========================================
+  provisional: {
+    getAll: (requesterId: string, filters?: any) =>
+      ipcRenderer.invoke('provisional:getAll', requesterId, filters),
+    create: (requesterId: string, data: any) =>
+      ipcRenderer.invoke('provisional:create', requesterId, data),
+    update: (requesterId: string, id: string, data: any) =>
+      ipcRenderer.invoke('provisional:update', requesterId, id, data),
+    delete: (requesterId: string, id: string) =>
+      ipcRenderer.invoke('provisional:delete', requesterId, id),
+    match: (requesterId: string, id: string, matchData: any) =>
+      ipcRenderer.invoke('provisional:match', requesterId, id, matchData),
+    aiSuggest: (requesterId: string, id: string) =>
+      ipcRenderer.invoke('provisional:aiSuggest', requesterId, id),
+  },
+
+  // ========================================
+  // 거래처 재무정보 (Client Company Financials)
+  // ========================================
+  clientFinancials: {
+    get: (requesterId: string, clientCompanyId: string) =>
+      ipcRenderer.invoke('clientFinancials:get', requesterId, clientCompanyId),
+    getByCompany: (requesterId: string, companyId?: string) =>
+      ipcRenderer.invoke('clientFinancials:getByCompany', requesterId, companyId),
+    upsert: (requesterId: string, data: any) =>
+      ipcRenderer.invoke('clientFinancials:upsert', requesterId, data),
+  },
+
+  // 원장님 보고서 (경영관리실 양식)
+  reports: {
+    getDirectorReportData: (requesterId: string, params: { companyId: string; year: number }) =>
+      ipcRenderer.invoke('reports:getDirectorReportData', requesterId, params),
+    generateDirectorReport: (requesterId: string, params: { companyId: string; year: number }) =>
+      ipcRenderer.invoke('reports:generateDirectorReport', requesterId, params),
   },
 };
 

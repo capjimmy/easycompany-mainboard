@@ -675,6 +675,9 @@ const Settings: React.FC = () => {
     { value: 'invoice', label: '청구서(대금청구서)' },
     { value: 'task_plan', label: '과업수행계획서' },
     { value: 'settlement', label: '정산 세부내역' },
+    { value: 'official_letter', label: '공문' },
+    { value: 'quote_doc', label: '견적서' },
+    { value: 'service_cost', label: '용역비산출' },
     { value: '', label: '(기타/미지정)' },
   ];
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Form, Input, Button, Select, Space, message, Divider, Tag, Spin, Typography } from 'antd';
-import { MailOutlined, PlusOutlined, UserOutlined, SearchOutlined } from '@ant-design/icons';
+import { Modal, Form, Input, Button, Select, Space, message, Divider, Tag, Spin, Typography, Checkbox, List } from 'antd';
+import { MailOutlined, PlusOutlined, UserOutlined, SearchOutlined, PaperClipOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useAuthStore } from '../../store/authStore';
 
 const { TextArea } = Input;
@@ -26,6 +26,14 @@ interface ContactInfo {
   department?: string;
   email?: string;
   phone?: string;
+}
+
+interface AttachmentDoc {
+  id: string;
+  name: string;
+  path: string;
+  type: string;
+  selected: boolean;
 }
 
 const EmailSendModal: React.FC<EmailSendModalProps> = ({
@@ -57,7 +65,11 @@ const EmailSendModal: React.FC<EmailSendModalProps> = ({
   const [newContactPhone, setNewContactPhone] = useState('');
   const [addingContact, setAddingContact] = useState(false);
 
+  // 추가 첨부문서
+  const [additionalDocs, setAdditionalDocs] = useState<AttachmentDoc[]>([]);
+
   const typeLabel = type === 'quote' ? '견적서' : '계약서';
+  const needsApproval = user?.role === 'employee';
 
   useEffect(() => {
     if (visible) {
@@ -67,13 +79,37 @@ const EmailSendModal: React.FC<EmailSendModalProps> = ({
         body: `안녕하세요.\n\n${typeLabel}를 첨부하여 보내드립니다.\n\n문서번호: ${documentNumber}\n용역명: ${serviceName}\n\n검토 부탁드립니다.\n감사합니다.`,
       });
       setPdfPath(null);
+      setAdditionalDocs([]);
 
       // 수신처가 있으면 담당자 검색
       if (recipientCompany) {
         searchContacts(recipientCompany);
       }
+
+      // 관련 문서 목록 로드 (계약서인 경우 생성된 문서 불러오기)
+      if (type === 'contract') {
+        loadRelatedDocuments();
+      }
     }
   }, [visible]);
+
+  const loadRelatedDocuments = async () => {
+    if (!user?.id) return;
+    try {
+      const result = await window.electronAPI.documents.getByContract(user.id, documentId);
+      if (result.success && result.documents) {
+        setAdditionalDocs(result.documents.map((doc: any) => ({
+          id: doc.id,
+          name: doc.original_filename || doc.stored_filename || doc.template_name,
+          path: doc.file_path,
+          type: doc.file_type || 'unknown',
+          selected: false,
+        })));
+      }
+    } catch (err) {
+      // 문서가 없어도 무시
+    }
+  };
 
   const searchContacts = async (query: string) => {
     if (!user?.id || !query) return;
@@ -111,7 +147,6 @@ const EmailSendModal: React.FC<EmailSendModalProps> = ({
 
     setAddingContact(true);
     try {
-      // 거래처 찾기
       const clientResult = await window.electronAPI.clients.getAll(user.id);
       if (!clientResult.success) {
         message.error('거래처 정보를 불러올 수 없습니다.');
@@ -123,7 +158,6 @@ const EmailSendModal: React.FC<EmailSendModalProps> = ({
       );
 
       if (targetClient) {
-        // 기존 거래처에 담당자 추가
         const addResult = await window.electronAPI.clients.addContact(user.id, targetClient.id, {
           name: newContactName,
           email: newContactEmail,
@@ -134,15 +168,12 @@ const EmailSendModal: React.FC<EmailSendModalProps> = ({
 
         if (addResult.success) {
           message.success(`${newContactName}님이 담당자로 추가되었습니다.`);
-          // 이메일 수신자에 자동 추가
           const currentTo = form.getFieldValue('to') || '';
           const emails = currentTo ? currentTo.split(',').map((e: string) => e.trim()).filter(Boolean) : [];
           if (!emails.includes(newContactEmail)) {
             emails.push(newContactEmail);
           }
           form.setFieldValue('to', emails.join(', '));
-
-          // 목록 새로고침
           if (recipientCompany) searchContacts(recipientCompany);
           setShowAddContact(false);
           setNewContactName('');
@@ -153,7 +184,6 @@ const EmailSendModal: React.FC<EmailSendModalProps> = ({
           message.error(addResult.error || '담당자 추가에 실패했습니다.');
         }
       } else {
-        // 거래처가 없으면 이메일만 추가
         const currentTo = form.getFieldValue('to') || '';
         const emails = currentTo ? currentTo.split(',').map((e: string) => e.trim()).filter(Boolean) : [];
         if (!emails.includes(newContactEmail)) {
@@ -219,14 +249,24 @@ const EmailSendModal: React.FC<EmailSendModalProps> = ({
     }
   };
 
+  const toggleDocSelection = (docId: string) => {
+    setAdditionalDocs(prev => prev.map(d =>
+      d.id === docId ? { ...d, selected: !d.selected } : d
+    ));
+  };
+
   const handleSend = async () => {
     if (!user?.id) return;
 
     try {
       const values = await form.validateFields();
+      const selectedAttachments = additionalDocs
+        .filter(d => d.selected && d.path)
+        .map(d => ({ path: d.path, name: d.name }));
 
-      if (!pdfPath) {
-        // 자동 생성
+      // PDF가 없으면 자동 생성
+      let finalPdfPath = pdfPath;
+      if (!finalPdfPath) {
         setGeneratingPdf(true);
         const pdfResult = type === 'quote'
           ? await window.electronAPI.pdf.generateQuote(user.id, documentId)
@@ -237,32 +277,41 @@ const EmailSendModal: React.FC<EmailSendModalProps> = ({
           message.error(pdfResult.error || 'PDF 생성에 실패했습니다.');
           return;
         }
-        setPdfPath(pdfResult.filePath);
+        finalPdfPath = pdfResult.filePath;
+        setPdfPath(finalPdfPath);
+      }
 
-        // 이메일 발송
+      // 직원은 승인 요청
+      if (needsApproval) {
         setSending(true);
-        const sendResult = await window.electronAPI.email.sendQuote(user.id, {
-          to: values.to,
+        const approvalResult = await window.electronAPI.email.requestApproval(user.id, {
+          document_type: type,
+          document_id: documentId,
+          recipient_email: values.to,
           subject: values.subject,
           body: values.body.replace(/\n/g, '<br>'),
-          attachmentPath: pdfResult.filePath,
-          attachmentName: `${typeLabel}_${documentNumber}.pdf`,
+          attachments: [
+            { path: finalPdfPath, name: `${typeLabel}_${documentNumber}.pdf` },
+            ...selectedAttachments,
+          ],
         });
 
-        if (sendResult.success) {
-          message.success('이메일이 발송되었습니다.');
+        if (approvalResult.success) {
+          message.success('부서장에게 메일 발송 승인을 요청했습니다.');
           onClose();
         } else {
-          message.error(sendResult.error || '이메일 발송에 실패했습니다.');
+          message.error(approvalResult.error || '승인 요청에 실패했습니다.');
         }
       } else {
+        // 부서장 이상은 바로 발송
         setSending(true);
         const sendResult = await window.electronAPI.email.sendQuote(user.id, {
           to: values.to,
           subject: values.subject,
           body: values.body.replace(/\n/g, '<br>'),
-          attachmentPath: pdfPath,
+          attachmentPath: finalPdfPath,
           attachmentName: `${typeLabel}_${documentNumber}.pdf`,
+          attachments: selectedAttachments,
         });
 
         if (sendResult.success) {
@@ -285,15 +334,20 @@ const EmailSendModal: React.FC<EmailSendModalProps> = ({
         <Space>
           <MailOutlined />
           <span>{typeLabel} 이메일 발송</span>
+          {needsApproval && <Tag color="orange">부서장 승인 필요</Tag>}
         </Space>
       }
       open={visible}
       onCancel={onClose}
+      destroyOnClose
       width={700}
       footer={[
         <Button key="cancel" onClick={onClose}>취소</Button>,
-        <Button key="send" type="primary" icon={<MailOutlined />} loading={sending || generatingPdf} onClick={handleSend}>
-          {pdfPath ? '발송' : 'PDF 생성 후 발송'}
+        <Button key="send" type="primary" icon={needsApproval ? <CheckCircleOutlined /> : <MailOutlined />} loading={sending || generatingPdf} onClick={handleSend}>
+          {needsApproval
+            ? (pdfPath ? '승인 요청' : 'PDF 생성 후 승인 요청')
+            : (pdfPath ? '발송' : 'PDF 생성 후 발송')
+          }
         </Button>,
       ]}
     >
@@ -315,6 +369,28 @@ const EmailSendModal: React.FC<EmailSendModalProps> = ({
           )}
         </Space>
       </div>
+
+      {/* 추가 첨부문서 선택 (계약서일 경우 관련 생성문서 표시) */}
+      {additionalDocs.length > 0 && (
+        <div style={{ marginBottom: 16, padding: 12, background: '#f9f9ff', borderRadius: 8 }}>
+          <Text strong style={{ display: 'block', marginBottom: 8 }}>
+            <PaperClipOutlined /> 추가 첨부문서 선택
+          </Text>
+          <div style={{ maxHeight: 120, overflowY: 'auto' }}>
+            {additionalDocs.map(doc => (
+              <div key={doc.id} style={{ padding: '4px 0' }}>
+                <Checkbox
+                  checked={doc.selected}
+                  onChange={() => toggleDocSelection(doc.id)}
+                >
+                  {doc.name}
+                  <Text type="secondary" style={{ marginLeft: 8 }}>({doc.type})</Text>
+                </Checkbox>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 수신자 검색 영역 */}
       <div style={{ marginBottom: 16, padding: 12, background: '#fafafa', borderRadius: 8 }}>

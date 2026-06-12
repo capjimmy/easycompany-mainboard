@@ -16,19 +16,52 @@ export function registerSettingsHandlers(): void {
     return { success: true, message: '데이터베이스가 초기화되었습니다.' };
   });
   // 설정 값 가져오기
-  ipcMain.handle('settings:get', async (_event, key: string) => {
+  // 민감 설정 키 목록
+  const SENSITIVE_KEYS = ['smtp_pass', 'smtp_user', 'smtp_host', 'smtp_port', 'smtp_secure', 'openai_api_key'];
+
+  ipcMain.handle('settings:get', async (_event, key: string, requesterId?: string) => {
+    // 민감 키는 관리자만 접근 가능
+    if (SENSITIVE_KEYS.includes(key)) {
+      if (!requesterId) return null;
+      const requester = await db.getUserById(requesterId);
+      if (!requester || (requester.role !== 'super_admin' && requester.role !== 'company_admin')) {
+        return null;
+      }
+    }
     return await db.getSetting(key);
   });
 
   // 설정 값 저장하기
-  ipcMain.handle('settings:set', async (_event, key: string, value: any) => {
+  ipcMain.handle('settings:set', async (_event, key: string, value: any, requesterId?: string) => {
+    // 민감 키는 관리자만 변경 가능
+    if (SENSITIVE_KEYS.includes(key)) {
+      if (!requesterId) return { success: false, error: '권한이 없습니다.' };
+      const requester = await db.getUserById(requesterId);
+      if (!requester || (requester.role !== 'super_admin' && requester.role !== 'company_admin')) {
+        return { success: false, error: '관리자만 이 설정을 변경할 수 있습니다.' };
+      }
+    }
     await db.setSetting(key, value);
     return { success: true };
   });
 
-  // 모든 설정 가져오기
-  ipcMain.handle('settings:getAll', async () => {
-    return await db.getSettings();
+  // 모든 설정 가져오기 (민감 키 마스킹)
+  ipcMain.handle('settings:getAll', async (_event, requesterId?: string) => {
+    const settings = await db.getSettings();
+    // 관리자가 아닌 경우 민감 키 제거
+    let isAdmin = false;
+    if (requesterId) {
+      const requester = await db.getUserById(requesterId);
+      isAdmin = requester && (requester.role === 'super_admin' || requester.role === 'company_admin');
+    }
+    if (!isAdmin && settings) {
+      const filtered = { ...settings };
+      for (const key of SENSITIVE_KEYS) {
+        delete (filtered as any)[key];
+      }
+      return filtered;
+    }
+    return settings;
   });
 
   // 테마 설정
@@ -471,5 +504,38 @@ export function registerSettingsHandlers(): void {
     }
 
     return { success: true };
+  });
+
+  // 매뉴얼 HTML 읽기
+  ipcMain.handle('settings:getManual', async (_event, role: string) => {
+    try {
+      const roleMap: Record<string, string> = {
+        super_admin: 'manual_super_admin.html',
+        company_admin: 'manual_company_admin.html',
+        department_manager: 'manual_department_manager.html',
+        employee: 'manual_employee.html',
+      };
+      const filename = roleMap[role] || roleMap.employee;
+
+      // 패키징된 앱에서는 resources/docs/, 개발 모드에서는 docs/
+      const { app } = require('electron');
+      const possiblePaths = [
+        path.join(app.getAppPath(), 'docs', filename),
+        path.join(__dirname, '../../docs', filename),
+        path.join(__dirname, '../../../docs', filename),
+        path.join(process.resourcesPath || '', 'docs', filename),
+      ];
+
+      for (const p of possiblePaths) {
+        if (fs.existsSync(p)) {
+          const html = fs.readFileSync(p, 'utf-8');
+          return { success: true, html };
+        }
+      }
+
+      return { success: false, error: '매뉴얼 파일을 찾을 수 없습니다.' };
+    } catch (err: any) {
+      return { success: false, error: err.message || '매뉴얼 로드 실패' };
+    }
   });
 }

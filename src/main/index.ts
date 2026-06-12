@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, screen, session } from 'electron';
 import * as path from 'path';
 import { initDatabase } from './database';
 import { registerAuthHandlers } from './ipc/auth.ipc';
@@ -28,7 +28,26 @@ import { registerFolderScanIPC } from './ipc/folderScan.ipc';
 import { registerExportIPC } from './ipc/export.ipc';
 import { registerLinkingHandlers } from './ipc/linking.ipc';
 import { registerPdfHandlers } from './ipc/pdf.ipc';
+import { registerQuoteSectionHandlers } from './ipc/quoteSection.ipc';
+import { registerQuotePresetSectionHandlers } from './ipc/quotePresetSection.ipc';
+import { registerProfitDashboardHandlers } from './ipc/profitDashboard.ipc';
+import { registerTemplatesHandlers } from './ipc/templates.ipc';
+import { registerMenuManualHandlers } from './ipc/menuManual.ipc';
+import { registerReceivableHandlers } from './ipc/receivable.ipc';
+import { registerBillingHandlers } from './ipc/billing.ipc';
+import { registerPayableHandlers } from './ipc/payable.ipc';
+import { registerDepositHandlers } from './ipc/deposit.ipc';
+import { registerTaxInvoiceHandlers } from './ipc/taxInvoice.ipc';
+import { registerExpenseSettlementHandlers } from './ipc/expenseSettlement.ipc';
+import { registerExpenseRequestHandlers } from './ipc/expenseRequest.ipc';
+import { registerVehicleHandlers } from './ipc/vehicle.ipc';
+import { registerSpaceHandlers } from './ipc/space.ipc';
+import { registerProvisionalPaymentHandlers } from './ipc/provisionalPayment.ipc';
+import { registerClientFinancialsHandlers } from './ipc/clientFinancials.ipc';
+import { registerContractMeetingNoteHandlers } from './ipc/contractMeetingNote.ipc';
+import { registerDirectorReportHandlers } from './ipc/directorReport.ipc';
 import { initAutoUpdater } from './services/autoUpdater';
+import { db } from './database';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -99,6 +118,19 @@ ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized());
 ipcMain.handle('app:getVersion', () => app.getVersion());
 
 app.whenReady().then(() => {
+  // 0. CSP (Content Security Policy) 설정
+  // Electron 앱은 React/Ant Design 위해 unsafe-inline/eval 필요. https는 외부 API용.
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://*.supabase.co https://api.openai.com https://*.googleapis.com"
+        ]
+      }
+    });
+  });
+
   // 1. 데이터베이스 초기화
   initDatabase();
 
@@ -130,6 +162,26 @@ app.whenReady().then(() => {
   registerExportIPC();
   registerLinkingHandlers();
   registerPdfHandlers();
+  registerQuoteSectionHandlers();
+  registerQuotePresetSectionHandlers();
+  registerProfitDashboardHandlers();
+  registerTemplatesHandlers();
+  registerMenuManualHandlers();
+  registerReceivableHandlers();
+  registerBillingHandlers();
+  registerPayableHandlers();
+  registerDepositHandlers();
+  registerTaxInvoiceHandlers();
+  registerExpenseSettlementHandlers();
+  registerExpenseRequestHandlers();
+  registerVehicleHandlers();
+  registerSpaceHandlers();
+  registerProvisionalPaymentHandlers();
+  registerClientFinancialsHandlers();
+  registerContractMeetingNoteHandlers();
+  registerDirectorReportHandlers();
+
+  // 2.5. 기본 설정값 초기화 (OpenAI API 키는 설정 화면에서 등록)
 
   // 3. 메신저 Realtime 구독
   setupMessengerRealtime(() => mainWindow);

@@ -204,7 +204,7 @@ const DocumentAttachment: React.FC<DocumentAttachmentProps> = ({
   // 첨부 해제
   const detachFile = async (docId: string) => {
     try {
-      const result = await window.electronAPI.attachedDocs.remove(docId);
+      const result = await window.electronAPI.attachedDocs.remove(userId, docId);
       if (result.success) {
         message.success('첨부가 해제되었습니다.');
         loadAttachedDocs();
@@ -217,7 +217,7 @@ const DocumentAttachment: React.FC<DocumentAttachmentProps> = ({
   // 파일 열기
   const openFile = async (docId: string) => {
     try {
-      const result = await window.electronAPI.attachedDocs.openFile(docId);
+      const result = await window.electronAPI.attachedDocs.openFile(userId, docId);
       if (!result.success) {
         message.error(result.error || '파일을 열 수 없습니다.');
       }
@@ -229,7 +229,7 @@ const DocumentAttachment: React.FC<DocumentAttachmentProps> = ({
   // 카테고리 변경
   const updateCategory = async (docId: string, category: string) => {
     try {
-      await window.electronAPI.attachedDocs.updateCategory(docId, category);
+      await window.electronAPI.attachedDocs.updateCategory(userId, docId, category);
       loadAttachedDocs();
     } catch (err) {
       message.error('카테고리 변경에 실패했습니다.');
@@ -377,6 +377,7 @@ const DocumentAttachment: React.FC<DocumentAttachmentProps> = ({
         }
         open={showBrowser}
         onCancel={() => setShowBrowser(false)}
+        destroyOnClose
         width={900}
         footer={null}
         styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}

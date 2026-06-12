@@ -30,7 +30,7 @@ const CLIENT_TYPE_CONFIG: Record<string, { label: string; color: string }> = {
 const ClientDetail: React.FC = () => {
   const { id: clientId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, selectedCompanyId } = useAuthStore();
 
   const [client, setClient] = useState<any>(null);
   const [contacts, setContacts] = useState<any[]>([]);
@@ -63,8 +63,8 @@ const ClientDetail: React.FC = () => {
       } else {
         message.error(result.error || '거래처 정보를 불러올 수 없습니다.');
       }
-    } catch (err) {
-      message.error('거래처 로드 실패');
+    } catch (err: any) {
+      message.error(err?.message || '거래처 로드 실패');
     } finally {
       setLoading(false);
     }
@@ -98,7 +98,7 @@ const ClientDetail: React.FC = () => {
   useEffect(() => {
     loadClient();
     loadTransactions();
-  }, [user?.id, clientId]);
+  }, [user?.id, clientId, selectedCompanyId]);
 
   const handleSave = async (values: any) => {
     if (!user?.id || !clientId) return;
@@ -111,8 +111,8 @@ const ClientDetail: React.FC = () => {
       } else {
         message.error(result.error || '수정에 실패했습니다.');
       }
-    } catch (err) {
-      message.error('거래처 수정 실패');
+    } catch (err: any) {
+      message.error(err?.message || '거래처 수정 실패');
     }
   };
 
@@ -142,8 +142,8 @@ const ClientDetail: React.FC = () => {
       setEditingContact(null);
       contactForm.resetFields();
       loadClient();
-    } catch (err) {
-      message.error('담당자 처리 실패');
+    } catch (err: any) {
+      message.error(err?.message || '담당자 처리 실패');
     }
   };
 
@@ -157,8 +157,8 @@ const ClientDetail: React.FC = () => {
       } else {
         message.error(result.error || '삭제에 실패했습니다.');
       }
-    } catch (err) {
-      message.error('담당자 삭제 실패');
+    } catch (err: any) {
+      message.error(err?.message || '담당자 삭제 실패');
     }
   };
 
@@ -597,6 +597,7 @@ const ClientDetail: React.FC = () => {
         onOk={() => contactForm.submit()}
         okText={editingContact ? '수정' : '추가'}
         cancelText="취소"
+        destroyOnClose
       >
         <Form form={contactForm} layout="vertical" onFinish={handleAddContact}>
           <Form.Item

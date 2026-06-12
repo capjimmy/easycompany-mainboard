@@ -27,6 +27,18 @@ export function registerLinkingHandlers(): void {
           return { success: false, error: '권한이 없습니다.' };
         }
 
+        // 견적서/계약서 소유권 확인
+        const quote = await db.getQuoteById(quoteId);
+        const contract = await db.getContractById(contractId);
+        if (!quote || !contract) {
+          return { success: false, error: '견적서 또는 계약서를 찾을 수 없습니다.' };
+        }
+        if (requester.role !== 'super_admin') {
+          if (requester.company_id !== quote.company_id || requester.company_id !== contract.company_id) {
+            return { success: false, error: '권한이 없습니다.' };
+          }
+        }
+
         // 견적서에 계약서 ID 연결
         const { error: quoteError } = await supabase
           .from('quotes')
@@ -67,6 +79,18 @@ export function registerLinkingHandlers(): void {
         const requester = await db.getUserById(requesterId);
         if (!requester) {
           return { success: false, error: '권한이 없습니다.' };
+        }
+
+        // 소유권 확인
+        const quote = await db.getQuoteById(quoteId);
+        const contract = await db.getContractById(contractId);
+        if (!quote || !contract) {
+          return { success: false, error: '견적서 또는 계약서를 찾을 수 없습니다.' };
+        }
+        if (requester.role !== 'super_admin') {
+          if (requester.company_id !== quote.company_id || requester.company_id !== contract.company_id) {
+            return { success: false, error: '권한이 없습니다.' };
+          }
         }
 
         const { error: quoteError } = await supabase

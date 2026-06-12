@@ -8,6 +8,8 @@ const LEAVE_TYPE_LABELS: Record<string, string> = {
   half_pm: '오후반차',
   sick: '병가',
   special: '특별휴가',
+  business_trip: '출장',
+  remote: '재택근무',
 };
 
 /**
@@ -52,11 +54,14 @@ export function registerLeaveHandlers(): void {
       const user = await db.getUserById(userId);
       if (!user) return { success: false, error: '사용자를 찾을 수 없습니다.' };
 
-      if (!user.hire_date) {
+      const overrideRaw = (user as any).annual_leave_override;
+      const hasOverride = overrideRaw !== null && overrideRaw !== undefined && overrideRaw !== '';
+
+      if (!user.hire_date && !hasOverride) {
         return { success: true, data: { total: 0, used: 0, remaining: 0, hire_date: null } };
       }
 
-      const totalDays = calculateAnnualLeave(user.hire_date);
+      const totalDays = hasOverride ? Number(overrideRaw) : calculateAnnualLeave(user.hire_date);
 
       // 올해 사용한 연차 조회
       const currentYear = new Date().getFullYear();
@@ -64,7 +69,7 @@ export function registerLeaveHandlers(): void {
       const yearEnd = `${currentYear}-12-31`;
 
       const requests = await db.getLeaveRequests({ user_id: userId });
-      const usedDays = requests
+      const usedFromRequests = requests
         .filter((r: any) =>
           (r.status === 'approved' || r.status === 'dept_approved') &&
           r.start_date >= yearStart && r.start_date <= yearEnd &&
@@ -72,11 +77,20 @@ export function registerLeaveHandlers(): void {
         )
         .reduce((sum: number, r: any) => sum + (r.days || 0), 0);
 
+      // 관리자가 수동으로 추가한 사용 연차 (시스템 도입 전 사용분 등)
+      const offsetRaw = (user as any).annual_leave_used_offset;
+      const usedOffset = offsetRaw !== null && offsetRaw !== undefined && offsetRaw !== ''
+        ? Number(offsetRaw) : 0;
+
+      const usedDays = usedFromRequests + usedOffset;
+
       return {
         success: true,
         data: {
           total: totalDays,
           used: usedDays,
+          used_from_requests: usedFromRequests,
+          used_offset: usedOffset,
           remaining: Math.max(0, totalDays - usedDays),
           hire_date: user.hire_date,
         },
@@ -93,7 +107,7 @@ export function registerLeaveHandlers(): void {
     try {
       const requests = await db.getLeaveRequests({ user_id: requesterId });
       // 신청자 이름 첨부
-      const enriched = [];
+      const enriched: any[] = [];
       for (const req of requests) {
         const user = await db.getUserById(req.user_id);
         const approver = req.approved_by ? await db.getUserById(req.approved_by) : null;
@@ -121,32 +135,58 @@ export function registerLeaveHandlers(): void {
       const requester = await db.getUserById(requesterId);
       if (!requester) return { success: false, error: '권한이 없습니다.' };
 
-      const allowedRoles = ['super_admin', 'company_admin', 'department_manager'];
+      // employee는 캘린더 용도(자기 부서)로만 조회 허용 - calendarMode 플래그
+      const calendarMode = !!filters?.calendarMode;
+      const allowedRoles = calendarMode
+        ? ['super_admin', 'company_admin', 'department_manager', 'employee']
+        : ['super_admin', 'company_admin', 'department_manager'];
       if (!allowedRoles.includes(requester.role)) {
-        return { success: false, error: '관리자만 조회할 수 있습니다.' };
+        return { success: false, error: '권한이 없습니다.' };
       }
 
       const queryFilters: any = {};
       if (requester.role !== 'super_admin' && requester.company_id) {
         queryFilters.company_id = requester.company_id;
+      } else if (requester.role === 'super_admin' && filters?.company_id) {
+        queryFilters.company_id = filters.company_id;
       }
       if (filters?.status) queryFilters.status = filters.status;
 
       let requests = await db.getLeaveRequests(queryFilters);
 
-      // department_manager는 자기 부서 신청만 필터
-      if (requester.role === 'department_manager' && requester.department_id) {
-        const deptUserIds: string[] = [];
-        const allUsers = await db.getUsers();
-        for (const u of allUsers) {
-          if (u.department_id === requester.department_id) {
-            deptUserIds.push(u.id);
-          }
+      // 역할별 부서 스코핑
+      const allUsers = await db.getUsers();
+
+      // employee는 강제로 자기 부서로 제한
+      if (requester.role === 'employee') {
+        if (!requester.department_id) {
+          return { success: true, requests: [] };
         }
+        const deptUserIds = allUsers
+          .filter((u: any) => u.department_id === requester.department_id)
+          .map((u: any) => u.id);
+        requests = requests.filter((r: any) => deptUserIds.includes(r.user_id));
+      } else if (requester.role === 'department_manager' && requester.department_id) {
+        // department_manager는 자기 회사 전체 조회 가능 (캘린더 요구사항)
+        // 단 비-캘린더 모드(승인용)는 기존대로 자기 부서만
+        if (!calendarMode) {
+          const deptUserIds = allUsers
+            .filter((u: any) => u.department_id === requester.department_id)
+            .map((u: any) => u.id);
+          requests = requests.filter((r: any) => deptUserIds.includes(r.user_id));
+        }
+      } else if (
+        (requester.role === 'company_admin' || requester.role === 'super_admin') &&
+        filters?.department_id &&
+        filters.department_id !== 'all'
+      ) {
+        const deptUserIds = allUsers
+          .filter((u: any) => u.department_id === filters.department_id)
+          .map((u: any) => u.id);
         requests = requests.filter((r: any) => deptUserIds.includes(r.user_id));
       }
 
-      const enriched = [];
+      const enriched: any[] = [];
       for (const req of requests) {
         const user = await db.getUserById(req.user_id);
         const approver = req.approved_by ? await db.getUserById(req.approved_by) : null;
@@ -157,6 +197,8 @@ export function registerLeaveHandlers(): void {
           user_name: user?.name || '(알 수 없음)',
           user_rank: user?.rank || '',
           user_department: dept?.name || '',
+          department_id: user?.department_id || '',
+          department_name: dept?.name || '',
           approver_name: approver?.name || null,
           dept_approver_name: deptApprover?.name || null,
         });
@@ -175,35 +217,40 @@ export function registerLeaveHandlers(): void {
       const requester = await db.getUserById(requesterId);
       if (!requester) return { success: false, error: '사용자를 찾을 수 없습니다.' };
 
+      // 출장/재택은 자동 승인 (관리자 승인 불필요)
+      const AUTO_APPROVE_TYPES = ['business_trip', 'remote'];
+      const leaveType = data.leave_type || 'annual';
+      const isAutoApprove = AUTO_APPROVE_TYPES.includes(leaveType);
+      const nowIso = new Date().toISOString();
+
       const leaveRequest = {
         id: uuidv4(),
         user_id: requesterId,
         company_id: requester.company_id,
-        leave_type: data.leave_type || 'annual',
+        leave_type: leaveType,
         start_date: data.start_date,
         end_date: data.end_date,
         days: data.days || 1,
         reason: data.reason || '',
-        status: 'pending',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        status: isAutoApprove ? 'approved' : 'pending',
+        approved_by: isAutoApprove ? requesterId : null,
+        approved_at: isAutoApprove ? nowIso : null,
+        created_at: nowIso,
+        updated_at: nowIso,
       };
 
       await db.addLeaveRequest(leaveRequest);
 
-      // 부서 관리자와 회사 관리자에게 알림 전송
-      const typeLabel = LEAVE_TYPE_LABELS[data.leave_type] || data.leave_type;
+      const typeLabel = LEAVE_TYPE_LABELS[leaveType] || leaveType;
       const allUsers = await db.getUsers();
 
-      // Step 1 알림: 같은 부서의 department_manager에게
+      // 알림 전송: 자동승인이면 정보성 알림만, 승인 필요면 결재 요청 알림
       const deptManagers = allUsers.filter((u: any) =>
         u.is_active &&
         u.role === 'department_manager' &&
         u.department_id === requester.department_id &&
         u.id !== requesterId
       );
-
-      // Step 2 알림: 회사 관리자에게도 (정보 공유)
       const admins = allUsers.filter((u: any) =>
         u.is_active &&
         (u.role === 'company_admin' || u.role === 'super_admin') &&
@@ -211,17 +258,22 @@ export function registerLeaveHandlers(): void {
       );
 
       const notifyTargets = [...deptManagers, ...admins];
+      const notifTitle = isAutoApprove ? `${typeLabel} 등록` : '연차 신청';
+      const notifMessage = isAutoApprove
+        ? `${requester.name}(${requester.rank || ''})님이 ${typeLabel}를 등록했습니다. (${data.start_date} ~ ${data.end_date}, ${data.days}일)`
+        : `${requester.name}(${requester.rank || ''})님이 ${typeLabel}를 신청했습니다. (${data.start_date} ~ ${data.end_date}, ${data.days}일)`;
+
       for (const target of notifyTargets) {
         await db.addNotification({
           id: uuidv4(),
           user_id: target.id,
-          type: 'leave_request',
-          title: '연차 신청',
-          message: `${requester.name}(${requester.rank || ''})님이 ${typeLabel}를 신청했습니다. (${data.start_date} ~ ${data.end_date}, ${data.days}일)`,
+          type: isAutoApprove ? 'leave_info' : 'leave_request',
+          title: notifTitle,
+          message: notifMessage,
           link: '/hr/leave-admin',
           related_id: leaveRequest.id,
           created_by: requesterId,
-          created_at: new Date().toISOString(),
+          created_at: nowIso,
         });
       }
 
@@ -252,6 +304,19 @@ export function registerLeaveHandlers(): void {
       const leaveRequest = requests.find((r: any) => r.id === leaveId);
       if (!leaveRequest) {
         return { success: false, error: '신청을 찾을 수 없습니다.' };
+      }
+
+      // 회사 소속 확인
+      if (requester.role !== 'super_admin' && leaveRequest.company_id !== requester.company_id) {
+        return { success: false, error: '같은 회사의 신청만 승인할 수 있습니다.' };
+      }
+
+      // 부서 관리자는 같은 부서 신청만
+      if (requester.role === 'department_manager') {
+        const applicant = await db.getUserById(leaveRequest.user_id);
+        if (!applicant || applicant.department_id !== requester.department_id) {
+          return { success: false, error: '같은 부서의 신청만 승인할 수 있습니다.' };
+        }
       }
 
       if (requester.role === 'department_manager') {
@@ -358,6 +423,19 @@ export function registerLeaveHandlers(): void {
         return { success: false, error: '신청을 찾을 수 없습니다.' };
       }
 
+      // 회사 소속 확인
+      if (requester.role !== 'super_admin' && leaveRequest.company_id !== requester.company_id) {
+        return { success: false, error: '같은 회사의 신청만 반려할 수 있습니다.' };
+      }
+
+      // 부서 관리자는 같은 부서 신청만
+      if (requester.role === 'department_manager') {
+        const applicant = await db.getUserById(leaveRequest.user_id);
+        if (!applicant || applicant.department_id !== requester.department_id) {
+          return { success: false, error: '같은 부서의 신청만 반려할 수 있습니다.' };
+        }
+      }
+
       if (requester.role === 'department_manager') {
         // 부서 관리자: pending 상태만 반려 가능
         if (leaveRequest.status !== 'pending') {
@@ -399,22 +477,49 @@ export function registerLeaveHandlers(): void {
   });
 
   // ========================================
-  // 연차 취소 (본인만)
+  // 연차 취소 (본인 - 승인 전/후 모두 가능)
+  // 승인된 연차도 취소 가능 (calculateAnnual 시 cancelled 상태는 제외되므로 자동 환원)
   // ========================================
   ipcMain.handle('leave:cancel', async (_event, requesterId: string, leaveId: string) => {
     try {
       const requests = await db.getLeaveRequests({ user_id: requesterId });
       const target = requests.find((r: any) => r.id === leaveId);
       if (!target) return { success: false, error: '신청을 찾을 수 없습니다.' };
-      if (target.status !== 'pending' && target.status !== 'dept_approved') {
-        return { success: false, error: '대기 중이거나 부서 승인 상태의 신청만 취소할 수 있습니다.' };
+      if (target.status === 'rejected' || target.status === 'cancelled') {
+        return { success: false, error: '이미 취소되거나 반려된 신청입니다.' };
       }
 
+      const wasApproved = target.status === 'approved';
       const updated = await db.updateLeaveRequest(leaveId, {
-        status: 'rejected',
-        reject_reason: '본인 취소',
+        status: 'cancelled',
+        reject_reason: wasApproved ? '본인 취소 (승인 후)' : '본인 취소',
         updated_at: new Date().toISOString(),
       });
+
+      // 승인된 상태에서 취소 시 관리자에게 알림
+      if (wasApproved) {
+        const requester = await db.getUserById(requesterId);
+        const allUsers = await db.getUsers();
+        const admins = allUsers.filter((u: any) =>
+          u.is_active &&
+          (u.role === 'company_admin' || u.role === 'super_admin') &&
+          (u.company_id === target.company_id || u.role === 'super_admin')
+        );
+        const typeLabel = LEAVE_TYPE_LABELS[target.leave_type] || target.leave_type;
+        for (const admin of admins) {
+          await db.addNotification({
+            id: uuidv4(),
+            user_id: admin.id,
+            type: 'leave_cancelled',
+            title: '승인된 연차 취소',
+            message: `${requester?.name || ''}님이 승인된 ${typeLabel}를 취소했습니다. (${target.start_date} ~ ${target.end_date}, ${target.days}일)`,
+            link: '/hr/leave-admin',
+            related_id: leaveId,
+            created_by: requesterId,
+            created_at: new Date().toISOString(),
+          });
+        }
+      }
 
       return { success: true, data: updated };
     } catch (err: any) {

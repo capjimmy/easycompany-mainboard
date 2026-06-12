@@ -271,6 +271,7 @@ const GeneratedDocumentList: React.FC<GeneratedDocumentListProps> = ({
         }
         open={aiContentModal.visible}
         onCancel={() => setAiContentModal({ visible: false, content: '', title: '' })}
+        destroyOnClose
         footer={
           <Button onClick={() => setAiContentModal({ visible: false, content: '', title: '' })}>
             닫기

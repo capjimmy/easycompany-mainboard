@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>건설경제연구원 ERP - 슈퍼관리자 매뉴얼</title>
+<style>
+  :root { --primary: #1890ff; --bg: #f5f7fa; --card: #fff; --text: #333; --border: #e8e8e8; --accent: #ff4d4f; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+  .container { max-width: 960px; margin: 0 auto; padding: 40px 20px; }
+  header { background: linear-gradient(135deg, #001529, #003a70); color: #fff; padding: 48px 0; text-align: center; }
+  header h1 { font-size: 28px; margin-bottom: 8px; }
+  header .badge { display: inline-block; background: var(--accent); color: #fff; padding: 4px 16px; border-radius: 20px; font-size: 14px; margin-top: 8px; }
+  header p { opacity: 0.8; font-size: 14px; margin-top: 12px; }
+  .toc { background: var(--card); border-radius: 12px; padding: 24px 32px; margin: 24px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .toc h2 { font-size: 18px; margin-bottom: 12px; color: var(--primary); }
+  .toc ol { padding-left: 20px; }
+  .toc li { margin: 6px 0; }
+  .toc a { color: var(--primary); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  section { background: var(--card); border-radius: 12px; padding: 32px; margin: 20px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  section h2 { font-size: 22px; color: #001529; border-bottom: 3px solid var(--primary); padding-bottom: 8px; margin-bottom: 20px; }
+  section h3 { font-size: 17px; color: var(--primary); margin: 20px 0 10px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+  th, td { border: 1px solid var(--border); padding: 10px 14px; text-align: left; }
+  th { background: #fafafa; font-weight: 600; white-space: nowrap; }
+  .tag { display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+  .tag-blue { background: #e6f7ff; color: #1890ff; }
+  .tag-green { background: #f6ffed; color: #52c41a; }
+  .tag-red { background: #fff1f0; color: #ff4d4f; }
+  .tag-gold { background: #fffbe6; color: #faad14; }
+  .steps { counter-reset: step; list-style: none; padding: 0; }
+  .steps li { counter-increment: step; padding: 10px 0 10px 48px; position: relative; border-left: 2px solid var(--border); margin-left: 16px; }
+  .steps li::before { content: counter(step); position: absolute; left: -15px; top: 8px; width: 28px; height: 28px; background: var(--primary); color: #fff; border-radius: 50%; text-align: center; line-height: 28px; font-size: 13px; font-weight: 700; }
+  .steps li:last-child { border-left: none; }
+  .note { background: #e6f7ff; border-left: 4px solid var(--primary); padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 14px; }
+  .warn { background: #fff7e6; border-left: 4px solid #faad14; padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 14px; }
+  .danger { background: #fff1f0; border-left: 4px solid #ff4d4f; padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 14px; }
+  ul { padding-left: 20px; }
+  ul li { margin: 4px 0; }
+  footer { text-align: center; padding: 32px; color: #999; font-size: 13px; }
+  @media print { body { background: #fff; } section { box-shadow: none; border: 1px solid #eee; } header { background: #001529; } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>건설경제연구원 ERP 시스템</h1>
+  <div class="badge">슈퍼관리자 (Super Admin)</div>
+  <p>시스템 전체 관리 권한 - 모든 기능에 대한 완전한 접근 권한</p>
+</header>
+
+<div class="container">
+
+<nav class="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#overview">시스템 개요</a></li>
+    <li><a href="#login">로그인</a></li>
+    <li><a href="#dashboard">대시보드</a></li>
+    <li><a href="#quotes">견적관리</a></li>
+    <li><a href="#contracts">계약관리</a></li>
+    <li><a href="#clients">거래처관리</a></li>
+    <li><a href="#hr">인사/총무</a></li>
+    <li><a href="#calendar">캘린더</a></li>
+    <li><a href="#project">프로젝트</a></li>
+    <li><a href="#admin">관리 (사용자/부서/권한/회사)</a></li>
+    <li><a href="#settings">시스템 설정</a></li>
+  </ol>
+</nav>
+
+<!-- 1. 시스템 개요 -->
+<section id="overview">
+  <h2>1. 시스템 개요</h2>
+  <p>건설경제연구원 ERP는 계약/견적 관리, 인사관리, 프로젝트 관리를 통합한 사내 업무 시스템입니다.</p>
+  <h3>슈퍼관리자 권한 범위</h3>
+  <table>
+    <tr><th>영역</th><th>권한</th></tr>
+    <tr><td>모든 메뉴</td><td>전체 접근 가능</td></tr>
+    <tr><td>모든 데이터</td><td>회사 구분 없이 전체 조회/수정/삭제</td></tr>
+    <tr><td>사용자 관리</td><td>모든 회사의 사용자 생성/수정/삭제</td></tr>
+    <tr><td>회사 관리</td><td>회사 추가/수정/삭제 (슈퍼관리자 전용)</td></tr>
+    <tr><td>시스템 설정</td><td>SMTP, API키, 백업 등 전체 설정</td></tr>
+  </table>
+</section>
+
+<!-- 2. 로그인 -->
+<section id="login">
+  <h2>2. 로그인</h2>
+  <ol class="steps">
+    <li>프로그램을 실행합니다.</li>
+    <li>아이디와 비밀번호를 입력합니다.</li>
+    <li><strong>로그인</strong> 버튼을 클릭합니다.</li>
+  </ol>
+  <div class="warn">비밀번호를 잊은 경우, 슈퍼관리자는 관리 > 사용자관리에서 직접 비밀번호를 재설정할 수 있습니다.</div>
+</section>
+
+<!-- 3. 대시보드 -->
+<section id="dashboard">
+  <h2>3. 대시보드</h2>
+  <p>메뉴: <strong>홈 > 대시보드</strong></p>
+  <h3>표시 정보</h3>
+  <ul>
+    <li>계약 현황 (진행중/완료/타절 건수)</li>
+    <li>총 계약금액 및 수금율</li>
+    <li>견적 현황</li>
+    <li>월별 계약/수금/미수금 요약</li>
+    <li>최근 진행중 프로젝트</li>
+  </ul>
+  <h3>기간 필터</h3>
+  <p>상단의 <span class="tag tag-blue">이번 달</span> <span class="tag tag-blue">이번 분기</span> <span class="tag tag-blue">올해</span> <span class="tag tag-blue">작년</span> 버튼 또는 날짜 범위 선택기를 사용합니다.</p>
+</section>
+
+<!-- 4. 견적관리 -->
+<section id="quotes">
+  <h2>4. 견적관리</h2>
+  <p>메뉴: <strong>계약/매출 > 견적관리</strong></p>
+
+  <h3>견적 목록</h3>
+  <ul>
+    <li>검색: 견적번호, 수신처, 용역명으로 검색</li>
+    <li>필터: 상태별 (초안/제출/협상중/승인/반려/전환됨)</li>
+    <li>날짜 범위 필터</li>
+  </ul>
+
+  <h3>견적서 작성</h3>
+  <ol class="steps">
+    <li><strong>견적서 작성</strong> 버튼 클릭</li>
+    <li>기본정보 입력: 수신처 (자동완성), 용역명, 견적일자</li>
+    <li>인건비 항목 추가: 등급 선택 → 인원/참여율/개월 입력 → 소계 자동계산</li>
+    <li>경비 항목 추가: 항목 선택 → 금액 입력 (비율계산은 자동)</li>
+    <li>상세내역 추가 (선택): 대분류 > 세부 > 세세부 계층 구조</li>
+    <li><strong>저장</strong> 클릭 → 총금액(인건비+경비+상세내역+VAT) 자동 계산</li>
+  </ol>
+
+  <h3>견적서 액션</h3>
+  <table>
+    <tr><th>액션</th><th>설명</th></tr>
+    <tr><td>제출</td><td>초안 → 제출 상태로 변경</td></tr>
+    <tr><td>승인/반려</td><td>제출된 견적서 승인 또는 반려</td></tr>
+    <tr><td>계약전환</td><td>승인된 견적서를 계약서로 전환</td></tr>
+    <tr><td>이메일 발송</td><td>견적서를 PDF 첨부하여 이메일 발송</td></tr>
+    <tr><td>복제</td><td>기존 견적서를 복사하여 새로 작성</td></tr>
+    <tr><td>PDF 미리보기</td><td>견적서 PDF 미리보기 및 다운로드</td></tr>
+    <tr><td>삭제</td><td>견적서 삭제 (관리자 전용)</td></tr>
+  </table>
+</section>
+
+<!-- 5. 계약관리 -->
+<section id="contracts">
+  <h2>5. 계약관리</h2>
+  <p>메뉴: <strong>계약/매출 > 계약관리</strong></p>
+
+  <h3>계약 등록</h3>
+  <ol class="steps">
+    <li><strong>계약 등록</strong> 버튼 클릭</li>
+    <li>기본정보: 계약유형, 발주기관, 용역명, 기간</li>
+    <li>금액: 계약금액 → VAT/총액 자동계산</li>
+    <li>대금조건: 착수금/중도금/잔금 등록</li>
+    <li>문서: PDF 생성, 첨부파일 관리</li>
+    <li>하위작업(서브태스크) 등록</li>
+  </ol>
+
+  <h3>계약 상태 관리</h3>
+  <table>
+    <tr><th>상태</th><th>설명</th></tr>
+    <tr><td><span class="tag tag-blue">준비중</span></td><td>계약 준비 단계</td></tr>
+    <tr><td><span class="tag tag-green">진행중</span></td><td>계약 수행 중</td></tr>
+    <tr><td><span class="tag tag-gold">완료</span></td><td>계약 완료</td></tr>
+    <tr><td><span class="tag tag-red">타절</span></td><td>계약 취소/중단</td></tr>
+  </table>
+
+  <h3>하위메뉴</h3>
+  <table>
+    <tr><th>메뉴</th><th>기능</th></tr>
+    <tr><td>월별현황</td><td>월별 계약/수금/미수금 집계표</td></tr>
+    <tr><td>계약변경이력</td><td>모든 계약의 변경 내역 타임라인</td></tr>
+    <tr><td>외주관리</td><td>외주업체 등록/관리, 외주비 관리</td></tr>
+  </table>
+</section>
+
+<!-- 6. 거래처 -->
+<section id="clients">
+  <h2>6. 거래처관리</h2>
+  <p>메뉴: <strong>계약/매출 > 거래처관리</strong></p>
+  <ul>
+    <li>거래처 추가: 회사명, 유형(매출처/매입처/겸용), 사업자번호, 담당자 등</li>
+    <li>거래처별 계약금액/수금현황 자동 집계</li>
+    <li>거래처 상세에서 관련 계약 목록 확인</li>
+    <li>삭제: 슈퍼관리자/회사관리자만 가능</li>
+  </ul>
+</section>
+
+<!-- 7. 인사/총무 -->
+<section id="hr">
+  <h2>7. 인사/총무</h2>
+
+  <h3>연차 신청 (홈 > 인사/총무 > 연차 신청)</h3>
+  <ul>
+    <li>본인 연차 신청 및 잔여 연차 확인</li>
+    <li>신청 유형: 연차, 오전반차, 오후반차, 병가, 특별휴가</li>
+  </ul>
+
+  <h3>연차 승인관리 (인사/총무 > 연차 승인관리)</h3>
+  <p>슈퍼관리자는 <strong>모든 회사</strong>의 연차를 최종 승인/반려할 수 있습니다.</p>
+  <div class="note">2단계 승인 체계: 부서관리자(부서승인) → 회사관리자/슈퍼관리자(최종승인). 슈퍼관리자는 대기중 상태에서 바로 최종승인도 가능합니다.</div>
+
+  <h3>메일 승인 (인사/총무 > 메일 승인)</h3>
+  <ul>
+    <li>직원이 요청한 이메일 발송 건 승인/반려</li>
+    <li>승인 시 자동 발송</li>
+  </ul>
+
+  <h3>증명서 발급 (인사/총무 > 증명서 발급)</h3>
+  <ul>
+    <li>직원 증명서 신청 승인/반려</li>
+    <li>증명서 유형: 재직증명서, 경력증명서</li>
+  </ul>
+</section>
+
+<!-- 8. 캘린더 -->
+<section id="calendar">
+  <h2>8. 캘린더</h2>
+  <table>
+    <tr><th>캘린더</th><th>표시 내용</th></tr>
+    <tr><td>계약 캘린더</td><td>계약 시작/종료일, 납부일, 마일스톤</td></tr>
+    <tr><td>인사 캘린더</td><td>직원 연차/병가/출장 일정</td></tr>
+    <tr><td>공간 캘린더</td><td>회의실 예약 현황 및 예약 관리</td></tr>
+  </table>
+</section>
+
+<!-- 9. 프로젝트 -->
+<section id="project">
+  <h2>9. 프로젝트</h2>
+  <p>메뉴: <strong>프로젝트 > 프로젝트 현황</strong></p>
+  <ul>
+    <li>진행중/완료/타절 탭별 프로젝트 카드 목록</li>
+    <li>프로젝트별 진행률, 수금현황, 하위작업 상태 확인</li>
+    <li>프로젝트 상태 변경 (진행중 → 완료/타절 등)</li>
+    <li>일정관리: 프로젝트 타임라인 뷰</li>
+  </ul>
+</section>
+
+<!-- 10. 관리 -->
+<section id="admin">
+  <h2>10. 관리 (슈퍼관리자 전용)</h2>
+
+  <h3>사용자관리</h3>
+  <ol class="steps">
+    <li><strong>사용자 추가</strong> 버튼 클릭 또는 <strong>직원명부 가져오기</strong>로 일괄 등록</li>
+    <li>필수 입력: 아이디, 비밀번호, 이름, 소속부서, 역할</li>
+    <li>역할 설정: 사원 / 부서관리자 / 회사관리자</li>
+    <li>입사일, 퇴사일, 직급 등 부가정보 입력</li>
+  </ol>
+  <div class="warn">직원명부 가져오기 시 초기 비밀번호는 사번 또는 "1234"로 설정됩니다.</div>
+
+  <h3>부서관리</h3>
+  <ul>
+    <li>부서 추가/수정/삭제</li>
+    <li>상위부서 설정 (계층 구조)</li>
+    <li>부서장 지정</li>
+  </ul>
+
+  <h3>권한설정</h3>
+  <ul>
+    <li>메뉴별 역할 권한 조회/수정 (조회/생성/수정/삭제)</li>
+  </ul>
+
+  <h3>회사관리 (슈퍼관리자만)</h3>
+  <div class="danger">회사 추가/수정/삭제는 슈퍼관리자만 가능합니다.</div>
+  <ul>
+    <li>회사 추가: 회사명, 사업자번호, 주소, 전화번호</li>
+    <li>회사별 사용자 수, 부서 수 확인</li>
+    <li>회사 정보 수정 및 삭제</li>
+  </ul>
+</section>
+
+<!-- 11. 시스템 설정 -->
+<section id="settings">
+  <h2>11. 시스템 설정</h2>
+
+  <h3>양식 설정 (설정 > 양식 설정)</h3>
+  <ul>
+    <li>인건비 등급(단가표) 관리: 등급명, 월단가, 일단가</li>
+    <li>경비 항목 관리: 항목명, 계산방식(수동/비율/고정), 기본비율</li>
+  </ul>
+
+  <h3>문서 템플릿 (설정 > 문서 템플릿)</h3>
+  <ul>
+    <li>견적서/계약서 템플릿 업로드 (DOCX, XLSX, PDF)</li>
+    <li>부서별 또는 회사 전체 공유 설정</li>
+  </ul>
+
+  <h3>백업관리 (설정 > 백업관리)</h3>
+  <ul>
+    <li>수동 백업: 데이터를 파일로 내보내기</li>
+    <li>복원: 백업 파일에서 데이터 복원</li>
+  </ul>
+
+  <h3>일반 설정 (설정 > 설정)</h3>
+  <table>
+    <tr><th>탭</th><th>내용</th></tr>
+    <tr><td>프로필</td><td>전화번호, 이메일 변경</td></tr>
+    <tr><td>보안</td><td>비밀번호 변경</td></tr>
+    <tr><td>테마</td><td>라이트/다크 모드</td></tr>
+    <tr><td>AI 설정</td><td>OpenAI API 키 설정</td></tr>
+    <tr><td>SMTP 이메일</td><td>이메일 서버 설정 (관리자 전용)</td></tr>
+    <tr><td>앱 업데이트</td><td>버전 확인 및 업데이트</td></tr>
+  </table>
+</section>
+
+</div>
+
+<footer>
+  건설경제연구원 ERP 시스템 v1.2.1 | 슈퍼관리자 매뉴얼 | 2026년 3월
+</footer>
+
+</body>
+</html>

@@ -129,12 +129,11 @@ const LoginPage: React.FC = () => {
               boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)',
             }}
           >
-            <span style={{ color: 'white', fontSize: 28, fontWeight: 'bold' }}>건</span>
+            <span style={{ color: 'white', fontSize: 28, fontWeight: 'bold' }}>통</span>
           </div>
           <Title level={3} style={{ margin: 0 }}>
-            건설경제연구원
+            통합관리시스템
           </Title>
-          <Text type="secondary">업무 효율화 솔루션</Text>
         </div>
 
         {/* 로그인 폼 */}
@@ -198,12 +197,6 @@ const LoginPage: React.FC = () => {
           </Form.Item>
         </Form>
 
-        {/* 하단 정보 */}
-        <div style={{ textAlign: 'center', marginTop: 24 }}>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            건설경제연구원 업무관리 시스템
-          </Text>
-        </div>
       </Card>
     </div>
   );

@@ -362,6 +362,7 @@ const DocumentTemplates: React.FC = () => {
         onOk={editingTemplate ? handleEditTemplate : handleAddTemplate}
         okText={editingTemplate ? '수정' : '등록'}
         cancelText="취소"
+        destroyOnClose
       >
         <Form form={form} layout="vertical">
           {!editingTemplate && (

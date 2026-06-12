@@ -1,3 +1,4 @@
+import ResizableTable from '../../components/ResizableTable';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -20,13 +21,16 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 
-const STATUS_CONFIG: Record<QuoteStatus, { label: string; color: string }> = {
+const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   draft: { label: '작성중', color: 'default' },
   submitted: { label: '제출완료', color: 'processing' },
   negotiating: { label: '협상중', color: 'warning' },
   approved: { label: '승인됨', color: 'success' },
+  accepted: { label: '수주확정', color: 'cyan' },
   rejected: { label: '거절됨', color: 'error' },
   converted: { label: '계약전환', color: 'purple' },
+  sent: { label: '발송', color: 'blue' },
+  expired: { label: '만료', color: 'default' },
 };
 
 const QuoteList: React.FC = () => {
@@ -45,6 +49,8 @@ const QuoteList: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<QuoteStatus | undefined>();
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
+  const [departmentFilter, setDepartmentFilter] = useState<string | undefined>();
+  const [departments, setDepartments] = useState<any[]>([]);
   const [convertModalVisible, setConvertModalVisible] = useState(false);
   const [convertingQuote, setConvertingQuote] = useState<Quote | null>(null);
   const [convertForm] = Form.useForm();
@@ -60,6 +66,15 @@ const QuoteList: React.FC = () => {
       const filters: any = {};
       if (user.role === 'super_admin' && selectedCompanyId) filters.company_id = selectedCompanyId;
       fetchQuotes(user.id, filters);
+      // 회사 전환 시 부서 필터 초기화
+      setDepartmentFilter(undefined);
+      // 부서 목록 로딩
+      const companyId = user.role === 'super_admin' ? selectedCompanyId : user.company_id;
+      (window as any).electronAPI.departments.getAll(user.id, companyId || undefined)
+        .then((res: any) => {
+          if (res?.success) setDepartments(res.departments || []);
+        })
+        .catch(() => {});
     }
   }, [user?.id, selectedCompanyId]);
 
@@ -82,12 +97,31 @@ const QuoteList: React.FC = () => {
     setSearchText('');
     setStatusFilter(undefined);
     setDateRange(null);
+    setDepartmentFilter(undefined);
     if (user?.id) {
       const filters: any = {};
       if (user.role === 'super_admin' && selectedCompanyId) filters.company_id = selectedCompanyId;
       fetchQuotes(user.id, filters);
     }
   };
+
+  // 부서별 클라이언트 필터링 + 부서명 매핑
+  const deptMap = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const d of departments) m.set(d.id, d.name);
+    return m;
+  }, [departments]);
+
+  const filteredQuotes = React.useMemo(() => {
+    if (!departmentFilter) return quotes;
+    if (departmentFilter === '__outsource__') {
+      return quotes.filter((q) => {
+        const qo: any = q;
+        return qo.quote_type === 'outsource' || qo.is_outsource === true;
+      });
+    }
+    return quotes.filter((q) => (q as any).department_id === departmentFilter);
+  }, [quotes, departmentFilter]);
 
   const handleDelete = async (quoteId: string) => {
     if (!user?.id) return;
@@ -161,8 +195,8 @@ const QuoteList: React.FC = () => {
       if (!result.success) {
         message.error(result.error);
       }
-    } catch (err) {
-      message.error('원본 파일 열기에 실패했습니다.');
+    } catch (err: any) {
+      message.error(err?.message || '원본 파일 열기에 실패했습니다.');
     }
   };
 
@@ -199,8 +233,8 @@ const QuoteList: React.FC = () => {
       } else {
         message.error(result.error || '이메일 발송에 실패했습니다.');
       }
-    } catch (err) {
-      message.error('이메일 발송 중 오류가 발생했습니다.');
+    } catch (err: any) {
+      message.error(err?.message || '이메일 발송 중 오류가 발생했습니다.');
     } finally {
       setSendingEmail(false);
     }
@@ -215,12 +249,34 @@ const QuoteList: React.FC = () => {
       } else if (result.error !== '저장이 취소되었습니다.') {
         message.error(result.error || '내보내기에 실패했습니다.');
       }
-    } catch (err) {
-      message.error('엑셀 내보내기 중 오류가 발생했습니다.');
+    } catch (err: any) {
+      message.error(err?.message || '엑셀 내보내기 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleGenerateDocument = async (quoteId: string) => {
+    if (!user?.id) return;
+    try {
+      message.loading({ content: '견적서 출력 중...', key: 'genDoc' });
+      const result = await window.electronAPI.quotes.generateDocument(user.id, quoteId);
+      if (result.success) {
+        message.success({ content: '견적서가 출력되었습니다.', key: 'genDoc' });
+      } else if (result.error !== 'canceled') {
+        message.error({ content: result.error || '견적서 출력에 실패했습니다.', key: 'genDoc' });
+      } else {
+        message.destroy('genDoc');
+      }
+    } catch (err: any) {
+      message.error({ content: err?.message || '견적서 출력 중 오류가 발생했습니다.', key: 'genDoc' });
     }
   };
 
   const getActionMenu = (record: Quote): MenuProps['items'] => {
+    const role = user?.role;
+    const canEdit = role === 'super_admin' || role === 'company_admin' || role === 'department_manager';
+    const canApprove = role === 'super_admin' || role === 'company_admin' || role === 'department_manager';
+    const canDelete = role === 'super_admin' || role === 'company_admin';
+
     const items: MenuProps['items'] = [
       {
         key: 'view',
@@ -241,23 +297,23 @@ const QuoteList: React.FC = () => {
     }
 
     if (record.status === 'draft') {
-      items.push(
-        {
+      if (canEdit) {
+        items.push({
           key: 'edit',
           label: '수정',
           icon: <EditOutlined />,
           onClick: () => navigate(`/quotes/${record.id}/edit`),
-        },
-        {
-          key: 'submit',
-          label: '제출',
-          icon: <CheckCircleOutlined />,
-          onClick: () => handleStatusChange(record.id, 'submitted'),
-        }
-      );
+        });
+      }
+      items.push({
+        key: 'submit',
+        label: '제출',
+        icon: <CheckCircleOutlined />,
+        onClick: () => handleStatusChange(record.id, 'submitted'),
+      });
     }
 
-    if (record.status === 'submitted') {
+    if (record.status === 'submitted' && canApprove) {
       items.push(
         {
           key: 'approve',
@@ -278,7 +334,7 @@ const QuoteList: React.FC = () => {
       );
     }
 
-    if (record.status === 'negotiating') {
+    if (record.status === 'negotiating' && canApprove) {
       items.push(
         {
           key: 'approve',
@@ -294,7 +350,7 @@ const QuoteList: React.FC = () => {
       );
     }
 
-    if (record.status === 'approved') {
+    if (record.status === 'approved' && canEdit) {
       items.push({
         key: 'convert',
         label: '계약 전환',
@@ -303,7 +359,7 @@ const QuoteList: React.FC = () => {
       });
     }
 
-    if (record.status === 'rejected') {
+    if (record.status === 'rejected' && canEdit) {
       items.push({
         key: 'reopen',
         label: '재작성',
@@ -313,6 +369,12 @@ const QuoteList: React.FC = () => {
 
     items.push(
       { type: 'divider' },
+      {
+        key: 'generateDoc',
+        label: '견적서 출력',
+        icon: <FileTextOutlined />,
+        onClick: () => handleGenerateDocument(record.id),
+      },
       {
         key: 'email',
         label: '이메일 발송',
@@ -327,7 +389,7 @@ const QuoteList: React.FC = () => {
       }
     );
 
-    if (record.status !== 'converted') {
+    if (record.status !== 'converted' && canDelete) {
       items.push({
         key: 'delete',
         label: '삭제',
@@ -367,6 +429,8 @@ const QuoteList: React.FC = () => {
       dataIndex: 'quote_date',
       key: 'quote_date',
       width: 110,
+      sorter: (a: any, b: any) => (a.quote_date || '').localeCompare(b.quote_date || ''),
+      defaultSortOrder: 'descend' as const,
       render: (value: string) => dayjs(value).format('YYYY-MM-DD'),
     },
     {
@@ -382,11 +446,18 @@ const QuoteList: React.FC = () => {
       dataIndex: 'status',
       key: 'status',
       width: 100,
-      render: (value: QuoteStatus) => (
-        <Tag color={STATUS_CONFIG[value]?.color}>
-          {STATUS_CONFIG[value]?.label}
+      render: (value: string) => (
+        <Tag color={STATUS_CONFIG[value]?.color || 'default'}>
+          {STATUS_CONFIG[value]?.label || value || '미정'}
         </Tag>
       ),
+    },
+    {
+      title: '부서',
+      dataIndex: 'department_id',
+      key: 'department_id',
+      width: 100,
+      render: (deptId: string | undefined) => deptId ? (deptMap.get(deptId) || '-') : '-',
     },
     {
       title: '작성자',
@@ -414,11 +485,13 @@ const QuoteList: React.FC = () => {
           <span style={{ color: '#888' }}>견적서를 작성하고 관리합니다.</span>
         </div>
         <Space>
+          {/* 엑셀 내보내기 - 임시 비활성화
           {(user?.role === 'super_admin' || user?.role === 'company_admin') && (
             <Button icon={<DownloadOutlined />} onClick={handleExportExcel}>
               엑셀 내보내기
             </Button>
           )}
+          */}
           <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/quotes/new')}>
             견적서 작성
           </Button>
@@ -449,6 +522,20 @@ const QuoteList: React.FC = () => {
               </Option>
             ))}
           </Select>
+          <Select
+            placeholder="부서"
+            value={departmentFilter}
+            onChange={setDepartmentFilter}
+            allowClear
+            style={{ width: 140 }}
+          >
+            <Option key="__outsource__" value="__outsource__">🔧 외주</Option>
+            {departments.map((d: any) => (
+              <Option key={d.id} value={d.id}>
+                {d.name}
+              </Option>
+            ))}
+          </Select>
           <RangePicker
             value={dateRange}
             onChange={(dates) => setDateRange(dates as [dayjs.Dayjs, dayjs.Dayjs] | null)}
@@ -460,15 +547,23 @@ const QuoteList: React.FC = () => {
 
       {/* 목록 */}
       <Card>
-        <Table
+        <ResizableTable
           columns={columns}
-          dataSource={quotes}
+          dataSource={filteredQuotes}
           rowKey="id"
           loading={isLoading}
           pagination={{
             showSizeChanger: true,
             showTotal: (total) => `총 ${total}건`,
           }}
+          onRow={(record) => ({
+            onClick: (e) => {
+              const target = e.target as HTMLElement;
+              if (target.closest('.ant-dropdown-trigger') || target.closest('.ant-btn') || target.closest('.ant-dropdown') || target.closest('a')) return;
+              navigate(`/quotes/${record.id}`);
+            },
+            style: { cursor: 'pointer' },
+          })}
         />
       </Card>
 

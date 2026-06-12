@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>건설경제연구원 ERP - 회사관리자 매뉴얼</title>
+<style>
+  :root { --primary: #1890ff; --bg: #f5f7fa; --card: #fff; --text: #333; --border: #e8e8e8; --accent: #722ed1; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+  .container { max-width: 960px; margin: 0 auto; padding: 40px 20px; }
+  header { background: linear-gradient(135deg, #1d1145, #722ed1); color: #fff; padding: 48px 0; text-align: center; }
+  header h1 { font-size: 28px; margin-bottom: 8px; }
+  header .badge { display: inline-block; background: #faad14; color: #333; padding: 4px 16px; border-radius: 20px; font-size: 14px; margin-top: 8px; font-weight: 700; }
+  header p { opacity: 0.8; font-size: 14px; margin-top: 12px; }
+  .toc { background: var(--card); border-radius: 12px; padding: 24px 32px; margin: 24px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .toc h2 { font-size: 18px; margin-bottom: 12px; color: var(--accent); }
+  .toc ol { padding-left: 20px; }
+  .toc li { margin: 6px 0; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  section { background: var(--card); border-radius: 12px; padding: 32px; margin: 20px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  section h2 { font-size: 22px; color: #1d1145; border-bottom: 3px solid var(--accent); padding-bottom: 8px; margin-bottom: 20px; }
+  section h3 { font-size: 17px; color: var(--accent); margin: 20px 0 10px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+  th, td { border: 1px solid var(--border); padding: 10px 14px; text-align: left; }
+  th { background: #fafafa; font-weight: 600; white-space: nowrap; }
+  .tag { display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+  .tag-blue { background: #e6f7ff; color: #1890ff; }
+  .tag-green { background: #f6ffed; color: #52c41a; }
+  .tag-red { background: #fff1f0; color: #ff4d4f; }
+  .tag-gold { background: #fffbe6; color: #faad14; }
+  .steps { counter-reset: step; list-style: none; padding: 0; }
+  .steps li { counter-increment: step; padding: 10px 0 10px 48px; position: relative; border-left: 2px solid var(--border); margin-left: 16px; }
+  .steps li::before { content: counter(step); position: absolute; left: -15px; top: 8px; width: 28px; height: 28px; background: var(--accent); color: #fff; border-radius: 50%; text-align: center; line-height: 28px; font-size: 13px; font-weight: 700; }
+  .steps li:last-child { border-left: none; }
+  .note { background: #f9f0ff; border-left: 4px solid var(--accent); padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 14px; }
+  .warn { background: #fff7e6; border-left: 4px solid #faad14; padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 14px; }
+  ul { padding-left: 20px; }
+  ul li { margin: 4px 0; }
+  .no-access { background: #f5f5f5; color: #999; padding: 8px 16px; border-radius: 4px; margin: 8px 0; font-size: 13px; }
+  footer { text-align: center; padding: 32px; color: #999; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>건설경제연구원 ERP 시스템</h1>
+  <div class="badge">회사 관리자 (Company Admin)</div>
+  <p>소속 회사 내 모든 데이터 관리 및 사용자/설정 관리 권한</p>
+</header>
+
+<div class="container">
+
+<nav class="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#overview">권한 개요</a></li>
+    <li><a href="#dashboard">대시보드</a></li>
+    <li><a href="#quotes">견적관리</a></li>
+    <li><a href="#contracts">계약관리</a></li>
+    <li><a href="#clients">거래처관리</a></li>
+    <li><a href="#hr">인사/총무</a></li>
+    <li><a href="#calendar">캘린더</a></li>
+    <li><a href="#project">프로젝트</a></li>
+    <li><a href="#admin">관리 (사용자/부서/권한)</a></li>
+    <li><a href="#settings">설정</a></li>
+  </ol>
+</nav>
+
+<section id="overview">
+  <h2>1. 권한 개요</h2>
+  <table>
+    <tr><th>기능</th><th>권한</th></tr>
+    <tr><td>대시보드, AI검색</td><td>전체 접근</td></tr>
+    <tr><td>견적서/계약서</td><td>조회/생성/수정/삭제/승인</td></tr>
+    <tr><td>거래처</td><td>조회/생성/수정/삭제</td></tr>
+    <tr><td>연차 승인</td><td>최종 승인 권한</td></tr>
+    <tr><td>사용자/부서 관리</td><td>소속 회사 내 관리</td></tr>
+    <tr><td>양식설정/문서템플릿/백업</td><td>관리 가능</td></tr>
+    <tr><td style="color:#999;">회사 관리</td><td style="color:#999;">접근 불가 (슈퍼관리자 전용)</td></tr>
+  </table>
+  <div class="note">회사관리자는 <strong>소속 회사</strong>의 데이터만 조회/관리할 수 있습니다. 다른 회사의 데이터에는 접근할 수 없습니다.</div>
+</section>
+
+<section id="dashboard">
+  <h2>2. 대시보드</h2>
+  <p>메뉴: <strong>홈 > 대시보드</strong></p>
+  <ul>
+    <li>소속 회사의 계약/견적 현황, 수금율, 월별 통계 확인</li>
+    <li>기간 필터: 이번 달 / 이번 분기 / 올해 / 작년 / 직접 선택</li>
+    <li>최근 프로젝트 및 견적 현황 카드</li>
+  </ul>
+</section>
+
+<section id="quotes">
+  <h2>3. 견적관리</h2>
+  <p>메뉴: <strong>계약/매출 > 견적관리</strong></p>
+  <h3>가능한 작업</h3>
+  <table>
+    <tr><th>작업</th><th>설명</th></tr>
+    <tr><td>견적서 작성</td><td>기본정보 + 인건비 + 경비 + 상세내역 입력</td></tr>
+    <tr><td>수정/삭제</td><td>초안 상태 견적서 수정 및 삭제</td></tr>
+    <tr><td>제출/승인/반려</td><td>견적서 상태 관리</td></tr>
+    <tr><td>계약 전환</td><td>승인된 견적서를 계약서로 전환</td></tr>
+    <tr><td>이메일 발송</td><td>PDF 첨부하여 이메일 직접 발송</td></tr>
+    <tr><td>PDF 미리보기</td><td>견적서 미리보기 및 다운로드</td></tr>
+    <tr><td>복제</td><td>기존 견적서를 복사하여 새로 작성</td></tr>
+  </table>
+
+  <h3>견적서 작성 순서</h3>
+  <ol class="steps">
+    <li>견적서 작성 버튼 클릭</li>
+    <li>수신처 입력 (거래처 자동완성 지원)</li>
+    <li>용역명, 견적일자, 유효기간 입력</li>
+    <li>인건비 항목 추가 (등급 선택 → 자동 단가 적용)</li>
+    <li>경비 항목 추가 (수동입력 또는 비율자동계산)</li>
+    <li>상세내역 추가 (필요시 대분류/세부/세세부)</li>
+    <li>하단의 총금액 확인 후 저장</li>
+  </ol>
+</section>
+
+<section id="contracts">
+  <h2>4. 계약관리</h2>
+  <p>메뉴: <strong>계약/매출 > 계약관리</strong></p>
+  <ul>
+    <li>계약 등록/수정/삭제</li>
+    <li>진행상태 변경 (준비중/진행중/완료/타절)</li>
+    <li>입금 등록 및 대금조건 관리</li>
+    <li>계약서 PDF 생성 및 이메일 발송</li>
+    <li>하위작업(서브태스크) 관리</li>
+  </ul>
+
+  <h3>관련 하위메뉴</h3>
+  <ul>
+    <li><strong>월별현황</strong>: 월별 계약/수금 통계</li>
+    <li><strong>계약변경이력</strong>: 계약 변경 내역 타임라인</li>
+    <li><strong>외주관리</strong>: 외주업체 등록/비용 관리</li>
+  </ul>
+</section>
+
+<section id="clients">
+  <h2>5. 거래처관리</h2>
+  <p>메뉴: <strong>계약/매출 > 거래처관리</strong></p>
+  <ul>
+    <li>거래처 추가: 회사명, 유형, 사업자번호, 담당자 정보</li>
+    <li>거래처별 계약금액/수금현황 자동 집계</li>
+    <li>삭제 가능 (회사관리자 권한)</li>
+  </ul>
+</section>
+
+<section id="hr">
+  <h2>6. 인사/총무</h2>
+
+  <h3>연차 신청</h3>
+  <p>본인 연차 신청 및 잔여일수 확인</p>
+
+  <h3>연차 승인관리</h3>
+  <div class="note"><strong>회사관리자의 승인 권한:</strong>
+    <ul>
+      <li>대기중(pending) → 직접 최종승인 가능</li>
+      <li>부서승인(dept_approved) → 최종승인</li>
+      <li>모든 상태에서 반려 가능 (반려 사유 입력)</li>
+    </ul>
+  </div>
+
+  <h3>메일 승인</h3>
+  <p>직원이 요청한 이메일 발송 건 승인/반려. 승인 시 자동 발송됩니다.</p>
+
+  <h3>증명서 발급</h3>
+  <p>직원의 재직/경력 증명서 신청 건 승인/반려</p>
+</section>
+
+<section id="calendar">
+  <h2>7. 캘린더</h2>
+  <ul>
+    <li><strong>계약 캘린더</strong>: 계약 일정, 납부일, 마일스톤</li>
+    <li><strong>인사 캘린더</strong>: 전 직원 연차/병가 일정 (소속 회사)</li>
+    <li><strong>공간 캘린더</strong>: 회의실 예약 현황 및 예약</li>
+  </ul>
+</section>
+
+<section id="project">
+  <h2>8. 프로젝트</h2>
+  <ul>
+    <li>프로젝트 현황: 진행중/완료/타절 탭, 진행률/수금 현황</li>
+    <li>프로젝트 상태 변경 가능</li>
+    <li>일정관리: 프로젝트 타임라인</li>
+  </ul>
+</section>
+
+<section id="admin">
+  <h2>9. 관리</h2>
+
+  <h3>사용자관리</h3>
+  <ul>
+    <li>소속 회사 사용자 추가/수정/삭제</li>
+    <li>역할 설정: 사원, 부서관리자 (회사관리자 역할 부여는 슈퍼관리자만)</li>
+    <li>직원명부 엑셀 일괄 가져오기</li>
+    <li>비밀번호 재설정</li>
+  </ul>
+
+  <h3>부서관리</h3>
+  <ul>
+    <li>부서 추가/수정/삭제</li>
+    <li>부서장 지정</li>
+  </ul>
+
+  <h3>권한설정</h3>
+  <ul>
+    <li>역할별 메뉴 접근 권한 설정</li>
+  </ul>
+
+  <div class="no-access">회사관리 메뉴는 슈퍼관리자 전용이므로 접근할 수 없습니다.</div>
+</section>
+
+<section id="settings">
+  <h2>10. 설정</h2>
+  <table>
+    <tr><th>메뉴</th><th>기능</th></tr>
+    <tr><td>양식 설정</td><td>인건비 등급(단가표), 경비 항목 관리</td></tr>
+    <tr><td>문서 템플릿</td><td>견적서/계약서 템플릿 업로드 및 관리</td></tr>
+    <tr><td>백업관리</td><td>데이터 백업 및 복원</td></tr>
+    <tr><td>일반 설정</td><td>프로필, 비밀번호, 테마, SMTP 이메일 설정</td></tr>
+  </table>
+</section>
+
+</div>
+
+<footer>
+  건설경제연구원 ERP 시스템 v1.2.1 | 회사관리자 매뉴얼 | 2026년 3월
+</footer>
+
+</body>
+</html>

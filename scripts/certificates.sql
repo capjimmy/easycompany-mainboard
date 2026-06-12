@@ -17,3 +17,20 @@ CREATE TABLE IF NOT EXISTS certificates (
 
 CREATE INDEX IF NOT EXISTS idx_certificates_user ON certificates(user_id);
 CREATE INDEX IF NOT EXISTS idx_certificates_company ON certificates(company_id);
+
+-- 증명서 종류 테이블
+CREATE TABLE IF NOT EXISTS certificate_types (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID REFERENCES companies(id),
+  key TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  sort_order INTEGER DEFAULT 0,
+  is_active BOOLEAN DEFAULT true,
+  template_path TEXT, -- 양식 파일 경로
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- template_path 컬럼 추가 (기존 테이블에)
+ALTER TABLE certificate_types ADD COLUMN IF NOT EXISTS template_path TEXT;

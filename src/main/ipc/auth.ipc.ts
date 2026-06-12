@@ -56,6 +56,7 @@ export function registerAuthHandlers(): void {
             };
             return acc;
           }, {}),
+          permissionsCustomized: permissions.length > 0,
         },
       };
     } catch (error: any) {

@@ -34,3 +34,19 @@ src/main/database/allQuotes.json
 progress_report.html
 project-progress.html
 프로젝트_로드맵.html
+
+# === 회사 데이터 / 민감정보 (커밋 금지!) ===
+vector_index*
+배포*
+세금계산서*
+자료*
+*.xlsx
+*.xls
+*.csv
+*.zip
+*.hwp
+contracts.json
+quotes.json
+employee_roster.json
+# 단, 리포트 양식 템플릿(blank, PII 아님)은 포함
+!templates/*.xlsx

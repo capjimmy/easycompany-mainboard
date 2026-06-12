@@ -1,3 +1,4 @@
+import ResizableTable from '../../components/ResizableTable';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -32,7 +33,7 @@ interface HistoryRecord {
 
 const ContractHistory: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, selectedCompanyId } = useAuthStore();
 
   const [histories, setHistories] = useState<HistoryRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -45,14 +46,16 @@ const ContractHistory: React.FC = () => {
     if (user?.id) {
       loadHistories();
     }
-  }, [user?.id]);
+  }, [user?.id, selectedCompanyId]);
 
   const loadHistories = async () => {
     if (!user?.id) return;
     setIsLoading(true);
 
     try {
-      const result = await (window as any).electronAPI.contracts.getAllHistories(user.id);
+      const filters: any = {};
+      if (user.role === 'super_admin' && selectedCompanyId) filters.company_id = selectedCompanyId;
+      const result = await (window as any).electronAPI.contracts.getAllHistories(user.id, filters);
       if (result.success) {
         setHistories(result.histories || []);
       }
@@ -291,7 +294,7 @@ const ContractHistory: React.FC = () => {
       {/* 이력 목록 */}
       {viewMode === 'table' ? (
         <Card>
-          <Table
+          <ResizableTable
             columns={columns}
             dataSource={filteredHistories}
             rowKey="id"

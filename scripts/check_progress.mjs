@@ -1,0 +1,11 @@
+import { createClient } from '@supabase/supabase-js';
+const sb = createClient('https://silvsqcwearelrumtqqm.supabase.co', 'sb_publishable_pAS3A3nCHvsuS0ew46MD5A_RpnMdt4J');
+const { data: easy } = await sb.from('companies').select('id').eq('name', '이지컨설턴트').single();
+const { count: c } = await sb.from('contracts').select('*', { count: 'exact', head: true }).eq('company_id', easy.id);
+const { count: pc } = await sb.from('payment_conditions').select('*', { count: 'exact', head: true });
+const { count: cs } = await sb.from('contract_subtasks').select('*', { count: 'exact', head: true });
+const { count: o } = await sb.from('outsourcings').select('*', { count: 'exact', head: true });
+console.log('이지컨설턴트 contracts:', c);
+console.log('payment_conditions:', pc);
+console.log('contract_subtasks:', cs);
+console.log('outsourcings:', o);

@@ -1,10 +1,25 @@
 import { supabase } from './supabaseClient';
 
+// Supabase REST API의 1000건 제한을 우회하는 페이징 헬퍼
+async function fetchAllPaged(table: string, applyFilter?: (q: any) => any): Promise<any[]> {
+  const all: any[] = [];
+  let from = 0;
+  while (true) {
+    let q = supabase.from(table).select('*').range(from, from + 999);
+    if (applyFilter) q = applyFilter(q);
+    const { data } = await q;
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < 1000) break;
+    from += 1000;
+  }
+  return all;
+}
+
 export const db = {
   // ========== Users ==========
   getUsers: async () => {
-    const { data } = await supabase.from('users').select('*');
-    return data || [];
+    return await fetchAllPaged('users');
   },
   setUsers: async (_users: any[]) => {
     /* no-op for Supabase compatibility */
@@ -23,11 +38,13 @@ export const db = {
     return data;
   },
   updateUser: async (id: string, updates: any) => {
-    const { data } = await supabase.from('users').update(updates).eq('id', id).select().single();
+    const { data, error } = await supabase.from('users').update(updates).eq('id', id).select().single();
+    if (error) throw error;
     return data;
   },
   deleteUser: async (id: string) => {
-    await supabase.from('users').delete().eq('id', id);
+    const { error } = await supabase.from('users').delete().eq('id', id);
+    if (error) throw error;
   },
 
   // ========== Companies ==========
@@ -96,6 +113,10 @@ export const db = {
     const { data } = await supabase.from('menu_permissions').select('*').eq('user_id', userId);
     return data || [];
   },
+  // 모든 사용자의 권한을 한 번에 가져옴 (N+1 방지)
+  getAllPermissions: async () => {
+    return await fetchAllPaged('menu_permissions');
+  },
   deletePermissionsByUserId: async (userId: string) => {
     await supabase.from('menu_permissions').delete().eq('user_id', userId);
   },
@@ -103,6 +124,26 @@ export const db = {
     const { data, error } = await supabase.from('menu_permissions').insert(permission).select().single();
     if (error) throw error;
     return data;
+  },
+
+  // ========== Menu Manuals ==========
+  getMenuManuals: async (companyId: string) => {
+    const { data } = await supabase.from('menu_manuals').select('*').eq('company_id', companyId);
+    return data || [];
+  },
+  getMenuManual: async (companyId: string, menuKey: string) => {
+    const { data } = await supabase.from('menu_manuals').select('*')
+      .eq('company_id', companyId).eq('menu_key', menuKey).maybeSingle();
+    return data;
+  },
+  upsertMenuManual: async (manual: any) => {
+    const { data, error } = await supabase.from('menu_manuals')
+      .upsert(manual, { onConflict: 'company_id,menu_key' }).select().single();
+    if (error) throw error;
+    return data;
+  },
+  deleteMenuManual: async (id: string) => {
+    await supabase.from('menu_manuals').delete().eq('id', id);
   },
 
   // ========== Settings (key-value table) ==========
@@ -184,19 +225,37 @@ export const db = {
 
   // ========== Quotes ==========
   getQuotes: async () => {
-    const { data } = await supabase
-      .from('quotes')
-      .select('*')
-      .order('created_at', { ascending: false });
-    return data || [];
+    const all: any[] = [];
+    let from = 0;
+    while (true) {
+      const { data } = await supabase
+        .from('quotes')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(from, from + 999);
+      if (!data || data.length === 0) break;
+      all.push(...data);
+      if (data.length < 1000) break;
+      from += 1000;
+    }
+    return all;
   },
   getQuotesByCompanyId: async (companyId: string) => {
-    const { data } = await supabase
-      .from('quotes')
-      .select('*')
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: false });
-    return data || [];
+    const all: any[] = [];
+    let from = 0;
+    while (true) {
+      const { data } = await supabase
+        .from('quotes')
+        .select('*')
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false })
+        .range(from, from + 999);
+      if (!data || data.length === 0) break;
+      all.push(...data);
+      if (data.length < 1000) break;
+      from += 1000;
+    }
+    return all;
   },
   getQuoteById: async (id: string) => {
     const { data } = await supabase.from('quotes').select('*').eq('id', id).single();
@@ -268,19 +327,37 @@ export const db = {
 
   // ========== Contracts ==========
   getContracts: async () => {
-    const { data } = await supabase
-      .from('contracts')
-      .select('*')
-      .order('created_at', { ascending: false });
-    return data || [];
+    const all: any[] = [];
+    let from = 0;
+    while (true) {
+      const { data } = await supabase
+        .from('contracts')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(from, from + 999);
+      if (!data || data.length === 0) break;
+      all.push(...data);
+      if (data.length < 1000) break;
+      from += 1000;
+    }
+    return all;
   },
   getContractsByCompanyId: async (companyId: string) => {
-    const { data } = await supabase
-      .from('contracts')
-      .select('*')
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: false });
-    return data || [];
+    const all: any[] = [];
+    let from = 0;
+    while (true) {
+      const { data } = await supabase
+        .from('contracts')
+        .select('*')
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false })
+        .range(from, from + 999);
+      if (!data || data.length === 0) break;
+      all.push(...data);
+      if (data.length < 1000) break;
+      from += 1000;
+    }
+    return all;
   },
   getContractById: async (id: string) => {
     const { data } = await supabase.from('contracts').select('*').eq('id', id).single();
@@ -520,12 +597,10 @@ export const db = {
 
   // ========== Client Companies ==========
   getClientCompanies: async () => {
-    const { data } = await supabase.from('client_companies').select('*');
-    return data || [];
+    return await fetchAllPaged('client_companies');
   },
   getClientCompaniesByCompanyId: async (companyId: string) => {
-    const { data } = await supabase.from('client_companies').select('*').eq('company_id', companyId);
-    return data || [];
+    return await fetchAllPaged('client_companies', (q) => q.eq('company_id', companyId));
   },
   getClientCompanyById: async (id: string) => {
     const { data } = await supabase.from('client_companies').select('*').eq('id', id).single();
@@ -655,6 +730,51 @@ export const db = {
       .order('created_at', { ascending: true });
     return data || [];
   },
+  // 특정 사용자가 볼 수 있는 메시지만 조회 (joined_at 이후)
+  getMessagesByConversationIdForUser: async (conversationId: string, userId: string) => {
+    const conv = await supabase
+      .from('messenger_conversations')
+      .select('participant_joined_at, created_at')
+      .eq('id', conversationId)
+      .single();
+    const joinedMap = (conv.data?.participant_joined_at || {}) as Record<string, string>;
+    const since = joinedMap[userId] || conv.data?.created_at || '1970-01-01T00:00:00Z';
+    const { data } = await supabase
+      .from('messenger_messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .eq('is_deleted', false)
+      .gte('created_at', since)
+      .order('created_at', { ascending: true });
+    return data || [];
+  },
+  // 대화방에 멤버 추가 (joined_at 기록)
+  addConversationParticipants: async (conversationId: string, newUserIds: string[], joinedAt: string) => {
+    const { data: conv } = await supabase
+      .from('messenger_conversations')
+      .select('participants, participant_joined_at')
+      .eq('id', conversationId)
+      .single();
+    if (!conv) throw new Error('대화방을 찾을 수 없습니다.');
+    const existingParticipants: string[] = conv.participants || [];
+    const joinedMap: Record<string, string> = conv.participant_joined_at || {};
+    const toAdd = newUserIds.filter((id) => !existingParticipants.includes(id));
+    if (toAdd.length === 0) return { added: [] as string[] };
+    const updatedParticipants = [...existingParticipants, ...toAdd];
+    const updatedJoinedMap = { ...joinedMap };
+    for (const id of toAdd) {
+      updatedJoinedMap[id] = joinedAt;
+    }
+    await supabase
+      .from('messenger_conversations')
+      .update({
+        participants: updatedParticipants,
+        participant_joined_at: updatedJoinedMap,
+        updated_at: joinedAt,
+      })
+      .eq('id', conversationId);
+    return { added: toAdd };
+  },
   addMessage: async (message: any) => {
     const { data, error } = await supabase.from('messenger_messages').insert(message).select().single();
     if (error) throw error;
@@ -767,6 +887,10 @@ export const db = {
       .order('sort_order', { ascending: true });
     return data || [];
   },
+  getPaymentConditionById: async (id: string) => {
+    const { data } = await supabase.from('payment_conditions').select('*').eq('id', id).single();
+    return data;
+  },
   addPaymentCondition: async (condition: any) => {
     const { data, error } = await supabase.from('payment_conditions').insert(condition).select().single();
     if (error) throw error;
@@ -867,5 +991,786 @@ export const db = {
     const { data, error } = await supabase.from('certificates').update(updates).eq('id', id).select().single();
     if (error) throw error;
     return data;
+  },
+
+  // ========== Certificate Types (증명서 종류) ==========
+  getCertificateTypes: async (companyId?: string) => {
+    let query = supabase.from('certificate_types').select('*').eq('is_active', true);
+    if (companyId) {
+      query = query.eq('company_id', companyId);
+    }
+    const { data } = await query.order('sort_order', { ascending: true }).order('created_at', { ascending: true });
+    return data || [];
+  },
+  addCertificateType: async (certType: any) => {
+    const { data, error } = await supabase.from('certificate_types').insert(certType).select().single();
+    if (error) throw error;
+    return data;
+  },
+  updateCertificateType: async (id: string, updates: any) => {
+    const { data, error } = await supabase.from('certificate_types').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+  },
+  deleteCertificateType: async (id: string) => {
+    // soft delete
+    const { data, error } = await supabase.from('certificate_types').update({ is_active: false, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  // ========== Quote Sections (견적서 계층 구조) ==========
+  getQuoteSectionById: async (id: string) => {
+    const { data } = await supabase.from('quote_sections').select('*').eq('id', id).single();
+    return data;
+  },
+  getQuoteSectionsByQuoteId: async (quoteId: string) => {
+    const { data } = await supabase
+      .from('quote_sections')
+      .select('*')
+      .eq('quote_id', quoteId)
+      .order('sort_order', { ascending: true });
+    return data || [];
+  },
+  addQuoteSection: async (section: any) => {
+    const { data, error } = await supabase.from('quote_sections').insert(section).select().single();
+    if (error) throw error;
+    return data;
+  },
+  updateQuoteSection: async (id: string, updates: any) => {
+    const { data, error } = await supabase
+      .from('quote_sections')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+  },
+  deleteQuoteSection: async (id: string) => {
+    await supabase.from('quote_sections').delete().eq('id', id);
+  },
+  deleteQuoteSectionsByQuoteId: async (quoteId: string) => {
+    await supabase.from('quote_sections').delete().eq('quote_id', quoteId);
+  },
+
+  // ========== Contract Labor Items (계약 인건비) ==========
+  getContractLaborItems: async (contractId: string) => {
+    const { data } = await supabase.from('contract_labor_items').select('*').eq('contract_id', contractId).order('created_at', { ascending: true });
+    return data || [];
+  },
+  addContractLaborItem: async (item: any) => {
+    const { data, error } = await supabase.from('contract_labor_items').insert(item).select().single();
+    if (error) throw error;
+    return data;
+  },
+  addContractLaborItems: async (items: any[]) => {
+    if (items.length === 0) return [];
+    const { data, error } = await supabase.from('contract_labor_items').insert(items).select();
+    if (error) throw error;
+    return data || [];
+  },
+  deleteContractLaborItemsByContractId: async (contractId: string) => {
+    await supabase.from('contract_labor_items').delete().eq('contract_id', contractId);
+  },
+
+  // ========== Contract Expense Items (계약 경비) ==========
+  getContractExpenseItems: async (contractId: string) => {
+    const { data } = await supabase.from('contract_expense_items').select('*').eq('contract_id', contractId).order('created_at', { ascending: true });
+    return data || [];
+  },
+  addContractExpenseItem: async (item: any) => {
+    const { data, error } = await supabase.from('contract_expense_items').insert(item).select().single();
+    if (error) throw error;
+    return data;
+  },
+  addContractExpenseItems: async (items: any[]) => {
+    if (items.length === 0) return [];
+    const { data, error } = await supabase.from('contract_expense_items').insert(items).select();
+    if (error) throw error;
+    return data || [];
+  },
+  deleteContractExpenseItemsByContractId: async (contractId: string) => {
+    await supabase.from('contract_expense_items').delete().eq('contract_id', contractId);
+  },
+
+  // ========== Contract Sections (계약 상세내역) ==========
+  getContractSections: async (contractId: string) => {
+    const { data } = await supabase.from('contract_sections').select('*').eq('contract_id', contractId).order('sort_order', { ascending: true });
+    return data || [];
+  },
+  addContractSection: async (section: any) => {
+    const { data, error } = await supabase.from('contract_sections').insert(section).select().single();
+    if (error) throw error;
+    return data;
+  },
+  addContractSections: async (sections: any[]) => {
+    if (sections.length === 0) return [];
+    const { data, error } = await supabase.from('contract_sections').insert(sections).select();
+    if (error) throw error;
+    return data || [];
+  },
+  updateContractSection: async (id: string, updates: any) => {
+    const { data, error } = await supabase.from('contract_sections').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+  },
+  deleteContractSection: async (id: string) => {
+    await supabase.from('contract_sections').delete().eq('id', id);
+  },
+  deleteContractSectionsByContractId: async (contractId: string) => {
+    await supabase.from('contract_sections').delete().eq('contract_id', contractId);
+  },
+
+  // ========== Email Approvals (메일 승인) ==========
+  getEmailApprovals: async (filters?: any) => {
+    let query = supabase.from('email_approvals').select('*');
+    if (filters?.approver_id) query = query.eq('approver_id', filters.approver_id);
+    if (filters?.requester_id) query = query.eq('requester_id', filters.requester_id);
+    if (filters?.status) query = query.eq('status', filters.status);
+    const { data } = await query.order('created_at', { ascending: false });
+    return data || [];
+  },
+  addEmailApproval: async (approval: any) => {
+    const { data, error } = await supabase.from('email_approvals').insert(approval).select().single();
+    if (error) throw error;
+    return data;
+  },
+  updateEmailApproval: async (id: string, updates: any) => {
+    const { data, error } = await supabase.from('email_approvals').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  // ========== Contract Defaults (계약서 기본값) ==========
+  getContractDefaults: async (companyId: string, departmentId?: string) => {
+    let query = supabase.from('contract_defaults').select('*').eq('company_id', companyId);
+    if (departmentId) {
+      query = query.or(`department_id.eq.${departmentId},department_id.is.null`);
+    }
+    const { data } = await query;
+    return data || [];
+  },
+  upsertContractDefault: async (defaultData: any) => {
+    const { data, error } = await supabase
+      .from('contract_defaults')
+      .upsert(defaultData, { onConflict: 'company_id,department_id,field_name' })
+      .select().single();
+    if (error) throw error;
+    return data;
+  },
+  deleteContractDefault: async (id: string) => {
+    await supabase.from('contract_defaults').delete().eq('id', id);
+  },
+
+  // ========== Quote Preset Sections (견적 사전 항목 분류) ==========
+  getQuotePresetSectionsByCompanyId: async (companyId: string) => {
+    const { data } = await supabase
+      .from('quote_preset_sections')
+      .select('*')
+      .eq('company_id', companyId)
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
+    return data || [];
+  },
+  getQuotePresetSectionById: async (id: string) => {
+    const { data } = await supabase.from('quote_preset_sections').select('*').eq('id', id).single();
+    return data;
+  },
+  addQuotePresetSection: async (section: any) => {
+    const { data, error } = await supabase.from('quote_preset_sections').insert(section).select().single();
+    if (error) throw error;
+    return data;
+  },
+  updateQuotePresetSection: async (id: string, updates: any) => {
+    const { data, error } = await supabase
+      .from('quote_preset_sections')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  deleteQuotePresetSection: async (id: string) => {
+    await supabase.from('quote_preset_sections').update({ is_active: false, updated_at: new Date().toISOString() }).eq('id', id);
+  },
+
+  // ========== Receivables (미수금) ==========
+  getReceivables: async (companyId?: string) => {
+    return await fetchAllPaged('receivables', (q) => {
+      q = q.order('created_at', { ascending: false });
+      if (companyId) q = q.eq('company_id', companyId);
+      return q;
+    });
+  },
+  getReceivableById: async (id: string) => {
+    const { data } = await supabase.from('receivables').select('*').eq('id', id).single();
+    return data;
+  },
+  addReceivable: async (receivable: any) => {
+    const { data, error } = await supabase.from('receivables').insert(receivable).select().single();
+    if (error) throw error;
+    return data;
+  },
+  updateReceivable: async (id: string, updates: any) => {
+    const { data } = await supabase.from('receivables').update(updates).eq('id', id).select().single();
+    return data;
+  },
+  deleteReceivable: async (id: string) => {
+    await supabase.from('receivables').delete().eq('id', id);
+  },
+
+  // ========== Billings (청구) ==========
+  getBillings: async (companyId?: string) => {
+    return await fetchAllPaged('billings', (q) => {
+      q = q.order('created_at', { ascending: false });
+      if (companyId) q = q.eq('company_id', companyId);
+      return q;
+    });
+  },
+  getBillingById: async (id: string) => {
+    const { data } = await supabase.from('billings').select('*').eq('id', id).single();
+    return data;
+  },
+  addBilling: async (billing: any) => {
+    const { data, error } = await supabase.from('billings').insert(billing).select().single();
+    if (error) throw error;
+    return data;
+  },
+  updateBilling: async (id: string, updates: any) => {
+    const { data } = await supabase.from('billings').update(updates).eq('id', id).select().single();
+    return data;
+  },
+  deleteBilling: async (id: string) => {
+    await supabase.from('billings').delete().eq('id', id);
+  },
+
+  // ========== Payment Receipts (입금) ==========
+  getPaymentReceipts: async (companyId?: string) => {
+    return await fetchAllPaged('payment_receipts', (q) => {
+      q = q.order('created_at', { ascending: false });
+      if (companyId) q = q.eq('company_id', companyId);
+      return q;
+    });
+  },
+  getPaymentReceiptById: async (id: string) => {
+    const { data } = await supabase.from('payment_receipts').select('*').eq('id', id).single();
+    return data;
+  },
+  addPaymentReceipt: async (receipt: any) => {
+    const { data, error } = await supabase.from('payment_receipts').insert(receipt).select().single();
+    if (error) throw error;
+    return data;
+  },
+  updatePaymentReceipt: async (id: string, updates: any) => {
+    const { data } = await supabase.from('payment_receipts').update(updates).eq('id', id).select().single();
+    return data;
+  },
+
+  // ========== Payables (미지급금) ==========
+  getPayables: async (companyId?: string) => {
+    return await fetchAllPaged('payables', (q) => {
+      q = q.order('created_at', { ascending: false });
+      if (companyId) q = q.eq('company_id', companyId);
+      return q;
+    });
+  },
+  getPayableById: async (id: string) => {
+    const { data } = await supabase.from('payables').select('*').eq('id', id).single();
+    return data;
+  },
+  addPayable: async (payable: any) => {
+    const { data, error } = await supabase.from('payables').insert(payable).select().single();
+    if (error) throw error;
+    return data;
+  },
+  updatePayable: async (id: string, updates: any) => {
+    const { data } = await supabase.from('payables').update(updates).eq('id', id).select().single();
+    return data;
+  },
+  deletePayable: async (id: string) => {
+    await supabase.from('payables').delete().eq('id', id);
+  },
+
+  // ========== Deposits (보증금) ==========
+  getDeposits: async (companyId?: string) => {
+    let query = supabase.from('deposits').select('*').order('created_at', { ascending: false });
+    if (companyId) query = query.eq('company_id', companyId);
+    const { data } = await query;
+    return data || [];
+  },
+  getDepositById: async (id: string) => {
+    const { data } = await supabase.from('deposits').select('*').eq('id', id).single();
+    return data;
+  },
+  addDeposit: async (deposit: any) => {
+    const { data, error } = await supabase.from('deposits').insert(deposit).select().single();
+    if (error) throw error;
+    return data;
+  },
+  updateDeposit: async (id: string, updates: any) => {
+    const { data } = await supabase.from('deposits').update(updates).eq('id', id).select().single();
+    return data;
+  },
+  deleteDeposit: async (id: string) => {
+    await supabase.from('deposits').delete().eq('id', id);
+  },
+
+  // ========== Tax Invoices (세금계산서관리) ==========
+  getTaxInvoices: async (companyId: string) => {
+    return await fetchAllPaged('tax_invoices', (q) =>
+      q.eq('company_id', companyId).order('issue_date', { ascending: false })
+    );
+  },
+  getAllTaxInvoices: async () => {
+    return await fetchAllPaged('tax_invoices', (q) => q.order('issue_date', { ascending: false }));
+  },
+  getTaxInvoiceById: async (id: string) => {
+    const { data } = await supabase.from('tax_invoices').select('*').eq('id', id).single();
+    return data;
+  },
+  addTaxInvoice: async (invoice: any) => {
+    const { data, error } = await supabase.from('tax_invoices').insert(invoice).select().single();
+    if (error) throw error;
+    return data;
+  },
+  updateTaxInvoice: async (id: string, updates: any) => {
+    const { data, error } = await supabase
+      .from('tax_invoices')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  deleteTaxInvoice: async (id: string) => {
+    await supabase.from('tax_invoices').delete().eq('id', id);
+  },
+
+  // ========== Expense Settlements (경비정산) ==========
+  getExpenseSettlements: async (companyId: string) => {
+    const { data } = await supabase
+      .from('expense_settlements')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false });
+    return data || [];
+  },
+  getExpenseSettlementById: async (id: string) => {
+    const { data } = await supabase.from('expense_settlements').select('*').eq('id', id).single();
+    return data;
+  },
+  addExpenseSettlement: async (settlement: any) => {
+    const { data, error } = await supabase.from('expense_settlements').insert(settlement).select().single();
+    if (error) throw error;
+    return data;
+  },
+  updateExpenseSettlement: async (id: string, updates: any) => {
+    const { data, error } = await supabase
+      .from('expense_settlements')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  deleteExpenseSettlement: async (id: string) => {
+    await supabase.from('expense_settlements').delete().eq('id', id);
+  },
+  getExpenseSettlementItems: async (settlementId: string) => {
+    const { data } = await supabase
+      .from('expense_settlement_items')
+      .select('*')
+      .eq('settlement_id', settlementId)
+      .order('expense_date', { ascending: true });
+    return data || [];
+  },
+  addExpenseSettlementItem: async (item: any) => {
+    const { data, error } = await supabase.from('expense_settlement_items').insert(item).select().single();
+    if (error) throw error;
+    return data;
+  },
+  updateExpenseSettlementItem: async (id: string, updates: any) => {
+    const { data, error } = await supabase
+      .from('expense_settlement_items')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  deleteExpenseSettlementItems: async (settlementId: string) => {
+    await supabase.from('expense_settlement_items').delete().eq('settlement_id', settlementId);
+  },
+  deleteExpenseSettlementItem: async (id: string) => {
+    await supabase.from('expense_settlement_items').delete().eq('id', id);
+  },
+
+  // ========== Provisional Payments (가수금관리) ==========
+  getProvisionalPayments: async (companyId: string) => {
+    const { data } = await supabase
+      .from('provisional_payments')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('payment_date', { ascending: false });
+    return data || [];
+  },
+  getProvisionalPaymentById: async (id: string) => {
+    const { data } = await supabase.from('provisional_payments').select('*').eq('id', id).single();
+    return data;
+  },
+  addProvisionalPayment: async (payment: any) => {
+    const { data, error } = await supabase.from('provisional_payments').insert(payment).select().single();
+    if (error) throw error;
+    return data;
+  },
+  updateProvisionalPayment: async (id: string, updates: any) => {
+    const { data, error } = await supabase
+      .from('provisional_payments')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  deleteProvisionalPayment: async (id: string) => {
+    await supabase.from('provisional_payments').delete().eq('id', id);
+  },
+
+  // ========== Client Company Financials (거래처 재무정보) ==========
+  getClientFinancials: async (clientCompanyId: string) => {
+    const { data } = await supabase
+      .from('client_company_financials')
+      .select('*')
+      .eq('client_company_id', clientCompanyId)
+      .maybeSingle();
+    return data;
+  },
+  getClientFinancialsByCompany: async (companyId: string) => {
+    const { data } = await supabase
+      .from('client_company_financials')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false });
+    return data || [];
+  },
+  upsertClientFinancials: async (financialData: any) => {
+    const { data, error } = await supabase
+      .from('client_company_financials')
+      .upsert(financialData, { onConflict: 'client_company_id,company_id' })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  // ========== Expense Requests (지출결의서) ==========
+  getExpenseRequests: async (companyId: string) => {
+    const { data } = await supabase
+      .from('expense_requests')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false });
+    return data || [];
+  },
+  getExpenseRequestById: async (id: string) => {
+    const { data } = await supabase.from('expense_requests').select('*').eq('id', id).single();
+    return data;
+  },
+  addExpenseRequest: async (req: any) => {
+    const { data, error } = await supabase.from('expense_requests').insert(req).select().single();
+    if (error) throw error;
+    return data;
+  },
+  updateExpenseRequest: async (id: string, updates: any) => {
+    const { data, error } = await supabase
+      .from('expense_requests')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  deleteExpenseRequest: async (id: string) => {
+    await supabase.from('expense_requests').delete().eq('id', id);
+  },
+
+  // ========== Vehicles (차량) ==========
+  getVehicles: async (companyId: string | null, includeShared: boolean = true) => {
+    let q = supabase.from('vehicles').select('*').order('created_at', { ascending: false });
+    if (companyId) {
+      // 해당 회사 + 공통(NULL)
+      q = includeShared
+        ? q.or(`company_id.eq.${companyId},company_id.is.null`)
+        : q.eq('company_id', companyId);
+    }
+    // companyId가 null이면 모든 차량 (super_admin 전체 모드)
+    const { data } = await q;
+    return data || [];
+  },
+  getVehicleById: async (id: string) => {
+    const { data } = await supabase.from('vehicles').select('*').eq('id', id).single();
+    return data;
+  },
+  addVehicle: async (vehicle: any) => {
+    const { data, error } = await supabase.from('vehicles').insert(vehicle).select().single();
+    if (error) throw error;
+    return data;
+  },
+  updateVehicle: async (id: string, updates: any) => {
+    const { data, error } = await supabase
+      .from('vehicles')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  deleteVehicle: async (id: string) => {
+    await supabase.from('vehicles').delete().eq('id', id);
+  },
+
+  // ========== Vehicle Logs (운행일지) ==========
+  getVehicleLogs: async (companyId: string | null, driverId?: string) => {
+    let q = supabase.from('vehicle_logs').select('*');
+    if (companyId) q = q.eq('company_id', companyId);
+    if (driverId) q = q.eq('driver_id', driverId);
+    const { data } = await q.order('log_date', { ascending: false });
+    return data || [];
+  },
+  getVehicleLogById: async (id: string) => {
+    const { data } = await supabase.from('vehicle_logs').select('*').eq('id', id).single();
+    return data;
+  },
+  addVehicleLog: async (log: any) => {
+    const { data, error } = await supabase.from('vehicle_logs').insert(log).select().single();
+    if (error) throw error;
+    return data;
+  },
+  updateVehicleLog: async (id: string, updates: any) => {
+    const { data, error } = await supabase
+      .from('vehicle_logs')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  deleteVehicleLog: async (id: string) => {
+    await supabase.from('vehicle_logs').delete().eq('id', id);
+  },
+
+  // ========== Spaces (공간 관리) ==========
+  getSpaces: async (companyId: string | null) => {
+    let q = supabase.from('spaces').select('*').order('created_at', { ascending: false });
+    if (companyId) {
+      // 해당 회사 + 공통(NULL) 공간
+      q = q.or(`company_id.eq.${companyId},company_id.is.null`);
+    }
+    const { data } = await q;
+    return data || [];
+  },
+  getSpaceById: async (id: string) => {
+    const { data } = await supabase.from('spaces').select('*').eq('id', id).single();
+    return data;
+  },
+  addSpace: async (space: any) => {
+    const { data, error } = await supabase.from('spaces').insert(space).select().single();
+    if (error) throw error;
+    return data;
+  },
+  updateSpace: async (id: string, updates: any) => {
+    const { data, error } = await supabase
+      .from('spaces')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  deleteSpace: async (id: string) => {
+    await supabase.from('spaces').delete().eq('id', id);
+  },
+
+  // ========== Contract Meeting Notes (계약 회의록/기타자료) ==========
+  getContractMeetingNotes: async (contractId: string) => {
+    const { data } = await supabase
+      .from('contract_meeting_notes')
+      .select('*')
+      .eq('contract_id', contractId)
+      .order('created_at', { ascending: false });
+    return data || [];
+  },
+  getContractMeetingNoteById: async (id: string) => {
+    const { data } = await supabase
+      .from('contract_meeting_notes')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    return data || null;
+  },
+  addContractMeetingNote: async (note: any) => {
+    const { data, error } = await supabase
+      .from('contract_meeting_notes')
+      .insert(note)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  deleteContractMeetingNote: async (id: string) => {
+    await supabase.from('contract_meeting_notes').delete().eq('id', id);
+  },
+
+  // ========== Contract Members (다중 담당자) ==========
+  getContractMembers: async (contractId: string) => {
+    const { data } = await supabase
+      .from('contract_members')
+      .select('*')
+      .eq('contract_id', contractId)
+      .order('created_at', { ascending: true });
+    return data || [];
+  },
+  getContractsByMemberId: async (userId: string) => {
+    const { data } = await supabase
+      .from('contract_members')
+      .select('contract_id')
+      .eq('user_id', userId);
+    return data || [];
+  },
+  addContractMember: async (member: any) => {
+    const { data, error } = await supabase
+      .from('contract_members')
+      .upsert(member, { onConflict: 'contract_id,user_id' })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  removeContractMember: async (contractId: string, userId: string) => {
+    await supabase
+      .from('contract_members')
+      .delete()
+      .eq('contract_id', contractId)
+      .eq('user_id', userId);
+  },
+  setContractMembers: async (contractId: string, members: any[]) => {
+    // 기존 멤버 삭제 후 새로 삽입
+    await supabase.from('contract_members').delete().eq('contract_id', contractId);
+    if (members.length > 0) {
+      const { error } = await supabase.from('contract_members').insert(members);
+      if (error) throw error;
+    }
+  },
+
+  // ========== Quote Members (다중 담당자) ==========
+  getQuoteMembers: async (quoteId: string) => {
+    const { data } = await supabase
+      .from('quote_members')
+      .select('*')
+      .eq('quote_id', quoteId)
+      .order('created_at', { ascending: true });
+    return data || [];
+  },
+  getQuotesByMemberId: async (userId: string) => {
+    const { data } = await supabase
+      .from('quote_members')
+      .select('quote_id')
+      .eq('user_id', userId);
+    return data || [];
+  },
+  addQuoteMember: async (member: any) => {
+    const { data, error } = await supabase
+      .from('quote_members')
+      .upsert(member, { onConflict: 'quote_id,user_id' })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  removeQuoteMember: async (quoteId: string, userId: string) => {
+    await supabase
+      .from('quote_members')
+      .delete()
+      .eq('quote_id', quoteId)
+      .eq('user_id', userId);
+  },
+  setQuoteMembers: async (quoteId: string, members: any[]) => {
+    await supabase.from('quote_members').delete().eq('quote_id', quoteId);
+    if (members.length > 0) {
+      const { error } = await supabase.from('quote_members').insert(members);
+      if (error) throw error;
+    }
+  },
+
+  // ========== User-Company Affiliations (junction table) ==========
+  getUserCompanies: async (userId: string) => {
+    const { data } = await supabase
+      .from('user_companies')
+      .select('*')
+      .eq('user_id', userId);
+    return data || [];
+  },
+  // 모든 사용자-회사 매핑을 한 번에 가져옴 (N+1 방지)
+  getAllUserCompanies: async () => {
+    return await fetchAllPaged('user_companies');
+  },
+  setUserCompanies: async (userId: string, companyIds: string[], primaryCompanyId?: string) => {
+    await supabase.from('user_companies').delete().eq('user_id', userId);
+    if (companyIds.length > 0) {
+      const rows = companyIds.map((cid) => ({
+        user_id: userId,
+        company_id: cid,
+        is_primary: cid === primaryCompanyId,
+      }));
+      const { error } = await supabase.from('user_companies').insert(rows);
+      if (error) throw error;
+    }
+  },
+  getUsersByCompanyId: async (companyId: string) => {
+    const { data } = await supabase
+      .from('user_companies')
+      .select('user_id')
+      .eq('company_id', companyId);
+    return (data || []).map((r: any) => r.user_id);
+  },
+
+  // ========== User-Department Affiliations (junction table) ==========
+  getUserDepartments: async (userId: string) => {
+    const { data } = await supabase
+      .from('user_departments')
+      .select('*')
+      .eq('user_id', userId);
+    return data || [];
+  },
+  // 모든 사용자-부서 매핑을 한 번에 가져옴 (N+1 방지)
+  getAllUserDepartments: async () => {
+    return await fetchAllPaged('user_departments');
+  },
+  setUserDepartments: async (userId: string, departmentIds: string[], primaryDepartmentId?: string) => {
+    await supabase.from('user_departments').delete().eq('user_id', userId);
+    if (departmentIds.length > 0) {
+      const rows = departmentIds.map((did) => ({
+        user_id: userId,
+        department_id: did,
+        is_primary: did === primaryDepartmentId,
+      }));
+      const { error } = await supabase.from('user_departments').insert(rows);
+      if (error) throw error;
+    }
+  },
+  getUsersByDepartmentId: async (departmentId: string) => {
+    const { data } = await supabase
+      .from('user_departments')
+      .select('user_id')
+      .eq('department_id', departmentId);
+    return (data || []).map((r: any) => r.user_id);
   },
 };

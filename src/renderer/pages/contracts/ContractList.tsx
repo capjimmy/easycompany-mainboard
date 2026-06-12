@@ -1,3 +1,4 @@
+import ResizableTable from '../../components/ResizableTable';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -44,6 +45,8 @@ const ContractList: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [progressFilter, setProgressFilter] = useState<ContractProgress | undefined>();
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
+  const [departmentFilter, setDepartmentFilter] = useState<string | undefined>();
+  const [departments, setDepartments] = useState<any[]>([]);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [paymentForm] = Form.useForm();
@@ -55,6 +58,15 @@ const ContractList: React.FC = () => {
       const filters: any = {};
       if (user.role === 'super_admin' && selectedCompanyId) filters.company_id = selectedCompanyId;
       fetchContracts(user.id, filters);
+      // 회사 전환 시 부서 필터 초기화
+      setDepartmentFilter(undefined);
+      // 부서 목록 로딩 (현재 회사 기준)
+      const companyId = user.role === 'super_admin' ? selectedCompanyId : user.company_id;
+      (window as any).electronAPI.departments.getAll(user.id, companyId || undefined)
+        .then((res: any) => {
+          if (res?.success) setDepartments(res.departments || []);
+        })
+        .catch(() => {});
     }
   }, [user?.id, selectedCompanyId]);
 
@@ -84,12 +96,34 @@ const ContractList: React.FC = () => {
     setSearchText('');
     setProgressFilter(undefined);
     setDateRange(null);
+    setDepartmentFilter(undefined);
     if (user?.id) {
       const filters: any = {};
       if (user.role === 'super_admin' && selectedCompanyId) filters.company_id = selectedCompanyId;
       fetchContracts(user.id, filters);
     }
   };
+
+  // 부서별 클라이언트 필터링 + 부서명 매핑
+  const deptMap = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const d of departments) m.set(d.id, d.name);
+    return m;
+  }, [departments]);
+
+  const filteredContracts = React.useMemo(() => {
+    if (!departmentFilter) return contracts;
+    if (departmentFilter === '__outsource__') {
+      // "외주" 필터: 외주 계약 or 외주 항목 보유
+      return contracts.filter((c) => {
+        const co: any = c;
+        return co.contract_type === 'outsource'
+          || (co.outsource_company && String(co.outsource_company).trim())
+          || (co.outsource_amount && Number(co.outsource_amount) > 0);
+      });
+    }
+    return contracts.filter((c) => (c as any).department_id === departmentFilter);
+  }, [contracts, departmentFilter]);
 
   const handleDelete = async (contractId: string) => {
     if (!user?.id) return;
@@ -177,12 +211,16 @@ const ContractList: React.FC = () => {
       } else if (result.error !== '저장이 취소되었습니다.') {
         message.error(result.error || '내보내기에 실패했습니다.');
       }
-    } catch (err) {
-      message.error('엑셀 내보내기 중 오류가 발생했습니다.');
+    } catch (err: any) {
+      message.error(err?.message || '엑셀 내보내기 중 오류가 발생했습니다.');
     }
   };
 
   const getActionMenu = (record: Contract): MenuProps['items'] => {
+    const role = user?.role;
+    const canEdit = role === 'super_admin' || role === 'company_admin' || role === 'department_manager';
+    const canDelete = role === 'super_admin' || role === 'company_admin';
+
     const items: MenuProps['items'] = [
       {
         key: 'view',
@@ -190,33 +228,43 @@ const ContractList: React.FC = () => {
         icon: <EyeOutlined />,
         onClick: () => navigate(`/contracts/${record.id}`),
       },
-      {
-        key: 'edit',
-        label: '수정',
-        icon: <EditOutlined />,
-        onClick: () => navigate(`/contracts/${record.id}/edit`),
-      },
-      {
-        key: 'progress',
-        label: '진행상황 변경',
-        icon: <CheckCircleOutlined />,
-        onClick: () => handleProgressClick(record),
-      },
-      {
-        key: 'payment',
-        label: '입금 등록',
-        icon: <DollarOutlined />,
-        onClick: () => handlePaymentClick(record),
-      },
-      { type: 'divider' },
-      {
-        key: 'delete',
-        label: '삭제',
-        icon: <DeleteOutlined />,
-        danger: true,
-        onClick: () => handleDelete(record.id),
-      },
     ];
+
+    if (canEdit) {
+      items.push(
+        {
+          key: 'edit',
+          label: '수정',
+          icon: <EditOutlined />,
+          onClick: () => navigate(`/contracts/${record.id}/edit`),
+        },
+        {
+          key: 'progress',
+          label: '진행상황 변경',
+          icon: <CheckCircleOutlined />,
+          onClick: () => handleProgressClick(record),
+        },
+        {
+          key: 'payment',
+          label: '입금 등록',
+          icon: <DollarOutlined />,
+          onClick: () => handlePaymentClick(record),
+        },
+      );
+    }
+
+    if (canDelete) {
+      items.push(
+        { type: 'divider' },
+        {
+          key: 'delete',
+          label: '삭제',
+          icon: <DeleteOutlined />,
+          danger: true,
+          onClick: () => handleDelete(record.id),
+        },
+      );
+    }
 
     return items;
   };
@@ -245,10 +293,12 @@ const ContractList: React.FC = () => {
     },
     {
       title: '계약일',
-      dataIndex: 'contract_start_date',
-      key: 'contract_start_date',
+      dataIndex: 'contract_date',
+      key: 'contract_date',
       width: 110,
-      render: (value: string) => dayjs(value).format('YYYY-MM-DD'),
+      sorter: (a: any, b: any) => (a.contract_date || '').localeCompare(b.contract_date || ''),
+      defaultSortOrder: 'descend' as const,
+      render: (value: string) => value ? dayjs(value).format('YYYY-MM-DD') : '-',
     },
     {
       title: '계약금액',
@@ -323,6 +373,13 @@ const ContractList: React.FC = () => {
       ),
     },
     {
+      title: '부서',
+      dataIndex: 'department_id',
+      key: 'department_id',
+      width: 100,
+      render: (deptId: string | undefined) => deptId ? (deptMap.get(deptId) || '-') : '-',
+    },
+    {
       title: '담당자',
       dataIndex: 'manager_name',
       key: 'manager_name',
@@ -348,50 +405,20 @@ const ContractList: React.FC = () => {
           <span style={{ color: '#888' }}>계약을 조회하고 관리합니다.</span>
         </div>
         <Space>
+          {/* 엑셀 내보내기 - 임시 비활성화
           {(user?.role === 'super_admin' || user?.role === 'company_admin') && (
             <Button icon={<DownloadOutlined />} onClick={handleExportExcel}>
               엑셀 내보내기
             </Button>
           )}
+          */}
           <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/contracts/new')}>
             계약 등록
           </Button>
         </Space>
       </div>
 
-      {/* 통계 */}
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title="총 계약금액"
-              value={stats.total_amount}
-              suffix="원"
-              valueStyle={{ color: '#1890ff' }}
-            />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title="총 입금액"
-              value={stats.received_amount}
-              suffix="원"
-              valueStyle={{ color: '#52c41a' }}
-            />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title="총 미수금"
-              value={stats.remaining_amount}
-              suffix="원"
-              valueStyle={{ color: stats.remaining_amount > 0 ? '#ff4d4f' : '#52c41a' }}
-            />
-          </Card>
-        </Col>
-      </Row>
+      {/* 통계 (요청에 따라 숨김) */}
 
       {/* 검색 필터 */}
       <Card style={{ marginBottom: 16 }}>
@@ -417,6 +444,20 @@ const ContractList: React.FC = () => {
               </Option>
             ))}
           </Select>
+          <Select
+            placeholder="부서"
+            value={departmentFilter}
+            onChange={setDepartmentFilter}
+            allowClear
+            style={{ width: 140 }}
+          >
+            <Option key="__outsource__" value="__outsource__">🔧 외주</Option>
+            {departments.map((d: any) => (
+              <Option key={d.id} value={d.id}>
+                {d.name}
+              </Option>
+            ))}
+          </Select>
           <RangePicker
             value={dateRange}
             onChange={(dates) => setDateRange(dates as [dayjs.Dayjs, dayjs.Dayjs] | null)}
@@ -428,16 +469,25 @@ const ContractList: React.FC = () => {
 
       {/* 목록 */}
       <Card>
-        <Table
+        <ResizableTable
           columns={columns}
-          dataSource={contracts}
+          dataSource={filteredContracts}
           rowKey="id"
           loading={isLoading}
           pagination={{
             showSizeChanger: true,
             showTotal: (total) => `총 ${total}건`,
           }}
-          scroll={{ x: 1400 }}
+          scroll={{ x: 1500 }}
+          onRow={(record) => ({
+            onClick: (e) => {
+              // 작업 컬럼(버튼/드롭다운) 클릭은 무시
+              const target = e.target as HTMLElement;
+              if (target.closest('.ant-dropdown-trigger') || target.closest('.ant-btn') || target.closest('.ant-dropdown') || target.closest('a')) return;
+              navigate(`/contracts/${record.id}`);
+            },
+            style: { cursor: 'pointer' },
+          })}
         />
       </Card>
 

@@ -70,6 +70,9 @@ export function registerMeetingHandlers(): void {
         phone: data.phone || null,
         email: data.email || null,
         notes: data.notes || null,
+        color: data.color || null,
+        space_id: data.space_id || null,
+        space_name: data.space_name || null,
         created_at: now,
         updated_at: now,
       };
@@ -182,11 +185,10 @@ export function registerMeetingHandlers(): void {
         return { success: false, error: '예약을 찾을 수 없습니다.' };
       }
 
-      // 본인 또는 관리자만 삭제 가능
+      // 본인 또는 슈퍼관리자만 취소 가능
       if (reservation.reserved_by !== requesterId &&
-          requester.role !== 'super_admin' &&
-          requester.role !== 'company_admin') {
-        return { success: false, error: '삭제 권한이 없습니다.' };
+          requester.role !== 'super_admin') {
+        return { success: false, error: '예약 취소는 본인 또는 슈퍼관리자만 가능합니다.' };
       }
 
       await db.deleteMeetingReservation(reservationId);

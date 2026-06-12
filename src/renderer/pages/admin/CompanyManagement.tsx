@@ -1,3 +1,4 @@
+import ResizableTable from '../../components/ResizableTable';
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -72,9 +73,9 @@ const CompanyManagement: React.FC = () => {
         );
         setCompanies(companiesWithCounts);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load companies:', err);
-      message.error('회사 목록을 불러오지 못했습니다.');
+      message.error(err?.message || '회사 목록을 불러오지 못했습니다.');
     } finally {
       setLoading(false);
     }
@@ -116,9 +117,9 @@ const CompanyManagement: React.FC = () => {
       } else {
         message.error(result.error || '삭제에 실패했습니다.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to delete company:', err);
-      message.error('삭제 중 오류가 발생했습니다.');
+      message.error(err?.message || '삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -144,9 +145,9 @@ const CompanyManagement: React.FC = () => {
           message.error(result.error || '추가에 실패했습니다.');
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save company:', err);
-      message.error('저장 중 오류가 발생했습니다.');
+      message.error(err?.message || '저장 중 오류가 발생했습니다.');
     }
   };
 
@@ -236,7 +237,7 @@ const CompanyManagement: React.FC = () => {
       </div>
 
       <Card>
-        <Table
+        <ResizableTable
           columns={columns}
           dataSource={companies}
           rowKey="id"
@@ -305,6 +306,7 @@ const CompanyManagement: React.FC = () => {
         title="회사 상세 정보"
         open={detailVisible}
         onCancel={() => setDetailVisible(false)}
+        destroyOnClose
         footer={[
           <Button key="close" onClick={() => setDetailVisible(false)}>
             닫기

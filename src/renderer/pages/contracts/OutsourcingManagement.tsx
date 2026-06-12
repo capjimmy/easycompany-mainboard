@@ -1,12 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import ResizableTable from '../../components/ResizableTable';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Card, Typography, Table, Button, Space, Tag, Input, Select, Modal,
-  Form, InputNumber, DatePicker, Row, Col, Statistic, Spin, message, Popconfirm
+  Form, InputNumber, DatePicker, Row, Col, Statistic, Spin, message,
+  Popconfirm, Switch, Radio, AutoComplete, Tooltip, Checkbox
 } from 'antd';
 import {
   TeamOutlined, ArrowLeftOutlined, PlusOutlined, SearchOutlined,
-  EditOutlined, DeleteOutlined, DollarOutlined, CheckCircleOutlined
+  EditOutlined, DeleteOutlined, DollarOutlined, CheckCircleOutlined,
+  LinkOutlined, UserOutlined, BankOutlined, CalendarOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -21,6 +24,7 @@ interface Outsourcing {
   contract_id: string;
   contract_number: string;
   vendor_name: string;
+  vendor_type: 'company' | 'individual';
   vendor_business_number: string;
   vendor_contact_name: string;
   vendor_contact_phone: string;
@@ -35,6 +39,10 @@ interface Outsourcing {
   end_date: string;
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
   notes: string;
+  show_on_calendar: boolean;
+  vat_included: boolean;
+  service_name?: string;
+  client_company?: string;
   created_at: string;
 }
 
@@ -45,11 +53,14 @@ const OutsourcingManagement: React.FC = () => {
 
   const [outsourcings, setOutsourcings] = useState<Outsourcing[]>([]);
   const [contracts, setContracts] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [clientCompanies, setClientCompanies] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [vendorNameOptions, setVendorNameOptions] = useState<{ value: string; label: string; client: any }[]>([]);
 
   useEffect(() => {
     if (user?.id) {
@@ -62,18 +73,29 @@ const OutsourcingManagement: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // 계약 목록 가져오기
       const filters: any = {};
       if (user.role === 'super_admin' && selectedCompanyId) filters.company_id = selectedCompanyId;
-      const contractsResult = await window.electronAPI.contracts.getAll(user.id, filters);
+
+      // Load contracts, outsourcings, departments, and client companies in parallel
+      const companyId = user.role === 'super_admin' ? selectedCompanyId : user.company_id;
+      const [contractsResult, outsourcingsResult, clientsResult, deptsResult] = await Promise.all([
+        window.electronAPI.contracts.getAll(user.id, filters),
+        window.electronAPI.outsourcings.getAll(user.id, filters),
+        window.electronAPI.clients.getAll(user.id, filters),
+        (window as any).electronAPI.departments.getAll(user.id, companyId || undefined).catch(() => null),
+      ]);
+
       if (contractsResult.success) {
         setContracts(contractsResult.contracts || []);
       }
-
-      // 외주 데이터 가져오기
-      const outsourcingsResult = await window.electronAPI.outsourcings.getAll(user.id, {});
       if (outsourcingsResult.success) {
         setOutsourcings(outsourcingsResult.outsourcings || []);
+      }
+      if (clientsResult.success) {
+        setClientCompanies(clientsResult.clients || []);
+      }
+      if (deptsResult?.success) {
+        setDepartments(deptsResult.departments || []);
       }
     } catch (err) {
       console.error('Failed to load data:', err);
@@ -88,6 +110,9 @@ const OutsourcingManagement: React.FC = () => {
     form.setFieldsValue({
       start_date: dayjs(),
       status: 'pending',
+      vendor_type: 'company',
+      vat_included: true,
+      show_on_calendar: false,
     });
     setModalVisible(true);
   };
@@ -98,6 +123,9 @@ const OutsourcingManagement: React.FC = () => {
       ...record,
       start_date: record.start_date ? dayjs(record.start_date) : null,
       end_date: record.end_date ? dayjs(record.end_date) : null,
+      vat_included: record.vat_included ?? true,
+      show_on_calendar: record.show_on_calendar ?? false,
+      vendor_type: record.vendor_type || 'company',
     });
     setModalVisible(true);
   };
@@ -112,21 +140,30 @@ const OutsourcingManagement: React.FC = () => {
       } else {
         message.error(result.error || '삭제에 실패했습니다.');
       }
-    } catch (err) {
-      message.error('오류가 발생했습니다.');
+    } catch (err: any) {
+      message.error(err?.message || '오류가 발생했습니다.');
     }
   };
 
   const handleSubmit = async (values: any) => {
     if (!user?.id) return;
 
+    const isVatIncluded = values.vat_included ?? true;
+    const baseAmount = values.outsourcing_amount || 0;
+    const vatAmt = isVatIncluded ? Math.round(baseAmount * 0.1) : 0;
+    const totalAmt = baseAmount + vatAmt;
+    const paidAmt = values.paid_amount || 0;
+
     const outsourcingData = {
       ...values,
       start_date: values.start_date?.format('YYYY-MM-DD'),
       end_date: values.end_date?.format('YYYY-MM-DD'),
-      vat_amount: Math.round(values.outsourcing_amount * 0.1),
-      total_amount: values.outsourcing_amount + Math.round(values.outsourcing_amount * 0.1),
-      remaining_amount: (values.outsourcing_amount + Math.round(values.outsourcing_amount * 0.1)) - (values.paid_amount || 0),
+      vat_amount: vatAmt,
+      total_amount: totalAmt,
+      remaining_amount: totalAmt - paidAmt,
+      vendor_type: values.vendor_type || 'company',
+      show_on_calendar: values.show_on_calendar ?? false,
+      vat_included: isVatIncluded,
     };
 
     try {
@@ -150,8 +187,38 @@ const OutsourcingManagement: React.FC = () => {
       } else {
         message.error(result?.error || '저장에 실패했습니다.');
       }
-    } catch (err) {
-      message.error('오류가 발생했습니다.');
+    } catch (err: any) {
+      message.error(err?.message || '오류가 발생했습니다.');
+    }
+  };
+
+  // C4: Auto-fill vendor info from client_companies
+  const handleVendorNameSearch = useCallback((searchValue: string) => {
+    if (!searchValue) {
+      setVendorNameOptions([]);
+      return;
+    }
+    const lower = searchValue.toLowerCase();
+    const filtered = clientCompanies
+      .filter((c: any) => c.name?.toLowerCase().includes(lower))
+      .slice(0, 10)
+      .map((c: any) => ({
+        value: c.name,
+        label: `${c.name}${c.business_number ? ` (${c.business_number})` : ''}`,
+        client: c,
+      }));
+    setVendorNameOptions(filtered);
+  }, [clientCompanies]);
+
+  const handleVendorNameSelect = (value: string, option: any) => {
+    const client = option.client;
+    if (client) {
+      form.setFieldsValue({
+        vendor_name: client.name,
+        vendor_business_number: client.business_number || '',
+        vendor_contact_name: client.primary_contact?.name || '',
+        vendor_contact_phone: client.primary_contact?.phone || client.phone || '',
+      });
     }
   };
 
@@ -166,26 +233,66 @@ const OutsourcingManagement: React.FC = () => {
     return <Tag color={s.color}>{s.label}</Tag>;
   };
 
-  // 필터링
+  const getVendorTypeTag = (vendorType: string) => {
+    if (vendorType === 'individual') {
+      return <Tag icon={<UserOutlined />} color="purple">개인</Tag>;
+    }
+    return <Tag icon={<BankOutlined />} color="blue">업체</Tag>;
+  };
+
+  // Filtering
   const filteredOutsourcings = outsourcings.filter((o) => {
     if (searchText) {
       const search = searchText.toLowerCase();
       const matchesSearch =
-        o.vendor_name.toLowerCase().includes(search) ||
-        o.contract_number.toLowerCase().includes(search) ||
-        o.service_description.toLowerCase().includes(search);
+        o.vendor_name?.toLowerCase().includes(search) ||
+        o.contract_number?.toLowerCase().includes(search) ||
+        o.service_description?.toLowerCase().includes(search) ||
+        o.service_name?.toLowerCase().includes(search);
       if (!matchesSearch) return false;
     }
     if (statusFilter && o.status !== statusFilter) return false;
     return true;
   });
 
-  // 통계
-  const totalOutsourcingAmount = outsourcings.reduce((sum, o) => sum + o.total_amount, 0);
-  const totalPaidAmount = outsourcings.reduce((sum, o) => sum + o.paid_amount, 0);
-  const totalRemainingAmount = outsourcings.reduce((sum, o) => sum + o.remaining_amount, 0);
+  // Statistics
+  const totalOutsourcingAmount = outsourcings.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+  const totalPaidAmount = outsourcings.reduce((sum, o) => sum + (o.paid_amount || 0), 0);
+  const totalRemainingAmount = outsourcings.reduce((sum, o) => sum + (o.remaining_amount || 0), 0);
   const inProgressCount = outsourcings.filter((o) => o.status === 'in_progress').length;
 
+  // C7: VAT calculation based on vat_included toggle
+  const vatIncluded = Form.useWatch('vat_included', form) ?? true;
+  const outsourcingAmount = Form.useWatch('outsourcing_amount', form) || 0;
+  const paidAmount = Form.useWatch('paid_amount', form) || 0;
+  const vatAmount = vatIncluded ? Math.round(outsourcingAmount * 0.1) : 0;
+  const totalAmount = outsourcingAmount + vatAmount;
+  const remainingAmount = totalAmount - paidAmount;
+
+  // 부서 매핑맵 (id -> name)
+  const departmentMap = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const d of departments) m.set(d.id, d.name);
+    return m;
+  }, [departments]);
+
+  // contract_id -> department_id 매핑맵
+  const contractDeptIdMap = React.useMemo(() => {
+    const m = new Map<string, string | undefined>();
+    for (const c of contracts) m.set(c.id, c.department_id);
+    return m;
+  }, [contracts]);
+
+  // 폼에서 선택된 계약의 부서명 (읽기 전용 표시)
+  const watchedContractId = Form.useWatch('contract_id', form);
+  const watchedContractDeptName = React.useMemo(() => {
+    if (!watchedContractId) return '';
+    const deptId = contractDeptIdMap.get(watchedContractId);
+    if (!deptId) return '(부서 미지정)';
+    return departmentMap.get(deptId) || '(부서 미지정)';
+  }, [watchedContractId, contractDeptIdMap, departmentMap]);
+
+  // C1 & C6: Table columns with contract info
   const columns = [
     {
       title: '계약번호',
@@ -193,11 +300,41 @@ const OutsourcingManagement: React.FC = () => {
       key: 'contract_number',
       width: 130,
       render: (num: string, record: Outsourcing) => (
-        <a onClick={() => navigate(`/contracts/${record.contract_id}`)}>{num}</a>
+        <Tooltip title="계약 상세보기">
+          <a onClick={() => navigate(`/contracts/${record.contract_id}`)}>
+            <LinkOutlined style={{ marginRight: 4 }} />
+            {num}
+          </a>
+        </Tooltip>
       ),
     },
     {
-      title: '외주업체',
+      title: '용역명',
+      dataIndex: 'service_name',
+      key: 'service_name',
+      width: 150,
+      ellipsis: true,
+      render: (name: string) => name || '-',
+    },
+    {
+      title: '부서',
+      key: 'department',
+      width: 100,
+      render: (_: any, record: Outsourcing) => {
+        const deptId = record.contract_id ? contractDeptIdMap.get(record.contract_id) : undefined;
+        if (!deptId) return '-';
+        return departmentMap.get(deptId) || '-';
+      },
+    },
+    {
+      title: '구분',
+      dataIndex: 'vendor_type',
+      key: 'vendor_type',
+      width: 80,
+      render: (type: string) => getVendorTypeTag(type),
+    },
+    {
+      title: '외주업체/개인',
       dataIndex: 'vendor_name',
       key: 'vendor_name',
       width: 150,
@@ -214,7 +351,14 @@ const OutsourcingManagement: React.FC = () => {
       key: 'total_amount',
       width: 130,
       align: 'right' as const,
-      render: (amount: number) => `${amount.toLocaleString()}원`,
+      render: (amount: number, record: Outsourcing) => {
+        const label = record.vat_included === false ? '(VAT 없음)' : '(VAT 포함)';
+        return (
+          <Tooltip title={label}>
+            <span>{(amount || 0).toLocaleString()}원</span>
+          </Tooltip>
+        );
+      },
     },
     {
       title: '지급액',
@@ -223,7 +367,7 @@ const OutsourcingManagement: React.FC = () => {
       width: 130,
       align: 'right' as const,
       render: (amount: number) => (
-        <span style={{ color: '#52c41a' }}>{amount.toLocaleString()}원</span>
+        <span style={{ color: '#52c41a' }}>{(amount || 0).toLocaleString()}원</span>
       ),
     },
     {
@@ -234,7 +378,7 @@ const OutsourcingManagement: React.FC = () => {
       align: 'right' as const,
       render: (amount: number) => (
         <span style={{ color: amount > 0 ? '#ff4d4f' : '#000' }}>
-          {amount.toLocaleString()}원
+          {(amount || 0).toLocaleString()}원
         </span>
       ),
     },
@@ -254,6 +398,14 @@ const OutsourcingManagement: React.FC = () => {
       key: 'status',
       width: 80,
       render: getStatusTag,
+    },
+    {
+      title: <Tooltip title="캘린더에 표시"><CalendarOutlined /></Tooltip>,
+      dataIndex: 'show_on_calendar',
+      key: 'show_on_calendar',
+      width: 50,
+      align: 'center' as const,
+      render: (val: boolean) => val ? <CalendarOutlined style={{ color: '#1890ff' }} /> : null,
     },
     {
       title: '담당자',
@@ -286,13 +438,6 @@ const OutsourcingManagement: React.FC = () => {
     },
   ];
 
-  // 금액 자동 계산
-  const outsourcingAmount = Form.useWatch('outsourcing_amount', form) || 0;
-  const paidAmount = Form.useWatch('paid_amount', form) || 0;
-  const vatAmount = Math.round(outsourcingAmount * 0.1);
-  const totalAmount = outsourcingAmount + vatAmount;
-  const remainingAmount = totalAmount - paidAmount;
-
   if (isLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -310,6 +455,9 @@ const OutsourcingManagement: React.FC = () => {
             <Title level={4} style={{ margin: 0 }}>
               <TeamOutlined /> 외주 관리
             </Title>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              계약별 외주 현황을 관리합니다. (1계약 : N외주)
+            </Text>
           </div>
         </div>
         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
@@ -317,14 +465,14 @@ const OutsourcingManagement: React.FC = () => {
         </Button>
       </div>
 
-      {/* 통계 */}
+      {/* Statistics */}
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={6}>
           <Card>
             <Statistic
               title="총 외주 건수"
               value={outsourcings.length}
-              suffix="건"
+              suffix={`건 (진행중 ${inProgressCount}건)`}
               prefix={<TeamOutlined />}
             />
           </Card>
@@ -365,12 +513,12 @@ const OutsourcingManagement: React.FC = () => {
         </Col>
       </Row>
 
-      {/* 필터 */}
+      {/* Filters */}
       <Card style={{ marginBottom: 16 }}>
         <Row gutter={16}>
           <Col span={12}>
             <Input
-              placeholder="업체명, 계약번호, 용역내용 검색"
+              placeholder="업체명, 계약번호, 용역내용, 용역명 검색"
               prefix={<SearchOutlined />}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
@@ -394,9 +542,9 @@ const OutsourcingManagement: React.FC = () => {
         </Row>
       </Card>
 
-      {/* 목록 */}
+      {/* Table */}
       <Card>
-        <Table
+        <ResizableTable
           columns={columns}
           dataSource={filteredOutsourcings}
           rowKey="id"
@@ -407,18 +555,21 @@ const OutsourcingManagement: React.FC = () => {
           }}
           size="middle"
           locale={{ emptyText: '등록된 외주가 없습니다.' }}
+          scroll={{ x: 1600 }}
         />
       </Card>
 
-      {/* 등록/수정 모달 */}
+      {/* Create/Edit Modal */}
       <Modal
         title={editingId ? '외주 수정' : '외주 등록'}
         open={modalVisible}
         onCancel={() => setModalVisible(false)}
         footer={null}
-        width={800}
+        width={850}
+        destroyOnClose
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
+          {/* C3: Searchable contract select with contract_number + service_name */}
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
@@ -426,32 +577,71 @@ const OutsourcingManagement: React.FC = () => {
                 label="관련 계약"
                 rules={[{ required: true, message: '계약을 선택해주세요.' }]}
               >
-                <Select placeholder="계약 선택">
+                <Select
+                  placeholder="계약번호 또는 용역명으로 검색"
+                  showSearch
+                  filterOption={(input, option) => {
+                    const label = (option?.children as unknown as string) || '';
+                    return label.toLowerCase().includes(input.toLowerCase());
+                  }}
+                >
                   {contracts.map((c) => (
                     <Option key={c.id} value={c.id}>
-                      {c.contract_number} - {c.client_company}
+                      {c.contract_number} - {c.service_name || c.client_company || ''}
                     </Option>
                   ))}
                 </Select>
               </Form.Item>
             </Col>
+            <Col span={4}>
+              {/* 선택한 계약의 부서 (읽기 전용) */}
+              <Form.Item label="부서">
+                <Input
+                  value={watchedContractDeptName}
+                  disabled
+                  placeholder="계약 선택 시 자동"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              {/* C2: Vendor type (company vs individual) */}
+              <Form.Item
+                name="vendor_type"
+                label="외주 구분"
+                rules={[{ required: true }]}
+              >
+                <Radio.Group>
+                  <Radio.Button value="company"><BankOutlined /> 업체</Radio.Button>
+                  <Radio.Button value="individual"><UserOutlined /> 개인</Radio.Button>
+                </Radio.Group>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {/* C4: Vendor name with autocomplete from client_companies */}
+          <Row gutter={16}>
             <Col span={12}>
               <Form.Item
                 name="vendor_name"
-                label="외주업체명"
-                rules={[{ required: true, message: '업체명을 입력해주세요.' }]}
+                label="외주업체/개인명"
+                rules={[{ required: true, message: '업체명 또는 개인명을 입력해주세요.' }]}
               >
-                <Input placeholder="업체명" />
+                <AutoComplete
+                  options={vendorNameOptions}
+                  onSearch={handleVendorNameSearch}
+                  onSelect={handleVendorNameSelect}
+                  placeholder="업체명 입력 (기존 거래처에서 자동완성)"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="vendor_business_number" label="사업자번호">
+                <Input placeholder="000-00-00000" />
               </Form.Item>
             </Col>
           </Row>
 
           <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item name="vendor_business_number" label="사업자번호">
-                <Input placeholder="000-00-00000" />
-              </Form.Item>
-            </Col>
             <Col span={8}>
               <Form.Item name="vendor_contact_name" label="담당자">
                 <Input placeholder="담당자명" />
@@ -460,6 +650,11 @@ const OutsourcingManagement: React.FC = () => {
             <Col span={8}>
               <Form.Item name="vendor_contact_phone" label="연락처">
                 <Input placeholder="전화번호" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="vendor_contact_email" label="이메일">
+                <Input placeholder="이메일" />
               </Form.Item>
             </Col>
           </Row>
@@ -472,11 +667,12 @@ const OutsourcingManagement: React.FC = () => {
             <TextArea rows={2} placeholder="외주 용역 내용" />
           </Form.Item>
 
-          <Row gutter={16}>
+          {/* C7: VAT option */}
+          <Row gutter={16} align="middle">
             <Col span={8}>
               <Form.Item
                 name="outsourcing_amount"
-                label="외주금액 (VAT 별도)"
+                label={vatIncluded ? '외주금액 (VAT 별도)' : '외주금액 (VAT 없음)'}
                 rules={[{ required: true, message: '금액을 입력해주세요.' }]}
               >
                 <InputNumber
@@ -487,27 +683,47 @@ const OutsourcingManagement: React.FC = () => {
                 />
               </Form.Item>
             </Col>
-            <Col span={8}>
-              <Form.Item label="VAT (10%)">
-                <InputNumber
-                  style={{ width: '100%' }}
-                  value={vatAmount}
-                  formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                  disabled
+            <Col span={4}>
+              <Form.Item
+                name="vat_included"
+                label="VAT 포함"
+                valuePropName="checked"
+              >
+                <Switch
+                  checkedChildren="VAT 포함"
+                  unCheckedChildren="VAT 없음"
                 />
               </Form.Item>
             </Col>
-            <Col span={8}>
-              <Form.Item label="총액 (VAT 포함)">
+            {vatIncluded && (
+              <Col span={6}>
+                <Form.Item label="VAT (10%)">
+                  <InputNumber
+                    style={{ width: '100%' }}
+                    value={vatAmount}
+                    formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                    disabled
+                  />
+                </Form.Item>
+              </Col>
+            )}
+            <Col span={vatIncluded ? 6 : 12}>
+              <Form.Item label="총액">
                 <div
                   style={{
                     padding: '4px 11px',
                     background: '#f5f5f5',
                     borderRadius: 6,
                     fontWeight: 'bold',
+                    lineHeight: '30px',
                   }}
                 >
                   {totalAmount.toLocaleString()}원
+                  {vatIncluded && (
+                    <Text type="secondary" style={{ fontSize: 11, marginLeft: 4 }}>
+                      (공급가 {outsourcingAmount.toLocaleString()} + VAT {vatAmount.toLocaleString()})
+                    </Text>
+                  )}
                 </div>
               </Form.Item>
             </Col>
@@ -532,6 +748,7 @@ const OutsourcingManagement: React.FC = () => {
                     background: remainingAmount > 0 ? '#fff2f0' : '#f5f5f5',
                     borderRadius: 6,
                     color: remainingAmount > 0 ? '#ff4d4f' : '#000',
+                    lineHeight: '30px',
                   }}
                 >
                   {remainingAmount.toLocaleString()}원
@@ -555,7 +772,7 @@ const OutsourcingManagement: React.FC = () => {
           </Row>
 
           <Row gutter={16}>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item
                 name="start_date"
                 label="시작일"
@@ -564,9 +781,22 @@ const OutsourcingManagement: React.FC = () => {
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item name="end_date" label="종료일">
                 <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              {/* C5: Calendar display toggle */}
+              <Form.Item
+                name="show_on_calendar"
+                label="캘린더 표시"
+                valuePropName="checked"
+              >
+                <Checkbox>
+                  <CalendarOutlined style={{ marginRight: 4 }} />
+                  캘린더에 표시
+                </Checkbox>
               </Form.Item>
             </Col>
           </Row>

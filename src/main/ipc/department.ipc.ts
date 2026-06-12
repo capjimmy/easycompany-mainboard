@@ -17,28 +17,43 @@ export function registerDepartmentHandlers(): void {
 
     let departments = await db.getDepartments();
 
+    // Load requester's affiliated companies from junction table
+    const requesterComps = await db.getUserCompanies(requesterId);
+    const requesterCompanyIds = new Set(
+      requesterComps.length > 0
+        ? requesterComps.map((uc: any) => uc.company_id)
+        : (requester.company_id ? [requester.company_id] : [])
+    );
+
     if (requester.role === 'super_admin') {
       // 슈퍼관리자는 모든 부서 조회 가능 (또는 특정 회사 필터)
       if (companyId) {
         departments = departments.filter((d: any) => d.company_id === companyId);
       }
     } else if (requester.role === 'company_admin') {
-      // 회사 관리자는 자기 회사 부서만 조회 가능
-      departments = departments.filter((d: any) => d.company_id === requester.company_id);
+      // 회사 관리자는 소속 회사들의 부서 조회 가능 (junction table 기반)
+      departments = departments.filter((d: any) => requesterCompanyIds.has(d.company_id));
     } else {
-      // 부서 관리자, 사원은 자기 회사 부서만 조회 가능
-      departments = departments.filter((d: any) => d.company_id === requester.company_id);
+      // 부서 관리자, 사원은 소속 회사들의 부서 조회 가능
+      departments = departments.filter((d: any) => requesterCompanyIds.has(d.company_id));
     }
 
-    // 회사 정보 추가
-    const departmentsWithCompany = [];
-    for (const d of departments) {
-      const company = await db.getCompanyById(d.company_id);
-      departmentsWithCompany.push({
-        ...d,
-        company_name: company?.name || null,
-      });
+    // 회사 정보 + 부서원 수 추가 (N+1 방지)
+    const allCompanies = await db.getCompanies();
+    const allUsers = await db.getUsers();
+    const companyMap = new Map<string, any>(allCompanies.map((c: any) => [c.id, c]));
+    const memberCountMap = new Map<string, number>();
+    for (const u of allUsers) {
+      if (u.is_active && u.department_id) {
+        memberCountMap.set(u.department_id, (memberCountMap.get(u.department_id) || 0) + 1);
+      }
     }
+
+    const departmentsWithCompany: any[] = departments.map((d: any) => ({
+      ...d,
+      company_name: companyMap.get(d.company_id)?.name || null,
+      member_count: memberCountMap.get(d.id) || 0,
+    }));
 
     return { success: true, departments: departmentsWithCompany };
   });
@@ -97,7 +112,7 @@ export function registerDepartmentHandlers(): void {
     }
 
     const departmentId = uuidv4();
-    const newDepartment = {
+    const newDepartment: any = {
       id: departmentId,
       company_id: departmentData.company_id,
       name: departmentData.name,
@@ -106,7 +121,12 @@ export function registerDepartmentHandlers(): void {
       updated_at: new Date().toISOString(),
     };
 
-    await db.addDepartment(newDepartment);
+    try {
+      await db.addDepartment(newDepartment);
+    } catch (err: any) {
+      const msg = err?.message || err?.details || (typeof err === 'string' ? err : '부서 생성 중 오류가 발생했습니다.');
+      return { success: false, error: msg };
+    }
 
     return { success: true, departmentId };
   });
@@ -141,12 +161,21 @@ export function registerDepartmentHandlers(): void {
     if (departmentData.name) {
       updates.name = departmentData.name;
     }
+    if (departmentData.company_id !== undefined && requester.role === 'super_admin') {
+      updates.company_id = departmentData.company_id;
+    }
     if (departmentData.description !== undefined) {
       updates.description = departmentData.description;
     }
 
     if (Object.keys(updates).length > 0) {
-      await db.updateDepartment(departmentId, updates);
+      updates.updated_at = new Date().toISOString();
+      try {
+        await db.updateDepartment(departmentId, updates);
+      } catch (err: any) {
+        const msg = err?.message || err?.details || '부서 수정 중 오류가 발생했습니다.';
+        return { success: false, error: msg };
+      }
     }
 
     return { success: true };
@@ -176,7 +205,12 @@ export function registerDepartmentHandlers(): void {
       return { success: false, error: `해당 부서에 ${usersInDepartment.length}명의 사용자가 있습니다. 먼저 사용자를 다른 부서로 이동해주세요.` };
     }
 
-    await db.deleteDepartment(departmentId);
+    try {
+      await db.deleteDepartment(departmentId);
+    } catch (err: any) {
+      const msg = err?.message || err?.details || '부서 삭제 중 오류가 발생했습니다.';
+      return { success: false, error: msg };
+    }
 
     return { success: true };
   });

@@ -275,6 +275,7 @@ const ProjectTimeline: React.FC = () => {
         }
         open={modalVisible}
         onCancel={() => setModalVisible(false)}
+        destroyOnClose
         footer={[
           <Button key="close" onClick={() => setModalVisible(false)}>닫기</Button>,
         ]}

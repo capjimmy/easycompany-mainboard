@@ -49,7 +49,7 @@ const eventTypeConfig: Record<string, { color: string; label: string; icon: Reac
 };
 
 const ContractCalendar: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, selectedCompanyId } = useAuthStore();
   const { contracts, fetchContracts } = useContractStore();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
@@ -61,9 +61,11 @@ const ContractCalendar: React.FC = () => {
 
   useEffect(() => {
     if (user?.id) {
-      fetchContracts(user.id);
+      const filters: any = {};
+      if (user.role === 'super_admin' && selectedCompanyId) filters.company_id = selectedCompanyId;
+      fetchContracts(user.id, filters);
     }
-  }, [user?.id]);
+  }, [user?.id, selectedCompanyId]);
 
   // 입금 내역 로드
   useEffect(() => {
@@ -94,7 +96,9 @@ const ContractCalendar: React.FC = () => {
     const loadCustomEvents = async () => {
       if (!user?.id) return;
       try {
-        const result = await window.electronAPI.contracts.getAllEvents(user.id);
+        const filters: any = {};
+        if (user.role === 'super_admin' && selectedCompanyId) filters.company_id = selectedCompanyId;
+        const result = await window.electronAPI.contracts.getAllEvents(user.id, filters);
         if (result.success) {
           setCustomEvents(result.events || []);
         }
@@ -103,7 +107,7 @@ const ContractCalendar: React.FC = () => {
       }
     };
     loadCustomEvents();
-  }, [user?.id, contracts]);
+  }, [user?.id, contracts, selectedCompanyId]);
 
   // 계약서에서 이벤트 추출
   useEffect(() => {
@@ -111,9 +115,23 @@ const ContractCalendar: React.FC = () => {
     const today = dayjs();
 
     contracts.forEach((contract: any) => {
-      // 계약 시작일 (contract_start_date 필드명 사용)
+      // 1. 계약 체결일 (contract_date)
+      if (contract.contract_date) {
+        const cDate = dayjs(contract.contract_date);
+        extractedEvents.push({
+          id: `${contract.id}-signed`,
+          date: cDate.format('YYYY-MM-DD'),
+          type: 'contract_start',
+          title: '계약 체결',
+          contractId: contract.id,
+          contractName: contract.service_name,
+          status: cDate.isBefore(today, 'day') ? 'completed' : cDate.isSame(today, 'day') ? 'today' : 'upcoming',
+        });
+      }
+
+      // 2. 계약 시작일 (contract_start_date)
       const startDateStr = contract.contract_start_date || contract.start_date;
-      if (startDateStr) {
+      if (startDateStr && startDateStr !== contract.contract_date) {
         const startDate = dayjs(startDateStr);
         extractedEvents.push({
           id: `${contract.id}-start`,
@@ -347,6 +365,7 @@ const ContractCalendar: React.FC = () => {
         }
         open={modalVisible}
         onCancel={() => setModalVisible(false)}
+        destroyOnClose
         footer={[
           <Button key="close" onClick={() => setModalVisible(false)}>
             닫기

@@ -376,6 +376,7 @@ const PaymentConditions: React.FC<PaymentConditionsProps> = ({ contractId, userI
         okText={editingId ? '수정' : '추가'}
         cancelText="취소"
         width={600}
+        destroyOnClose
       >
         <Form form={form} layout="vertical">
           <Row gutter={16}>
@@ -457,6 +458,7 @@ const PaymentConditions: React.FC<PaymentConditionsProps> = ({ contractId, userI
         okText="입금 확인"
         cancelText="취소"
         width={400}
+        destroyOnClose
       >
         <div style={{ marginBottom: 16 }}>
           <Text type="secondary">

@@ -1,12 +1,13 @@
 -- Employee Seed Data (auto-generated)
 -- Password: changeme123
+-- Usernames: 초성 1글자/음절 + 입사년도 (영문기준)
 -- Total: 57 employees
 
 DELETE FROM users WHERE username NOT IN ('admin');
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'ochh10',
+  'a0000000-0000-0000-0000-000000000001', 'lch10',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '임철희', '원장', '원장', 'employee', true,
   '2010-02-05', NULL,
@@ -22,7 +23,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'ohs17',
+  'a0000000-0000-0000-0000-000000000001', 'lhs17',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '임희상', '부원장', '건설사업부', 'employee', true,
   '2017-12-11', NULL,
@@ -38,7 +39,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'oso10',
+  'a0000000-0000-0000-0000-000000000001', 'lsy10',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '이세연', '책임 연구원', '건설사업부', 'employee', true,
   '2010-12-27', NULL,
@@ -54,7 +55,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'boj12',
+  'a0000000-0000-0000-0000-000000000001', 'byj12',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '박예지', '책임 연구원', '학술사업부', 'employee', true,
   '2012-02-01', NULL,
@@ -70,7 +71,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'sjo13',
+  'a0000000-0000-0000-0000-000000000001', 'sjy13',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '석준영', '이사', '경영관리실', 'employee', true,
   '2013-09-02', NULL,
@@ -102,7 +103,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'omo15',
+  'a0000000-0000-0000-0000-000000000001', 'lmw15',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '이명원', '연구위원 본부장', '학술사업부', 'employee', true,
   '2015-02-05', NULL,
@@ -118,7 +119,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'ohj19',
+  'a0000000-0000-0000-0000-000000000001', 'lhj19',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '이형주', '이사장', '학술사업부', 'employee', true,
   '2019-01-02', NULL,
@@ -150,7 +151,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'oth20',
+  'a0000000-0000-0000-0000-000000000001', 'lth20',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '이태형', '선임 연구원', '건설사업부', 'employee', true,
   '2020-09-01', NULL,
@@ -182,7 +183,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'oom22',
+  'a0000000-0000-0000-0000-000000000001', 'lym22',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '이용민', '이사', '개발사업부', 'employee', true,
   '2022-09-01', NULL,
@@ -214,7 +215,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'omh24',
+  'a0000000-0000-0000-0000-000000000001', 'lmh24',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '이민호', '선임 연구원', '학술사업부', 'employee', true,
   '2024-01-01', NULL,
@@ -230,7 +231,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'ooo24',
+  'a0000000-0000-0000-0000-000000000001', 'lyw24',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '이예원', '주임연구원', '학술사업부', 'employee', true,
   '2024-01-01', NULL,
@@ -262,7 +263,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'oht24',
+  'a0000000-0000-0000-0000-000000000001', 'yht24',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '유환태', '고문', '고문', 'employee', true,
   '2024-01-01', NULL,
@@ -294,7 +295,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'ohj24',
+  'a0000000-0000-0000-0000-000000000001', 'yhj24',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '유현주', '주임연구원', '건설사업부', 'employee', true,
   '2024-06-01', NULL,
@@ -310,7 +311,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'bjo24',
+  'a0000000-0000-0000-0000-000000000001', 'bje24',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '박종은', '연구원', '건설사업부', 'employee', true,
   '2024-06-04', NULL,
@@ -326,7 +327,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'otg24',
+  'a0000000-0000-0000-0000-000000000001', 'ltg24',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '임태건', '연구원', '학술사업부', 'employee', true,
   '2024-07-01', NULL,
@@ -342,7 +343,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'boch24',
+  'a0000000-0000-0000-0000-000000000001', 'byc24',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '박용철', '연구원', '건설사업부', 'employee', true,
   '2024-08-12', NULL,
@@ -358,7 +359,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'gchh24',
+  'a0000000-0000-0000-0000-000000000001', 'gch24',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '김충현', '연구원', '', 'employee', true,
   '2024-12-01', NULL,
@@ -390,7 +391,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'scho25',
+  'a0000000-0000-0000-0000-000000000001', 'scw25',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '서창원', '연구위원', '학술사업부', 'employee', true,
   '2025-09-01', NULL,
@@ -406,7 +407,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'hog21',
+  'a0000000-0000-0000-0000-000000000001', 'hig21',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '한인규', '이사', '개발사업부', 'employee', false,
   '2021-01-18', '2025-03-31',
@@ -454,7 +455,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'oht19',
+  'a0000000-0000-0000-0000-000000000001', 'yht19',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '유환태', '대표', '대표이사', 'employee', true,
   '2019-04-01', NULL,
@@ -502,7 +503,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'ochh21',
+  'a0000000-0000-0000-0000-000000000001', 'lch21',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '임철희', '총괄사장', '전략기획본부', 'employee', true,
   '2021-01-01', NULL,
@@ -518,7 +519,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'ond21',
+  'a0000000-0000-0000-0000-000000000001', 'ynd21',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '윤남돈', '본부장', '계획', 'employee', true,
   '2021-01-04', NULL,
@@ -550,7 +551,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'chms21',
+  'a0000000-0000-0000-0000-000000000001', 'cms21',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '최문석', '대리', '교육환경', 'employee', true,
   '2021-01-25', NULL,
@@ -566,7 +567,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'ogj21',
+  'a0000000-0000-0000-0000-000000000001', 'lgj21',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '이강준', '사장', '사장', 'employee', true,
   '2021-06-01', NULL,
@@ -582,7 +583,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'jgo23',
+  'a0000000-0000-0000-0000-000000000001', 'jgw23',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '정경원', '사원', '인증', 'employee', true,
   '2023-12-04', NULL,
@@ -598,7 +599,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'ggo24',
+  'a0000000-0000-0000-0000-000000000001', 'ggw24',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '김규완', '사원', '인증', 'employee', true,
   '2024-01-02', NULL,
@@ -614,7 +615,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'ochh24',
+  'a0000000-0000-0000-0000-000000000001', 'lch24',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '이충환', '사원', '인증', 'employee', true,
   '2024-02-19', NULL,
@@ -630,7 +631,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'joj24',
+  'a0000000-0000-0000-0000-000000000001', 'jej24',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '정의정', '사원', '인증', 'employee', true,
   '2024-09-23', NULL,
@@ -662,7 +663,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'ojo25',
+  'a0000000-0000-0000-0000-000000000001', 'lju25',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '이재욱', '사원', '인증', 'employee', true,
   '2025-01-01', NULL,
@@ -694,7 +695,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'ochs25',
+  'a0000000-0000-0000-0000-000000000001', 'lcs25',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '이충신', '본부장', '인증', 'employee', true,
   '2025-01-01', NULL,
@@ -710,7 +711,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'osg25',
+  'a0000000-0000-0000-0000-000000000001', 'lsg25',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '이상기', '사장', '사장', 'employee', true,
   '2025-02-01', NULL,
@@ -726,7 +727,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'bjo25',
+  'a0000000-0000-0000-0000-000000000001', 'bju25',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '배진웅', '대리', '대리', 'employee', true,
   '2025-04-01', NULL,
@@ -742,7 +743,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'ochg25',
+  'a0000000-0000-0000-0000-000000000001', 'ycg25',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '윤창기', '주임', '주임', 'employee', true,
   '2025-08-04', NULL,
@@ -758,7 +759,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'oj25',
+  'a0000000-0000-0000-0000-000000000001', 'lj25',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '이정', '사원', '사원', 'employee', true,
   '2025-08-04', NULL,
@@ -806,7 +807,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'hchs20',
+  'a0000000-0000-0000-0000-000000000001', 'hcs20',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '홍창성', '주임', '인증', 'employee', false,
   '2020-11-11', '2024-03-29',
@@ -822,7 +823,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'jjo24',
+  'a0000000-0000-0000-0000-000000000001', 'jje24',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '정지은', '사원', '인증', 'employee', false,
   '2024-03-12', '2024-05-10',
@@ -838,7 +839,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'ojg24',
+  'a0000000-0000-0000-0000-000000000001', 'ljg24',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '이정근', '사원', '인증', 'employee', false,
   '2024-09-23', '2024-12-20',
@@ -870,7 +871,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'gos23',
+  'a0000000-0000-0000-0000-000000000001', 'gys23',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '김연수', '사원', '인증', 'employee', false,
   '2023-09-11', '2024-12-31',
@@ -886,7 +887,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'hog21',
+  'a0000000-0000-0000-0000-000000000001', 'hig21',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '한인규', '기술이사', '교육환경', 'employee', false,
   '2021-09-01', '2025-04-30',
@@ -902,7 +903,7 @@ ON CONFLICT (username) DO UPDATE SET
 
 INSERT INTO users (company_id, username, password_hash, name, rank, position, role, is_active, hire_date, resignation_date, bank_name, bank_account, education, certifications) VALUES
 (
-  'a0000000-0000-0000-0000-000000000001', 'chbo24',
+  'a0000000-0000-0000-0000-000000000001', 'cbe24',
   '$2a$10$PCD2G4DGdP3UC102waE6P.cHaJjYVOyjAWEQlU8wA6XzTZzBNNMsy',
   '최보은', '과장', '인증', 'employee', false,
   '2024-03-04', '2025-06-26',
