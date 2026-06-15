@@ -267,6 +267,23 @@ export function registerContractHandlers(): void {
 
       notes: contractData.notes || null,
 
+      // 추가기재 — 계약정보
+      has_original_contract: contractData.has_original_contract ?? false,
+      contract_seal_shapes: contractData.contract_seal_shapes || [],
+      statement_submitted: contractData.statement_submitted ?? false,
+      statement_submitted_date: contractData.statement_submitted_date || null,
+      // 추가기재 — 금액정보
+      contract_deposit_amount: contractData.contract_deposit_amount || 0,
+      contract_deposit_rate: contractData.contract_deposit_rate ?? null,
+      guarantee_esubmission: contractData.guarantee_esubmission || null,
+      defect_guarantee_rate: contractData.defect_guarantee_rate ?? null,
+      defect_liability_months: contractData.defect_liability_months ?? null,
+      delay_penalty_rate: contractData.delay_penalty_rate ?? null,
+      local_bond_applicable: contractData.local_bond_applicable ?? false,
+      local_bond_amount: contractData.local_bond_amount || 0,
+      stamp_tax_applicable: contractData.stamp_tax_applicable ?? false,
+      stamp_tax_amount: contractData.stamp_tax_amount || 0,
+
       created_by: requesterId,
       created_at: now,
       updated_at: now,
@@ -397,6 +414,11 @@ export function registerContractHandlers(): void {
       'service_name', 'description', 'contract_start_date', 'contract_end_date', 'contract_date',
       'department_id', 'manager_id', 'manager_name', 'progress_rate', 'progress_note',
       'progress_billing_rate', 'progress_billing_amount', 'outsource_company', 'outsource_amount', 'notes',
+      // 추가기재 필드
+      'has_original_contract', 'contract_seal_shapes', 'statement_submitted', 'statement_submitted_date',
+      'contract_deposit_amount', 'contract_deposit_rate', 'guarantee_esubmission', 'defect_guarantee_rate',
+      'defect_liability_months', 'delay_penalty_rate', 'local_bond_applicable', 'local_bond_amount',
+      'stamp_tax_applicable', 'stamp_tax_amount',
     ];
 
     // 세부작업이 있으면 progress_rate 직접 수정 무시 (세부작업 기반 자동 계산 우선)

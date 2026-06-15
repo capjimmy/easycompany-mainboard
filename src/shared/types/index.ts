@@ -305,6 +305,23 @@ export interface Contract {
   // 원본 파일 경로 (상대경로, sourceDataPath 기준)
   source_file_path?: string;
 
+  // 추가기재 (2026-06-16) — 계약정보
+  has_original_contract?: boolean;          // 원본계약서 유무
+  contract_seal_shapes?: string[];          // 계약도장[사용인감] 모양(복수): 마름모/세모/동그라미/네모
+  statement_submitted?: boolean;            // 기성청구서·거래명세서 제출유무
+  statement_submitted_date?: string;        // 제출일
+  // 추가기재 — 금액정보
+  contract_deposit_amount?: number;         // 총계약보증금
+  contract_deposit_rate?: number;           // 계약보증금율(%)
+  guarantee_esubmission?: string;           // 계약보증서 전자제출여부
+  defect_guarantee_rate?: number;           // 하자보수보증금율(%)
+  defect_liability_months?: number;         // 하자담보책임기간(개월)
+  delay_penalty_rate?: number;              // 지체상금율(%)
+  local_bond_applicable?: boolean;          // 지방채매입액 여부
+  local_bond_amount?: number;               // 지방채매입액
+  stamp_tax_applicable?: boolean;           // 인지세 과세 대상여부
+  stamp_tax_amount?: number;                // 인지세액
+
   created_by: string;
   created_at: string;
   updated_at: string;

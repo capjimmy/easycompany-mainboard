@@ -350,6 +350,22 @@ const ContractForm: React.FC = () => {
         outsource_company: currentContract.outsource_company,
         outsource_amount: currentContract.outsource_amount,
         notes: currentContract.notes,
+        // 추가기재 — 계약정보
+        has_original_contract: currentContract.has_original_contract ?? false,
+        contract_seal_shapes: currentContract.contract_seal_shapes || [],
+        statement_submitted: currentContract.statement_submitted ?? false,
+        statement_submitted_date: currentContract.statement_submitted_date ? dayjs(currentContract.statement_submitted_date) : null,
+        // 추가기재 — 금액정보
+        contract_deposit_amount: currentContract.contract_deposit_amount ?? 0,
+        contract_deposit_rate: currentContract.contract_deposit_rate ?? undefined,
+        guarantee_esubmission: currentContract.guarantee_esubmission ?? undefined,
+        defect_guarantee_rate: currentContract.defect_guarantee_rate ?? undefined,
+        defect_liability_months: currentContract.defect_liability_months ?? undefined,
+        delay_penalty_rate: currentContract.delay_penalty_rate ?? undefined,
+        local_bond_applicable: currentContract.local_bond_applicable ?? false,
+        local_bond_amount: currentContract.local_bond_amount ?? 0,
+        stamp_tax_applicable: currentContract.stamp_tax_applicable ?? false,
+        stamp_tax_amount: currentContract.stamp_tax_amount ?? 0,
       });
 
       // 추천 기능을 위한 값 설정
@@ -435,6 +451,7 @@ const ContractForm: React.FC = () => {
       contract_date: values.contract_date?.format('YYYY-MM-DD'),
       contract_start_date: values.contract_start_date?.format('YYYY-MM-DD'),
       contract_end_date: values.contract_end_date?.format('YYYY-MM-DD'),
+      statement_submitted_date: values.statement_submitted_date?.format('YYYY-MM-DD') || null,
       // 항목 기반 금액
       contract_amount: contractAmount,
       vat_amount: vatAmount,
@@ -1231,7 +1248,7 @@ const ContractForm: React.FC = () => {
                   <InputNumber
                     style={{ width: '100%' }}
                     formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                    parser={(value) => value!.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                    parser={((value?: string) => Number((value || '').replace(/[^0-9]/g, ''))) as any}
                     placeholder="계약 금액"
                     min={0}
                   />
@@ -1258,7 +1275,7 @@ const ContractForm: React.FC = () => {
                     style={{ width: '100%', fontWeight: 'bold', fontSize: 16 }}
                     value={totalAmount}
                     formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                    parser={(value) => value!.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                    parser={((value?: string) => Number((value || '').replace(/[^0-9]/g, ''))) as any}
                     min={0}
                     onChange={(value) => {
                       const newTotal = value || 0;
@@ -1309,7 +1326,7 @@ const ContractForm: React.FC = () => {
                 <InputNumber
                   style={{ width: '100%' }}
                   formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                  parser={(value) => value!.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                  parser={((value?: string) => Number((value || '').replace(/[^0-9]/g, ''))) as any}
                   placeholder="청구 금액"
                   min={0}
                 />
@@ -1327,7 +1344,7 @@ const ContractForm: React.FC = () => {
                 <InputNumber
                   style={{ width: '100%' }}
                   formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                  parser={(value) => value!.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                  parser={((value?: string) => Number((value || '').replace(/[^0-9]/g, ''))) as any}
                   placeholder="외주 금액"
                   min={0}
                 />
@@ -1348,6 +1365,130 @@ const ContractForm: React.FC = () => {
           <Form.Item name="notes" noStyle>
             <TextArea rows={3} placeholder="추가 메모 또는 특이사항" />
           </Form.Item>
+        </Card>
+
+        {/* 추가 계약정보 (계약/매출) — 추가기재요청사항 2026-06-16 */}
+        <Card title="추가 계약정보 (계약/매출)" style={{ marginBottom: 16 }}>
+          <Divider orientation="left" style={{ marginTop: 0 }}>계약정보</Divider>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="has_original_contract" label="원본계약서 유무" valuePropName="checked">
+                <Switch checkedChildren="유" unCheckedChildren="무" />
+              </Form.Item>
+            </Col>
+            <Col span={16}>
+              <Form.Item name="contract_seal_shapes" label="계약도장[사용인감]">
+                <Select
+                  mode="multiple"
+                  allowClear
+                  placeholder="도장 모양 선택 (복수 가능)"
+                  options={[
+                    { value: '마름모', label: '마름모' },
+                    { value: '세모', label: '세모' },
+                    { value: '동그라미', label: '동그라미' },
+                    { value: '네모', label: '네모' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="statement_submitted" label="기성청구서·거래명세서 제출" valuePropName="checked">
+                <Switch checkedChildren="제출" unCheckedChildren="미제출" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="statement_submitted_date" label="제출일">
+                <DatePicker style={{ width: '100%' }} placeholder="제출일 선택" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Divider orientation="left">금액정보 (직접입력)</Divider>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="contract_deposit_amount" label="총계약보증금">
+                <InputNumber
+                  style={{ width: '100%' }}
+                  formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={((value?: string) => Number((value || '').replace(/[^0-9]/g, ''))) as any}
+                  min={0}
+                  addonAfter="원"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="contract_deposit_rate" label="계약보증금율">
+                <InputNumber style={{ width: '100%' }} min={0} max={100} addonAfter="%" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="guarantee_esubmission" label="계약보증서 전자제출여부">
+                <Select
+                  allowClear
+                  placeholder="선택"
+                  options={[
+                    { value: '전자접수및직접수납', label: '전자접수및직접수납' },
+                    { value: '지급각서로대체', label: '지급각서로대체' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="defect_guarantee_rate" label="하자보수보증금율">
+                <InputNumber style={{ width: '100%' }} min={0} max={100} addonAfter="%" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="defect_liability_months" label="하자담보책임기간">
+                <InputNumber style={{ width: '100%' }} min={0} addonAfter="개월" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="delay_penalty_rate" label="지체상금율">
+                <InputNumber style={{ width: '100%' }} min={0} addonAfter="%" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="local_bond_applicable" label="지방채매입액 여부" valuePropName="checked">
+                <Switch checkedChildren="해당" unCheckedChildren="비해당" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="local_bond_amount" label="지방채매입액">
+                <InputNumber
+                  style={{ width: '100%' }}
+                  formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={((value?: string) => Number((value || '').replace(/[^0-9]/g, ''))) as any}
+                  min={0}
+                  addonAfter="원"
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="stamp_tax_applicable" label="인지세 과세 대상여부" valuePropName="checked">
+                <Switch checkedChildren="해당" unCheckedChildren="비해당" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="stamp_tax_amount" label="인지세액">
+                <InputNumber
+                  style={{ width: '100%' }}
+                  formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={((value?: string) => Number((value || '').replace(/[^0-9]/g, ''))) as any}
+                  min={0}
+                  addonAfter="원"
+                />
+              </Form.Item>
+            </Col>
+          </Row>
         </Card>
       </Form>
 
