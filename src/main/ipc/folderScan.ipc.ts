@@ -459,7 +459,9 @@ export function registerFolderScanIPC(): void {
 
       // 5. OpenAI API 호출
       const openai = new OpenAI({ apiKey });
-      const prompt = docType === 'quote' ? getQuotePrompt(scanResult) : getContractPrompt(scanResult);
+      const rawPrompt = docType === 'quote' ? getQuotePrompt(scanResult) : getContractPrompt(scanResult);
+      // 짝 안 맞는 유니코드 surrogate 제거 (HWP 바이너리 추출/잘림으로 생긴 lone surrogate → OpenAI 400 방지)
+      const prompt = rawPrompt.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
 
       // Use gpt-4o for better document content analysis (not mini)
       const completion = await openai.chat.completions.create({

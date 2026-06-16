@@ -19,6 +19,8 @@ import {
   TeamOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import quarterOfYear from 'dayjs/plugin/quarterOfYear';
+dayjs.extend(quarterOfYear); // startOf('quarter') 지원 (분기 필터)
 
 import { useAuthStore } from '../../store/authStore';
 
