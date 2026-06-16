@@ -197,6 +197,9 @@ const electronAPI = {
     // 견적서 출력 (AI 기반 문서 생성)
     generateDocument: (requesterId: string, quoteId: string) =>
       ipcRenderer.invoke('quotes:generateDocument', requesterId, quoteId),
+    // 견적서 출력 (정부 용역 표준양식 채우기)
+    generateGovtDocument: (requesterId: string, quoteId: string) =>
+      ipcRenderer.invoke('quotes:generateGovtDocument', requesterId, quoteId),
     // 멤버 관리
     getMembers: (requesterId: string, quoteId: string) =>
       ipcRenderer.invoke('quotes:getMembers', requesterId, quoteId),

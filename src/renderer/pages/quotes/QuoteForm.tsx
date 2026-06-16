@@ -11,7 +11,6 @@ import { useAuthStore } from '../../store/authStore';
 import { useQuoteStore } from '../../store/quoteStore';
 import RecommendationPopover from '../../components/common/RecommendationPopover';
 import DocumentAttachment from '../../components/documents/DocumentAttachment';
-import DocumentGenerateModal from '../../components/documents/DocumentGenerateModal';
 import QuoteAmountHistory from './QuoteAmountHistory';
 import EmailSendModal from '../../components/common/EmailSendModal';
 import PdfPreviewModal from '../../components/common/PdfPreviewModal';
@@ -78,7 +77,7 @@ const QuoteForm: React.FC = () => {
   const [emailModalVisible, setEmailModalVisible] = useState(false);
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [previewVisible, setPreviewVisible] = useState(false);
-  const [docModalOpen, setDocModalOpen] = useState(false);
+  const [govtGenerating, setGovtGenerating] = useState(false);
 
   // 프로젝트 멤버
   const [quoteUsers, setQuoteUsers] = useState<any[]>([]);
@@ -231,6 +230,11 @@ const QuoteForm: React.FC = () => {
         project_period_months: currentQuote.project_period_months,
         title: currentQuote.title,
         service_name: currentQuote.service_name,
+        site_name: currentQuote.site_name,
+        service_scope: currentQuote.service_scope,
+        researcher1: currentQuote.researcher1,
+        researcher2: currentQuote.researcher2,
+        researcher3: currentQuote.researcher3,
         quote_date: currentQuote.quote_date ? dayjs(currentQuote.quote_date) : dayjs(),
         valid_until: currentQuote.valid_until ? dayjs(currentQuote.valid_until) : null,
         notes: currentQuote.notes,
@@ -1354,7 +1358,20 @@ const QuoteForm: React.FC = () => {
     }
   };
 
-  // 견적서 출력 = 양식보관소 양식에 견적 데이터 채우기 (데스크톱·웹 공용)
+  // 견적서 출력 = 정부 용역 표준양식에 견적 데이터 채우기 (데스크톱)
+  const handleGenGovt = async () => {
+    if (!user?.id || !id) { message.warning('견적 저장 후 출력 가능합니다.'); return; }
+    setGovtGenerating(true);
+    try {
+      const result = await (window.electronAPI as any).quotes.generateGovtDocument(user.id, id);
+      if (result?.success) message.success('견적서가 출력되었습니다.');
+      else if (result?.error !== 'canceled') message.error(result?.error || '견적서 출력 실패');
+    } catch (err: any) {
+      message.error(err?.message || '견적서 출력 중 오류가 발생했습니다.');
+    } finally {
+      setGovtGenerating(false);
+    }
+  };
 
   if (isLoading && isEdit) {
     return (
@@ -1415,10 +1432,8 @@ const QuoteForm: React.FC = () => {
               </Button>
               <Button
                 icon={<FileTextOutlined />}
-                onClick={() => {
-                  if (!id) { message.warning('견적 저장 후 출력 가능합니다.'); return; }
-                  setDocModalOpen(true);
-                }}
+                onClick={handleGenGovt}
+                loading={govtGenerating}
               >
                 견적서 출력
               </Button>
@@ -1592,6 +1607,39 @@ const QuoteForm: React.FC = () => {
             <Col span={8}>
               <Form.Item name="project_period_months" label="예상 기간 (개월)">
                 <InputNumber style={{ width: '100%' }} min={1} placeholder="개월 수" />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Card>
+
+        {/* 정부양식 견적서 출력용 추가정보 */}
+        <Card title="견적서 출력용 추가정보 (정부 용역양식)" size="small" style={{ marginBottom: 16 }}>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="site_name" label="현장명">
+                <Input placeholder="예) 남한산성 순환도로 확장공사" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="service_scope" label="용역범위">
+                <Input placeholder="예) 공기연장으로 인한 계약금액 조정" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="researcher1" label="담당자 1 (연구진)">
+                <Input placeholder="예) 연구원 홍길동" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="researcher2" label="담당자 2">
+                <Input placeholder="예) 책임연구원 김철수" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="researcher3" label="담당자 3">
+                <Input placeholder="예) 부원장 이영희" />
               </Form.Item>
             </Col>
           </Row>
@@ -2011,18 +2059,6 @@ const QuoteForm: React.FC = () => {
           type="quote"
           documentId={id}
           documentNumber={currentQuote?.quote_number}
-        />
-      )}
-
-      {/* 견적서 출력 (양식보관소 양식 채우기 — 데스크톱·웹 공용) */}
-      {id && (
-        <DocumentGenerateModal
-          visible={docModalOpen}
-          contractId={id}
-          sourceType="quote"
-          sourceId={id}
-          sourceNumber={currentQuote?.quote_number}
-          onClose={() => setDocModalOpen(false)}
         />
       )}
 

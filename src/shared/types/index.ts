@@ -187,6 +187,13 @@ export interface Quote {
   title: string;
   service_name: string;
 
+  // 정부양식 견적서용 (2026-06-17)
+  site_name?: string;      // 현장명
+  service_scope?: string;  // 용역범위
+  researcher1?: string;    // 담당자1 (우리 연구진)
+  researcher2?: string;    // 담당자2
+  researcher3?: string;    // 담당자3
+
   // 금액
   labor_total: number;
   expense_total: number;

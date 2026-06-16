@@ -6,8 +6,63 @@ import * as path from 'path';
 import OpenAI from 'openai';
 import { initOCRClient, getOCRClient } from '../services/ocrService';
 import type { QuoteStatus } from '../../shared/types';
+import { generateQuoteGovtDocument } from '../services/quoteTemplateGenerator';
 
 export function registerQuoteHandlers(): void {
+  // 정부 용역 견적서 양식으로 출력 (회사 표준 양식에 채워서, 변동행, 한페이지)
+  ipcMain.handle('quotes:generateGovtDocument', async (_event, requesterId: string, quoteId: string) => {
+    const requester = await db.getUserById(requesterId);
+    if (!requester) return { success: false, error: '권한이 없습니다.' };
+    try {
+      const quote = await db.getQuoteById(quoteId);
+      if (!quote) return { success: false, error: '견적서를 찾을 수 없습니다.' };
+      if (requester.role !== 'super_admin' && requester.company_id !== quote.company_id) {
+        return { success: false, error: '권한이 없습니다.' };
+      }
+      const laborItems = await db.getQuoteLaborItemsByQuoteId(quoteId);
+      const expenseItems = await db.getQuoteExpenseItemsByQuoteId(quoteId);
+
+      const period = quote.project_period_months
+        ? `자료수령일부터 ${quote.project_period_months}개월`
+        : '';
+      const data = {
+        client: quote.recipient_company || '',
+        site: quote.site_name || quote.title || quote.service_name || '',
+        service: quote.service_name || '',
+        scope: quote.service_scope || quote.notes || '',
+        period,
+        staff: [quote.researcher1 || '', quote.researcher2 || '', quote.researcher3 || ''],
+        docNo: 1,
+        date: quote.quote_date ? new Date(quote.quote_date) : new Date(),
+        labor: (laborItems || []).map((it: any) => ({
+          grade: it.grade_name || '',
+          qty: Number(it.quantity || 0),
+          days: Number(it.months || 0),
+          unit: Number(it.unit_price || 0),
+          rate: it.participation_rate,
+        })),
+        expenses: (expenseItems || []).map((it: any) => ({
+          name: it.category_name || '',
+          amount: Number(it.amount || 0),
+        })),
+      };
+
+      const safeNum = (quote.quote_number || 'quote').replace(/[\\/:*?"<>|]/g, '_');
+      const safeName = (quote.recipient_company || '').replace(/[\\/:*?"<>|]/g, '_').substring(0, 30);
+      const saveResult = await dialog.showSaveDialog({
+        title: '견적서 저장',
+        defaultPath: `견적서_${safeNum}_${safeName}.xlsx`,
+        filters: [{ name: 'Excel', extensions: ['xlsx'] }],
+      });
+      if (saveResult.canceled || !saveResult.filePath) return { success: false, error: 'canceled' };
+
+      await generateQuoteGovtDocument(data, saveResult.filePath);
+      shell.openPath(path.dirname(saveResult.filePath));
+      return { success: true, filePath: saveResult.filePath };
+    } catch (err: any) {
+      return { success: false, error: err?.message || '견적서 생성에 실패했습니다.' };
+    }
+  });
   // ========================================
   // 견적서 CRUD
   // ========================================
@@ -212,6 +267,13 @@ export function registerQuoteHandlers(): void {
       title: quoteData.title || '',
       service_name: quoteData.service_name || '',
 
+      // 정부양식 견적서용
+      site_name: quoteData.site_name || null,
+      service_scope: quoteData.service_scope || null,
+      researcher1: quoteData.researcher1 || null,
+      researcher2: quoteData.researcher2 || null,
+      researcher3: quoteData.researcher3 || null,
+
       // 금액
       labor_total: laborTotal,
       expense_total: expenseTotal,
@@ -374,6 +436,11 @@ export function registerQuoteHandlers(): void {
       project_period_months: quoteData.project_period_months,
       title: quoteData.title,
       service_name: quoteData.service_name,
+      site_name: quoteData.site_name ?? null,
+      service_scope: quoteData.service_scope ?? null,
+      researcher1: quoteData.researcher1 ?? null,
+      researcher2: quoteData.researcher2 ?? null,
+      researcher3: quoteData.researcher3 ?? null,
       labor_total: laborTotal,
       expense_total: expenseTotal,
       section_total: sectionTotal,

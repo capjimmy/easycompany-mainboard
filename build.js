@@ -110,7 +110,7 @@ async function build() {
       fs.mkdirSync(distTemplatesDir, { recursive: true });
     }
     for (const file of fs.readdirSync(templatesDir)) {
-      if (file.endsWith('.hwpx')) {
+      if (file.endsWith('.hwpx') || file.endsWith('.xlsx') || file.endsWith('.docx')) {
         fs.copyFileSync(path.join(templatesDir, file), path.join(distTemplatesDir, file));
       }
     }
