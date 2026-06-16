@@ -134,6 +134,10 @@ interface DocumentGenerateModalProps {
   contractNumber?: string;
   onClose: () => void;
   onGenerated?: () => void;
+  // 견적서 등 다른 소스에서도 재사용 (기본: 계약)
+  sourceType?: 'contract' | 'quote';
+  sourceId?: string;
+  sourceNumber?: string;
 }
 
 const DocumentGenerateModal: React.FC<DocumentGenerateModalProps> = ({
@@ -142,8 +146,15 @@ const DocumentGenerateModal: React.FC<DocumentGenerateModalProps> = ({
   contractNumber,
   onClose,
   onGenerated,
+  sourceType,
+  sourceId,
+  sourceNumber,
 }) => {
   const { user } = useAuthStore();
+  // 소스 일반화: 견적이면 quote, 아니면 계약
+  const sType: 'contract' | 'quote' = sourceType || 'contract';
+  const srcId = sourceId || contractId;
+  const isQuote = sType === 'quote';
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -305,16 +316,16 @@ const DocumentGenerateModal: React.FC<DocumentGenerateModalProps> = ({
 
       if (customTemplateExt === '.xlsx' || customTemplateExt === '.xls') {
         result = await window.electronAPI.documents.fillXlsx(
-          user.id, contractId, customTemplatePath, 'contract'
+          user.id, srcId, customTemplatePath, sType
         );
       } else if (customTemplateExt === '.docx') {
         result = await window.electronAPI.documents.fillDocx(
-          user.id, contractId, customTemplatePath, 'contract'
+          user.id, srcId, customTemplatePath, sType
         );
       } else if (customTemplateExt === '.hwpx') {
         // HWPX 커스텀 템플릿은 fillTemplate 사용
         result = await window.electronAPI.documents.fillTemplate(
-          user.id, contractId, customTemplatePath, 'contract'
+          user.id, srcId, customTemplatePath, sType
         );
       } else {
         result = { success: false, error: '지원하지 않는 파일 형식입니다.' };
@@ -442,11 +453,11 @@ const DocumentGenerateModal: React.FC<DocumentGenerateModalProps> = ({
         const ext = (template.name.substring(template.name.lastIndexOf('.')) || '').toLowerCase();
 
         if (ext === '.xlsx' || ext === '.xls') {
-          result = await window.electronAPI.documents.fillXlsx(user.id, contractId, template.fullPath, 'contract');
+          result = await window.electronAPI.documents.fillXlsx(user.id, srcId, template.fullPath, sType);
         } else if (ext === '.docx') {
-          result = await window.electronAPI.documents.fillDocx(user.id, contractId, template.fullPath, 'contract');
+          result = await window.electronAPI.documents.fillDocx(user.id, srcId, template.fullPath, sType);
         } else if (ext === '.hwpx') {
-          result = await window.electronAPI.documents.fillTemplate(user.id, contractId, template.fullPath, 'contract');
+          result = await window.electronAPI.documents.fillTemplate(user.id, srcId, template.fullPath, sType);
         } else {
           errors.push(`${template.name}: 지원하지 않는 형식 (${ext})`);
           continue;
@@ -546,11 +557,11 @@ const DocumentGenerateModal: React.FC<DocumentGenerateModalProps> = ({
         <div>
           <Title level={5} style={{ margin: 0 }}>
             <FileTextOutlined style={{ marginRight: 8 }} />
-            문서 생성
+            {isQuote ? '견적서 생성' : '문서 생성'}
           </Title>
-          {contractNumber && (
+          {(sourceNumber || contractNumber) && (
             <Text type="secondary" style={{ fontSize: 12 }}>
-              계약번호: {contractNumber}
+              {isQuote ? '견적번호' : '계약번호'}: {sourceNumber || contractNumber}
             </Text>
           )}
         </div>
@@ -625,7 +636,7 @@ const DocumentGenerateModal: React.FC<DocumentGenerateModalProps> = ({
         <Tabs
           activeKey={activeTab}
           onChange={setActiveTab}
-          items={[
+          items={([
             {
               key: 'server',
               label: (
@@ -1044,7 +1055,7 @@ const DocumentGenerateModal: React.FC<DocumentGenerateModalProps> = ({
                 </>
               ),
             },
-          ]}
+          ] as any[]).filter((t: any) => (isQuote ? ['server', 'custom'].includes(t.key) : true))}
         />
       )}
     </Modal>

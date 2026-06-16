@@ -11,6 +11,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useQuoteStore } from '../../store/quoteStore';
 import RecommendationPopover from '../../components/common/RecommendationPopover';
 import DocumentAttachment from '../../components/documents/DocumentAttachment';
+import DocumentGenerateModal from '../../components/documents/DocumentGenerateModal';
 import QuoteAmountHistory from './QuoteAmountHistory';
 import EmailSendModal from '../../components/common/EmailSendModal';
 import PdfPreviewModal from '../../components/common/PdfPreviewModal';
@@ -77,7 +78,7 @@ const QuoteForm: React.FC = () => {
   const [emailModalVisible, setEmailModalVisible] = useState(false);
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [previewVisible, setPreviewVisible] = useState(false);
-  const [docGenerating, setDocGenerating] = useState(false);
+  const [docModalOpen, setDocModalOpen] = useState(false);
 
   // 프로젝트 멤버
   const [quoteUsers, setQuoteUsers] = useState<any[]>([]);
@@ -1353,22 +1354,7 @@ const QuoteForm: React.FC = () => {
     }
   };
 
-  const handleGenerateDocument = async () => {
-    if (!user?.id || !id) return;
-    setDocGenerating(true);
-    try {
-      const result = await window.electronAPI.quotes.generateDocument(user.id, id);
-      if (result.success) {
-        message.success('견적서가 출력되었습니다.');
-      } else if (result.error !== 'canceled') {
-        message.error(result.error || '견적서 출력에 실패했습니다.');
-      }
-    } catch (err: any) {
-      message.error(err?.message || '견적서 출력 중 오류가 발생했습니다.');
-    } finally {
-      setDocGenerating(false);
-    }
-  };
+  // 견적서 출력 = 양식보관소 양식에 견적 데이터 채우기 (데스크톱·웹 공용)
 
   if (isLoading && isEdit) {
     return (
@@ -1429,8 +1415,10 @@ const QuoteForm: React.FC = () => {
               </Button>
               <Button
                 icon={<FileTextOutlined />}
-                onClick={handleGenerateDocument}
-                loading={docGenerating}
+                onClick={() => {
+                  if (!id) { message.warning('견적 저장 후 출력 가능합니다.'); return; }
+                  setDocModalOpen(true);
+                }}
               >
                 견적서 출력
               </Button>
@@ -2023,6 +2011,18 @@ const QuoteForm: React.FC = () => {
           type="quote"
           documentId={id}
           documentNumber={currentQuote?.quote_number}
+        />
+      )}
+
+      {/* 견적서 출력 (양식보관소 양식 채우기 — 데스크톱·웹 공용) */}
+      {id && (
+        <DocumentGenerateModal
+          visible={docModalOpen}
+          contractId={id}
+          sourceType="quote"
+          sourceId={id}
+          sourceNumber={currentQuote?.quote_number}
+          onClose={() => setDocModalOpen(false)}
         />
       )}
 
