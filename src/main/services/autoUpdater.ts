@@ -14,22 +14,19 @@ function isVersionBelow(current: string, minimum: string): boolean {
   return false;
 }
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://silvsqcwearelrumtqqm.supabase.co';
-const UPDATE_FEED_URL = `${SUPABASE_URL}/functions/v1/get-update-feed`;
-
 export function initAutoUpdater(mainWindow: BrowserWindow) {
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.logger = console;
 
-  // 동적 feed URL 사용 — Edge Function이 인증 확인 후 signed URL 발급
+  // GitHub Releases 기반 자동업데이트 (공개 저장소 — 토큰 불필요, 무료)
   autoUpdater.setFeedURL({
-    provider: 'generic',
-    url: UPDATE_FEED_URL,
-    useMultipleRangeRequest: false,
+    provider: 'github',
+    owner: 'capjimmy',
+    repo: 'easycompany-mainboard',
   } as any);
 
-  console.log('[AutoUpdater] 초기화 - 현재 버전:', app.getVersion(), '| Feed:', UPDATE_FEED_URL);
+  console.log('[AutoUpdater] 초기화 - 현재 버전:', app.getVersion(), '| Feed: GitHub Releases (capjimmy/easycompany-mainboard)');
 
   autoUpdater.on('update-available', (info) => {
     console.log('[AutoUpdater] 업데이트 발견:', info.version);
