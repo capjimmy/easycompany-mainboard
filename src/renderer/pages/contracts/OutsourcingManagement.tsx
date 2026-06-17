@@ -581,7 +581,8 @@ const OutsourcingManagement: React.FC = () => {
                   placeholder="계약번호 또는 용역명으로 검색"
                   showSearch
                   filterOption={(input, option) => {
-                    const label = (option?.children as unknown as string) || '';
+                    const ch: any = option?.children;
+                    const label = Array.isArray(ch) ? ch.join('') : String(ch ?? '');
                     return label.toLowerCase().includes(input.toLowerCase());
                   }}
                 >

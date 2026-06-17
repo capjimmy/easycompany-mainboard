@@ -1276,20 +1276,9 @@ const ContractForm: React.FC = () => {
           </Row>
         </Card>
 
-        {/* 인건비/경비/상세내역 편집 */}
-        <ContractItemsEditor
-          contractId={isEdit ? id : undefined}
-          laborItems={laborItems}
-          expenseItems={expenseItems}
-          sections={sectionItems}
-          onLaborChange={setLaborItems}
-          onExpenseChange={setExpenseItems}
-          onSectionChange={setSectionItems}
-          vatEnabled={vatEnabled}
-          onVatEnabledChange={setVatEnabled}
-        />
+        {/* 인건비/경비/상세내역 — 계약관리에서는 제거(요청). 계약은 직접금액/발주처 기준. (견적서에서 사용) */}
 
-        {/* 직접 금액 입력 (항목이 없을 때) */}
+        {/* 금액 정보 (직접 입력) */}
         {!hasItems && (
           <Card title="금액 정보 (직접 입력)" style={{ marginBottom: 16 }}>
             <Row gutter={16}>

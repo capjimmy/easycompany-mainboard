@@ -551,9 +551,11 @@ export function registerContractHandlers(): void {
     }
 
     // 발주처(공동발주) 업데이트 (clients 배열 전달 시 전체 교체)
+    let hasClientUpdate = false;
     if (contractData.clients !== undefined && Array.isArray(contractData.clients)) {
       await db.deleteContractClientsByContractId(contractId);
       if (contractData.clients.length > 0) {
+        hasClientUpdate = true;
         const cVat = contractData.vat_rate || 0.1;
         const preparedClients = contractData.clients.map((c: any, idx: number) => {
           const amt = Number(c.amount) || 0;
@@ -579,8 +581,12 @@ export function registerContractHandlers(): void {
       }
     }
 
-    // 금액 재계산 (항목 기반)
-    const hasItemData = laborItems !== undefined || expenseItems !== undefined || sectionItems !== undefined;
+    // 금액 재계산 (항목 기반) — 빈 배열은 "항목 없음"으로 취급(직접금액 보존). 발주처(공동발주) 있으면 위에서 이미 계산됨.
+    const hasItemData = !hasClientUpdate && (
+      (Array.isArray(laborItems) && laborItems.length > 0)
+      || (Array.isArray(expenseItems) && expenseItems.length > 0)
+      || (Array.isArray(sectionItems) && sectionItems.length > 0)
+    );
     if (hasItemData) {
       const laborTotal = (laborItems || []).reduce((sum: number, item: any) => sum + (item.subtotal || 0), 0);
       const expenseTotal = (expenseItems || []).reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
