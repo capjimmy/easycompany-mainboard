@@ -112,6 +112,8 @@ const ContractForm: React.FC = () => {
 
   // 인건비/경비/상세내역
   const [laborItems, setLaborItems] = useState<LaborItem[]>([]);
+  // 발주처(공동발주) — 한 계약에 여러 발주처, 각사 금액
+  const [clients, setClients] = useState<any[]>([]);
   const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([]);
   const [sectionItems, setSectionItems] = useState<SectionItem[]>([]);
   const [laborGrades, setLaborGrades] = useState<any[]>([]);
@@ -372,6 +374,18 @@ const ContractForm: React.FC = () => {
       setWatchedClient(currentContract.client_company || '');
       setWatchedService(currentContract.service_name || '');
 
+      // 발주처(공동발주) 로드
+      if ((currentContract as any).clients?.length > 0) {
+        setClients((currentContract as any).clients.map((c: any, i: number) => ({
+          key: `client-${i}`,
+          client_company: c.client_company || '',
+          client_business_number: c.client_business_number || '',
+          client_contact_name: c.client_contact_name || '',
+          client_contact_phone: c.client_contact_phone || '',
+          amount: c.amount || 0,
+        })));
+      }
+
       // 인건비 항목 로드
       if (currentContract.laborItems?.length > 0) {
         setLaborItems(
@@ -462,6 +476,8 @@ const ContractForm: React.FC = () => {
       sectionItems,
       section_total: sectionTotal,
       members: membersData,
+      // 발주처(공동발주) — 업체명 있는 행만
+      clients: clients.filter((c) => (c.client_company || '').trim()),
     };
 
     try {
@@ -1079,6 +1095,43 @@ const ContractForm: React.FC = () => {
           </Row>
         </Card>
 
+        {/* 발주처 (공동발주) — 한 계약에 여러 발주처, 각사 금액 */}
+        <Card
+          title="발주처 (공동발주)"
+          size="small"
+          style={{ marginBottom: 16 }}
+          extra={
+            <Button
+              size="small"
+              type="dashed"
+              onClick={() => setClients([...clients, { key: `client-${Date.now()}`, client_company: '', client_business_number: '', client_contact_name: '', client_contact_phone: '', amount: 0 }])}
+            >
+              + 발주처 추가
+            </Button>
+          }
+        >
+          <div style={{ marginBottom: 8, fontSize: 12, color: '#888' }}>
+            여러 발주처가 공동발주한 계약이면 각 발주처와 금액을 추가하세요. 추가하면 <strong>계약총액 = 발주처 금액 합</strong>으로 계산되고, 청구·수금을 발주처별로 관리할 수 있습니다. (발주처가 한 곳이면 추가 안 하셔도 됩니다)
+          </div>
+          {clients.length > 0 && (
+            <>
+              {clients.map((c, idx) => (
+                <Row gutter={8} key={c.key || idx} style={{ marginBottom: 8 }}>
+                  <Col span={6}><Input placeholder="업체명" value={c.client_company} onChange={(e) => { const n = [...clients]; n[idx] = { ...c, client_company: e.target.value }; setClients(n); }} /></Col>
+                  <Col span={5}><Input placeholder="사업자번호" value={c.client_business_number} onChange={(e) => { const n = [...clients]; n[idx] = { ...c, client_business_number: e.target.value }; setClients(n); }} /></Col>
+                  <Col span={4}><Input placeholder="담당/연락처" value={c.client_contact_phone} onChange={(e) => { const n = [...clients]; n[idx] = { ...c, client_contact_phone: e.target.value }; setClients(n); }} /></Col>
+                  <Col span={6}><InputNumber style={{ width: '100%' }} placeholder="금액(VAT별도)" min={0} value={c.amount} formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} parser={((v?: string) => Number((v || '').replace(/[^0-9]/g, ''))) as any} onChange={(v) => { const n = [...clients]; n[idx] = { ...c, amount: v || 0 }; setClients(n); }} /></Col>
+                  <Col span={3}><Button danger size="small" onClick={() => setClients(clients.filter((_, i) => i !== idx))}>삭제</Button></Col>
+                </Row>
+              ))}
+              <Divider style={{ margin: '8px 0' }} />
+              <div style={{ textAlign: 'right', fontWeight: 'bold' }}>
+                발주처 합계(공급가): {clients.reduce((s, c) => s + (Number(c.amount) || 0), 0).toLocaleString()}원
+              </div>
+            </>
+          )}
+        </Card>
+
         {/* 계약 정보 */}
         <Card title="계약 정보" style={{ marginBottom: 16 }}>
           <Row gutter={16}>
@@ -1491,6 +1544,27 @@ const ContractForm: React.FC = () => {
           </Row>
         </Card>
       </Form>
+
+      {/* 발주처별 현황 (청구·수금·진행률) — 편집모드 */}
+      {isEdit && (currentContract as any)?.clients?.length > 0 && (
+        <Card title="발주처별 현황 (청구·수금)" style={{ marginBottom: 16 }}>
+          <Table
+            size="small"
+            pagination={false}
+            rowKey={(r: any) => r.id}
+            dataSource={(currentContract as any).clients}
+            columns={[
+              { title: '발주처', dataIndex: 'client_company' },
+              { title: '계약액', dataIndex: 'total_amount', align: 'right' as const, render: (v: number) => (v || 0).toLocaleString() + '원' },
+              { title: '청구', dataIndex: 'billed_amount', align: 'center' as const, render: (v: number) => (v > 0 ? <Tag color="blue">{(v || 0).toLocaleString()}원</Tag> : <Tag>미청구</Tag>) },
+              { title: '수금', dataIndex: 'received_amount', align: 'center' as const, render: (v: number, r: any) => { const done = (v || 0) >= (r.total_amount || 0) && (r.total_amount || 0) > 0; return v > 0 ? <Tag color={done ? 'green' : 'orange'}>{(v || 0).toLocaleString()}원 {done ? '완납' : '일부'}</Tag> : <Tag color="red">미지급</Tag>; } },
+              { title: '미수금', dataIndex: 'remaining_amount', align: 'right' as const, render: (v: number) => (v || 0).toLocaleString() + '원' },
+              { title: '진행률', dataIndex: 'progress_rate', align: 'center' as const, render: (v: number) => (v || 0) + '%' },
+              { title: '수금률', dataIndex: 'collection_rate', align: 'center' as const, render: (v: number) => (v || 0) + '%' },
+            ]}
+          />
+        </Card>
+      )}
 
       {/* 견적서 연결 */}
       <Card
