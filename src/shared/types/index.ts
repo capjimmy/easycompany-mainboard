@@ -255,11 +255,30 @@ export type ContractType =
   | 'other';
 
 // 계약서
+// 한 계약의 발주처(공동발주) — 각사 지분(금액)·청구·수금 (2026-06-17)
+export interface ContractClient {
+  id: string;
+  contract_id: string;
+  client_company: string;
+  client_business_number?: string;
+  client_contact_name?: string;
+  client_contact_phone?: string;
+  client_contact_email?: string;
+  amount?: number;            // 각사 공급가(VAT 별도)
+  vat_amount?: number;
+  total_amount?: number;      // 각사 총액(VAT 포함)
+  billed_amount?: number;     // 각사 청구액(청구메뉴 연동 집계)
+  received_amount?: number;   // 각사 수금액
+  remaining_amount?: number;  // 각사 미수금
+  sort_order?: number;
+}
+
 export interface Contract {
   id: string;
   company_id: string;
   contract_number: string;         // C-2024-0001
   contract_code?: string;
+  clients?: ContractClient[];      // 발주처 여러 곳(공동발주). 비어있으면 단일(client_company)
 
   // 발주기관 정보
   client_business_number?: string;

@@ -1072,6 +1072,21 @@ export const db = {
     await supabase.from('contract_labor_items').delete().eq('contract_id', contractId);
   },
 
+  // ========== Contract Clients (발주처 — 공동발주) ==========
+  getContractClientsByContractId: async (contractId: string) => {
+    const { data } = await supabase.from('contract_clients').select('*').eq('contract_id', contractId).order('sort_order', { ascending: true });
+    return data || [];
+  },
+  addContractClients: async (items: any[]) => {
+    if (items.length === 0) return [];
+    const { data, error } = await supabase.from('contract_clients').insert(items).select();
+    if (error) throw error;
+    return data || [];
+  },
+  deleteContractClientsByContractId: async (contractId: string) => {
+    await supabase.from('contract_clients').delete().eq('contract_id', contractId);
+  },
+
   // ========== Contract Expense Items (계약 경비) ==========
   getContractExpenseItems: async (contractId: string) => {
     const { data } = await supabase.from('contract_expense_items').select('*').eq('contract_id', contractId).order('created_at', { ascending: true });

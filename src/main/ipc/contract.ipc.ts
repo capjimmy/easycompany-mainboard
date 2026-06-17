@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron';
 import { db } from '../database';
+import { supabase } from '../database/supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
 import type { ContractProgress } from '../../shared/types';
 
@@ -158,6 +159,23 @@ export function registerContractHandlers(): void {
     const sections = await db.getContractSections(contractId);
     // 멤버 조회
     const members = await db.getContractMembers(contractId);
+    // 발주처(공동발주) + 발주처별 청구/수금/진행률 집계
+    const clients = await db.getContractClientsByContractId(contractId);
+    if (clients.length > 0) {
+      const subtasks = await db.getContractSubtasks(contractId);
+      const { data: billings } = await supabase.from('billings').select('contract_client_id, billing_amount').eq('contract_id', contractId);
+      for (const cl of clients as any[]) {
+        const billed = (billings || []).filter((b: any) => b.contract_client_id === cl.id).reduce((s: number, b: any) => s + (Number(b.billing_amount) || 0), 0);
+        const received = (payments || []).filter((p: any) => p.contract_client_id === cl.id).reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0);
+        const cTasks = (subtasks || []).filter((t: any) => t.contract_client_id === cl.id);
+        const progress = cTasks.length > 0 ? Math.round(cTasks.reduce((s: number, t: any) => s + (Number(t.progress_rate) || 0), 0) / cTasks.length) : 0;
+        cl.billed_amount = billed;
+        cl.received_amount = received;
+        cl.remaining_amount = (Number(cl.total_amount) || 0) - received;
+        cl.progress_rate = progress;                                   // 발주처별 작업진행률
+        cl.collection_rate = cl.total_amount ? Math.round((received / cl.total_amount) * 100) : 0; // 수금률
+      }
+    }
 
     return {
       success: true,
@@ -170,6 +188,7 @@ export function registerContractHandlers(): void {
         expenseItems,
         sections,
         members,
+        clients,
       },
     };
   });
@@ -203,9 +222,16 @@ export function registerContractHandlers(): void {
     const expenseTotal = expenseItems.reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
     const sectionTotal = contractData.section_total || 0;
 
+    // 발주처(공동발주)가 있으면 계약총액 = 발주처 금액 합
+    const hasClients = Array.isArray(contractData.clients) && contractData.clients.length > 0;
+    const clientsTotal = hasClients
+      ? contractData.clients.reduce((s: number, c: any) => s + (Number(c.amount) || 0), 0)
+      : 0;
     // 항목이 있으면 항목 합계 사용, 없으면 직접 입력 금액 사용
     const hasItems = laborItems.length > 0 || expenseItems.length > 0 || sectionItems.length > 0;
-    const contractAmount = hasItems ? (laborTotal + expenseTotal + sectionTotal) : (contractData.contract_amount || 0);
+    const contractAmount = hasClients
+      ? clientsTotal
+      : (hasItems ? (laborTotal + expenseTotal + sectionTotal) : (contractData.contract_amount || 0));
     const vatRate = contractData.vat_rate || 0.1;
     const vatAmount = Math.round(contractAmount * vatRate);
     const totalAmount = contractAmount + vatAmount;
@@ -370,6 +396,32 @@ export function registerContractHandlers(): void {
       await db.addContractSections(preparedSections);
     }
 
+    // 발주처(공동발주) 저장
+    if (hasClients) {
+      const preparedClients = contractData.clients.map((c: any, idx: number) => {
+        const amt = Number(c.amount) || 0;
+        const vat = Math.round(amt * vatRate);
+        const tot = amt + vat;
+        return {
+          id: uuidv4(),
+          contract_id: contractId,
+          client_company: c.client_company || '',
+          client_business_number: c.client_business_number || null,
+          client_contact_name: c.client_contact_name || null,
+          client_contact_phone: c.client_contact_phone || null,
+          client_contact_email: c.client_contact_email || null,
+          amount: amt,
+          vat_amount: vat,
+          total_amount: tot,
+          billed_amount: 0,
+          received_amount: 0,
+          remaining_amount: tot,
+          sort_order: idx,
+        };
+      });
+      await db.addContractClients(preparedClients);
+    }
+
     // 생성 이력 추가
     await db.addContractHistory({
       id: uuidv4(),
@@ -492,6 +544,35 @@ export function registerContractHandlers(): void {
           };
         });
         await db.addContractSections(preparedSections);
+      }
+    }
+
+    // 발주처(공동발주) 업데이트 (clients 배열 전달 시 전체 교체)
+    if (contractData.clients !== undefined && Array.isArray(contractData.clients)) {
+      await db.deleteContractClientsByContractId(contractId);
+      if (contractData.clients.length > 0) {
+        const cVat = contractData.vat_rate || 0.1;
+        const preparedClients = contractData.clients.map((c: any, idx: number) => {
+          const amt = Number(c.amount) || 0;
+          const vat = Math.round(amt * cVat);
+          const tot = amt + vat;
+          return {
+            id: c.id || uuidv4(), contract_id: contractId, client_company: c.client_company || '',
+            client_business_number: c.client_business_number || null, client_contact_name: c.client_contact_name || null,
+            client_contact_phone: c.client_contact_phone || null, client_contact_email: c.client_contact_email || null,
+            amount: amt, vat_amount: vat, total_amount: tot,
+            billed_amount: Number(c.billed_amount) || 0, received_amount: Number(c.received_amount) || 0,
+            remaining_amount: tot - (Number(c.received_amount) || 0), sort_order: idx,
+          };
+        });
+        await db.addContractClients(preparedClients);
+        // 계약 총액 = 발주처 합으로
+        const cTotal = preparedClients.reduce((s: number, x: any) => s + (x.amount || 0), 0);
+        const cVatTotal = preparedClients.reduce((s: number, x: any) => s + (x.vat_amount || 0), 0);
+        updates.contract_amount = cTotal;
+        updates.vat_amount = cVatTotal;
+        updates.total_amount = cTotal + cVatTotal;
+        updates.remaining_amount = (cTotal + cVatTotal) - (contract.received_amount || 0);
       }
     }
 
