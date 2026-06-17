@@ -163,10 +163,13 @@ export function registerContractHandlers(): void {
     const clients = await db.getContractClientsByContractId(contractId);
     if (clients.length > 0) {
       const subtasks = await db.getContractSubtasks(contractId);
-      const { data: billings } = await supabase.from('billings').select('contract_client_id, billing_amount').eq('contract_id', contractId);
+      // 청구메뉴(billings) 연동: 청구=billing_amount, 수금=paid_amount (+직접 수금기록 contract_payments도 합산)
+      const { data: billings } = await supabase.from('billings').select('contract_client_id, billing_amount, paid_amount').eq('contract_id', contractId);
       for (const cl of clients as any[]) {
         const billed = (billings || []).filter((b: any) => b.contract_client_id === cl.id).reduce((s: number, b: any) => s + (Number(b.billing_amount) || 0), 0);
-        const received = (payments || []).filter((p: any) => p.contract_client_id === cl.id).reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0);
+        const recvBill = (billings || []).filter((b: any) => b.contract_client_id === cl.id).reduce((s: number, b: any) => s + (Number(b.paid_amount) || 0), 0);
+        const recvPay = (payments || []).filter((p: any) => p.contract_client_id === cl.id).reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0);
+        const received = recvBill + recvPay;
         const cTasks = (subtasks || []).filter((t: any) => t.contract_client_id === cl.id);
         const progress = cTasks.length > 0 ? Math.round(cTasks.reduce((s: number, t: any) => s + (Number(t.progress_rate) || 0), 0) / cTasks.length) : 0;
         cl.billed_amount = billed;
@@ -771,6 +774,7 @@ export function registerContractHandlers(): void {
     const newPayment = {
       id: paymentId,
       contract_id: contractId,
+      contract_client_id: paymentData.contract_client_id || null,
       payment_date: paymentData.payment_date || now.split('T')[0],
       amount: amount,
       payment_method: paymentData.payment_method || null,

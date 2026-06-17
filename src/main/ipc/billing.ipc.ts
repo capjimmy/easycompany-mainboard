@@ -62,6 +62,7 @@ export function registerBillingHandlers(): void {
         company_id: companyId,
         receivable_id: data.receivable_id || null,
         contract_id: data.contract_id || null,
+        contract_client_id: data.contract_client_id || null,
         client_company_id: data.client_company_id || null,
         billing_number: data.billing_number || '',
         description: data.description || '',

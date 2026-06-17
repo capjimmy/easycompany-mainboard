@@ -77,6 +77,7 @@ const BillingPayment: React.FC = () => {
   const [billings, setBillings] = useState<Billing[]>([]);
   const [payments, setPayments] = useState<PaymentReceipt[]>([]);
   const [contracts, setContracts] = useState<any[]>([]);
+  const [billClients, setBillClients] = useState<any[]>([]); // 선택 계약의 발주처(공동발주)
   const [isLoading, setIsLoading] = useState(false);
   const [billingModalVisible, setBillingModalVisible] = useState(false);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
@@ -515,7 +516,18 @@ const BillingPayment: React.FC = () => {
       >
         <Form form={billingForm} layout="vertical" onFinish={handleBillingSubmit}>
           <Form.Item name="contract_id" label="계약" rules={[{ required: true, message: '계약을 선택하세요' }]}>
-            <Select placeholder="계약 선택" showSearch optionFilterProp="children">
+            <Select
+              placeholder="계약 선택"
+              showSearch
+              optionFilterProp="children"
+              onChange={async (cid: string) => {
+                billingForm.setFieldsValue({ contract_client_id: undefined });
+                try {
+                  const r: any = await window.electronAPI.contracts.getById(user!.id, cid);
+                  setBillClients(r?.contract?.clients || []);
+                } catch { setBillClients([]); }
+              }}
+            >
               {contracts.map((c: any) => (
                 <Option key={c.id} value={c.id}>
                   {c.contract_number} - {c.service_name || c.client_company || ''}
@@ -523,6 +535,17 @@ const BillingPayment: React.FC = () => {
               ))}
             </Select>
           </Form.Item>
+          {billClients.length > 0 && (
+            <Form.Item name="contract_client_id" label="발주처 (공동발주)" rules={[{ required: true, message: '청구할 발주처를 선택하세요' }]}>
+              <Select placeholder="이 청구의 발주처 선택">
+                {billClients.map((c: any) => (
+                  <Option key={c.id} value={c.id}>
+                    {c.client_company} (계약액 {(c.total_amount || 0).toLocaleString()}원)
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+          )}
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="billing_type" label="청구유형" rules={[{ required: true }]}>
