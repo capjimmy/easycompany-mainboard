@@ -1,6 +1,27 @@
 import { ipcMain } from 'electron';
 import { db } from '../database';
+import { supabase } from '../database/supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
+
+/**
+ * 계약 수금/미수금 재계산 = 직접수금(contract_payments) + 입금완료된 발행 세금계산서 합.
+ * 세금계산서로 입금처리한 분이 계약관리 미수금에 반영되도록.
+ */
+async function recomputeContractReceived(contractId: string): Promise<void> {
+  if (!contractId) return;
+  const contract = await db.getContractById(contractId);
+  if (!contract) return;
+  const { data: pays } = await supabase.from('contract_payments').select('amount').eq('contract_id', contractId);
+  const payTotal = (pays || []).reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0);
+  const { data: tis } = await supabase.from('tax_invoices')
+    .select('total_amount, status, payment_date, direction').eq('contract_id', contractId).eq('direction', 'issued');
+  const tiPaid = (tis || [])
+    .filter((t: any) => t.status === 'paid' || t.payment_date)
+    .reduce((s: number, t: any) => s + (Number(t.total_amount) || 0), 0);
+  const received = payTotal + tiPaid;
+  const total = Number(contract.total_amount) || 0;
+  await db.updateContract(contractId, { received_amount: received, remaining_amount: total - received });
+}
 
 /**
  * 세금계산서가 paid 상태가 되면 대응하는 payment_receipt를 자동 생성
@@ -162,6 +183,7 @@ export function registerTaxInvoiceHandlers(): void {
         buyer_representative: data.buyer_representative || '',
         buyer_email: data.buyer_email || '',
         issue_date: data.issue_date || new Date().toISOString().split('T')[0],
+        payment_date: data.payment_date || null,   // 입금일
         status: data.status || 'draft',
         item_description: data.item_description || '',
         notes: data.notes || '',
@@ -171,6 +193,7 @@ export function registerTaxInvoiceHandlers(): void {
       };
 
       const result = await db.addTaxInvoice(invoice);
+      if (invoice.contract_id) { try { await recomputeContractReceived(invoice.contract_id); } catch { /* noop */ } }
       return { success: true, invoice: result };
     } catch (error: any) {
       return { success: false, error: error.message || '세금계산서 생성에 실패했습니다.' };
@@ -201,6 +224,9 @@ export function registerTaxInvoiceHandlers(): void {
           // 동기화 실패는 세금계산서 업데이트에 영향을 주지 않음
         }
       }
+      // 계약 수금/미수금 재계산 (입금완료 세금계산서 반영)
+      const cid = (result && result.contract_id) || existing.contract_id;
+      if (cid) { try { await recomputeContractReceived(cid); } catch { /* noop */ } }
 
       return result ? { success: true, invoice: result } : { success: false, error: '수정에 실패했습니다.' };
     } catch (error: any) {
@@ -222,6 +248,7 @@ export function registerTaxInvoiceHandlers(): void {
       }
 
       await db.deleteTaxInvoice(id);
+      if (existing.contract_id) { try { await recomputeContractReceived(existing.contract_id); } catch { /* noop */ } }
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message || '세금계산서 삭제에 실패했습니다.' };

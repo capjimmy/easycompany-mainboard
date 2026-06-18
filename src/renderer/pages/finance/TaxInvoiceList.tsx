@@ -221,6 +221,7 @@ const TaxInvoiceList: React.FC = () => {
       form.setFieldsValue({
         ...record,
         issue_date: record.issue_date ? dayjs(record.issue_date) : undefined,
+        payment_date: (record as any).payment_date ? dayjs((record as any).payment_date) : undefined,
       });
     } else {
       form.setFieldsValue({ direction: activeTab });
@@ -234,6 +235,7 @@ const TaxInvoiceList: React.FC = () => {
       ...values,
       company_id: companyId,
       issue_date: values.issue_date?.format('YYYY-MM-DD'),
+      payment_date: values.payment_date?.format('YYYY-MM-DD') || null,
     };
 
     try {
@@ -716,9 +718,18 @@ const TaxInvoiceList: React.FC = () => {
             </Col>
           </Row>
 
-          <Form.Item name="issue_date" label="발행일" rules={[{ required: true, message: '발행일을 선택해주세요.' }]}>
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="issue_date" label="발행일" rules={[{ required: true, message: '발행일을 선택해주세요.' }]}>
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="payment_date" label="입금일">
+                <DatePicker style={{ width: '100%' }} placeholder="입금완료일 (직접 입력)" />
+              </Form.Item>
+            </Col>
+          </Row>
 
           <Form.Item name="item_description" label="적요">
             <Input.TextArea rows={2} placeholder="용역명/품목 등을 직접 입력하거나 비워두면 계약명이 자동 사용됩니다" />
