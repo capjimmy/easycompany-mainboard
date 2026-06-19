@@ -134,6 +134,7 @@ export function registerTaxInvoiceHandlers(): void {
           const contract = contractMap.get(inv.contract_id);
           if (contract) {
             row.contract_name = contract.service_name || contract.contract_number || '';
+            row.contract_number = contract.contract_number || '';
             if (!row.client_name && contract.client_company) row.client_name = contract.client_company;
           }
         }

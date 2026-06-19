@@ -48,6 +48,16 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   cancelled: { label: '취소', color: 'error' },
 };
 
+// 공급자(자사) 목록 — 등록 시 선택하면 상호·사업자등록번호 자동 입력
+const SUPPLIER_OPTIONS = [
+  { name: '(사)건설경제연구원', business_number: '142-82-02180' },
+  { name: '건설환경연구소', business_number: '126-23-93703' },
+  { name: '㈜이지컨설턴트', business_number: '495-87-01417' },
+  { name: '이지건축사사무소', business_number: '223-30-01098' },
+  { name: '어반브릿지파트너스㈜', business_number: '841-81-02295' },
+  { name: '㈜하우징웰페어플러스', business_number: '476-86-01971' },
+];
+
 const TaxInvoiceList: React.FC = () => {
   const { user, selectedCompanyId } = useAuthStore();
   const companyId = selectedCompanyId || user?.company_id;
@@ -186,18 +196,28 @@ const TaxInvoiceList: React.FC = () => {
     return list;
   }, [invoices, activeTab, searchText, filterDeptId, filterStatus, filterClient, filterDateRange, contractDeptMap]);
 
+  // 조회 중인 목록(필터 반영) 기준 합계. 날짜필터 없으면 기본 이번 달.
   const monthlyStats = useMemo(() => {
-    const currentMonth = dayjs().format('YYYY-MM');
-    const monthItems = filteredInvoices.filter(
-      (inv) => dayjs(inv.issue_date).format('YYYY-MM') === currentMonth
-    );
+    let items = filteredInvoices;
+    let label = '전체';
+    if (filterDateRange) {
+      label = `${filterDateRange[0].format('YYYY-MM-DD')}~${filterDateRange[1].format('YYYY-MM-DD')}`;
+    } else {
+      const currentMonth = dayjs().format('YYYY-MM');
+      const monthItems = filteredInvoices.filter(
+        (inv) => dayjs(inv.issue_date).format('YYYY-MM') === currentMonth
+      );
+      // 이번 달 건이 있으면 이번 달, 없으면 전체(조회결과)로 표시
+      if (monthItems.length > 0) { items = monthItems; label = `${currentMonth} (이번 달)`; }
+    }
     return {
-      count: monthItems.length,
-      supply: monthItems.reduce((s, i) => s + (i.supply_amount || 0), 0),
-      vat: monthItems.reduce((s, i) => s + (i.vat_amount || 0), 0),
-      total: monthItems.reduce((s, i) => s + (i.total_amount || 0), 0),
+      label,
+      count: items.length,
+      supply: items.reduce((s, i) => s + (i.supply_amount || 0), 0),
+      vat: items.reduce((s, i) => s + (i.vat_amount || 0), 0),
+      total: items.reduce((s, i) => s + (i.total_amount || 0), 0),
     };
-  }, [filteredInvoices]);
+  }, [filteredInvoices, filterDateRange]);
 
   // 월별 통계 (전체 기간)
   const monthlyAggregate = useMemo(() => {
@@ -312,6 +332,12 @@ const TaxInvoiceList: React.FC = () => {
       width: 130,
     },
     {
+      title: '계약번호',
+      key: 'contract_number',
+      width: 130,
+      render: (_: any, record: TaxInvoice) => (record as any).contract_number || '-',
+    },
+    {
       title: '계약/외주',
       key: 'ref_name',
       ellipsis: true,
@@ -405,7 +431,7 @@ const TaxInvoiceList: React.FC = () => {
       {/* 월별 통계 */}
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={6}>
-          <Card><Statistic title={`이번 달 건수 (${activeTab === 'issued' ? '매출' : '매입'})`} value={monthlyStats.count} suffix="건" /></Card>
+          <Card><Statistic title={`건수 · ${activeTab === 'issued' ? '매출' : '매입'} [${monthlyStats.label}]`} value={monthlyStats.count} suffix="건" /></Card>
         </Col>
         <Col span={6}>
           <Card><Statistic title="공급가액 합계" value={monthlyStats.supply} suffix="원" valueStyle={{ color: '#1890ff' }} /></Card>
@@ -549,6 +575,20 @@ const TaxInvoiceList: React.FC = () => {
               </Form.Item>
             </Col>
           </Row>
+
+          <Form.Item label="공급자 선택 (빠른입력)">
+            <Select
+              allowClear
+              showSearch
+              placeholder="공급자를 선택하면 상호·사업자번호가 자동 입력됩니다"
+              optionFilterProp="label"
+              options={SUPPLIER_OPTIONS.map((s) => ({ value: s.name, label: `${s.name} (${s.business_number})` }))}
+              onChange={(val) => {
+                const sup = SUPPLIER_OPTIONS.find((s) => s.name === val);
+                if (sup) form.setFieldsValue({ supplier_name: sup.name, supplier_business_number: sup.business_number });
+              }}
+            />
+          </Form.Item>
 
           <Row gutter={16}>
             <Col span={12}>
