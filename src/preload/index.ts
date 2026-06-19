@@ -970,6 +970,20 @@ const electronAPI = {
   },
 
   // ========================================
+  // 월별입금현황 (Monthly Deposits)
+  // ========================================
+  monthlyDeposits: {
+    getAll: (requesterId: string, filters?: any) =>
+      ipcRenderer.invoke('monthlyDeposits:getAll', requesterId, filters),
+    create: (requesterId: string, data: any) =>
+      ipcRenderer.invoke('monthlyDeposits:create', requesterId, data),
+    update: (requesterId: string, id: string, data: any) =>
+      ipcRenderer.invoke('monthlyDeposits:update', requesterId, id, data),
+    delete: (requesterId: string, id: string) =>
+      ipcRenderer.invoke('monthlyDeposits:delete', requesterId, id),
+  },
+
+  // ========================================
   // 거래처 재무정보 (Client Company Financials)
   // ========================================
   clientFinancials: {

@@ -46,7 +46,7 @@ export function registerOutsourcingHandlers(): void {
       const contract = contractMap[o.contract_id];
       return {
         ...o,
-        service_name: contract?.service_name || '',
+        service_name: contract?.service_name || o.manual_service_name || '',
         client_company: contract?.client_company || '',
       };
     });
@@ -94,8 +94,9 @@ export function registerOutsourcingHandlers(): void {
     const outsourcing = {
       id: uuidv4(),
       company_id: companyId,
-      contract_id: data.contract_id,
+      contract_id: data.contract_id || null,
       contract_number: contractNumber,
+      manual_service_name: data.manual_service_name || null,
       vendor_name: data.vendor_name,
       vendor_type: data.vendor_type || 'company',
       vendor_business_number: data.vendor_business_number || '',
@@ -140,6 +141,8 @@ export function registerOutsourcingHandlers(): void {
     if (data.contract_id && data.contract_id !== existing.contract_id) {
       const contract = await db.getContractById(data.contract_id);
       if (contract) contractNumber = contract.contract_number;
+    } else if (Object.prototype.hasOwnProperty.call(data, 'contract_id') && !data.contract_id) {
+      contractNumber = ''; // 직접입력(계약 미연결)로 전환
     }
 
     const updates = {

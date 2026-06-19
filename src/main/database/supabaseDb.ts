@@ -1455,6 +1455,38 @@ export const db = {
     await supabase.from('provisional_payments').delete().eq('id', id);
   },
 
+  // ========== 월별입금현황 (Monthly Deposits) ==========
+  getMonthlyDeposits: async (companyId: string) => {
+    const { data } = await supabase
+      .from('monthly_deposits')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('payment_date', { ascending: false });
+    return data || [];
+  },
+  getMonthlyDepositById: async (id: string) => {
+    const { data } = await supabase.from('monthly_deposits').select('*').eq('id', id).single();
+    return data;
+  },
+  addMonthlyDeposit: async (deposit: any) => {
+    const { data, error } = await supabase.from('monthly_deposits').insert(deposit).select().single();
+    if (error) throw error;
+    return data;
+  },
+  updateMonthlyDeposit: async (id: string, updates: any) => {
+    const { data, error } = await supabase
+      .from('monthly_deposits')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  deleteMonthlyDeposit: async (id: string) => {
+    await supabase.from('monthly_deposits').delete().eq('id', id);
+  },
+
   // ========== Client Company Financials (거래처 재무정보) ==========
   getClientFinancials: async (clientCompanyId: string) => {
     const { data } = await supabase

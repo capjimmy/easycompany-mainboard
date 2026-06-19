@@ -58,6 +58,7 @@ const OutsourcingManagement: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [manualContract, setManualContract] = useState(false); // 계약 직접입력(미등록) 모드
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [vendorNameOptions, setVendorNameOptions] = useState<{ value: string; label: string; client: any }[]>([]);
@@ -106,6 +107,7 @@ const OutsourcingManagement: React.FC = () => {
 
   const handleAdd = () => {
     setEditingId(null);
+    setManualContract(false);
     form.resetFields();
     form.setFieldsValue({
       start_date: dayjs(),
@@ -119,6 +121,7 @@ const OutsourcingManagement: React.FC = () => {
 
   const handleEdit = (record: Outsourcing) => {
     setEditingId(record.id);
+    setManualContract(!record.contract_id && !!(record as any).manual_service_name);
     form.setFieldsValue({
       ...record,
       start_date: record.start_date ? dayjs(record.start_date) : null,
@@ -164,6 +167,9 @@ const OutsourcingManagement: React.FC = () => {
       vendor_type: values.vendor_type || 'company',
       show_on_calendar: values.show_on_calendar ?? false,
       vat_included: isVatIncluded,
+      // 계약 직접입력 모드: 계약 미연결 + 용역명 직접 기재 / 아니면 계약 연결
+      contract_id: manualContract ? null : values.contract_id,
+      manual_service_name: manualContract ? (values.manual_service_name || null) : null,
     };
 
     try {
@@ -300,12 +306,16 @@ const OutsourcingManagement: React.FC = () => {
       key: 'contract_number',
       width: 130,
       render: (num: string, record: Outsourcing) => (
-        <Tooltip title="계약 상세보기">
-          <a onClick={() => navigate(`/contracts/${record.contract_id}`)}>
-            <LinkOutlined style={{ marginRight: 4 }} />
-            {num}
-          </a>
-        </Tooltip>
+        record.contract_id ? (
+          <Tooltip title="계약 상세보기">
+            <a onClick={() => navigate(`/contracts/${record.contract_id}`)}>
+              <LinkOutlined style={{ marginRight: 4 }} />
+              {num}
+            </a>
+          </Tooltip>
+        ) : (
+          <Tag color="orange">직접입력</Tag>
+        )
       ),
     },
     {
@@ -569,30 +579,60 @@ const OutsourcingManagement: React.FC = () => {
         destroyOnClose
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
+          {/* 계약 연결 방식: 등록된 계약 선택 / 직접입력(미등록) */}
+          <Form.Item style={{ marginBottom: 8 }}>
+            <Space>
+              <Switch
+                checkedChildren="직접입력"
+                unCheckedChildren="계약선택"
+                checked={manualContract}
+                onChange={(v) => {
+                  setManualContract(v);
+                  if (v) form.setFieldsValue({ contract_id: undefined });
+                  else form.setFieldsValue({ manual_service_name: undefined });
+                }}
+              />
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {manualContract
+                  ? '계약 미등록 건 — 용역명을 직접 기재합니다 (추후 계약 등록 후 연결 가능)'
+                  : '등록된 계약에서 선택'}
+              </Text>
+            </Space>
+          </Form.Item>
           {/* C3: Searchable contract select with contract_number + service_name */}
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item
-                name="contract_id"
-                label="관련 계약"
-                rules={[{ required: true, message: '계약을 선택해주세요.' }]}
-              >
-                <Select
-                  placeholder="계약번호 또는 용역명으로 검색"
-                  showSearch
-                  filterOption={(input, option) => {
-                    const ch: any = option?.children;
-                    const label = Array.isArray(ch) ? ch.join('') : String(ch ?? '');
-                    return label.toLowerCase().includes(input.toLowerCase());
-                  }}
+              {manualContract ? (
+                <Form.Item
+                  name="manual_service_name"
+                  label="용역명 (직접입력)"
+                  rules={[{ required: true, message: '용역명을 입력해주세요.' }]}
                 >
-                  {contracts.map((c) => (
-                    <Option key={c.id} value={c.id}>
-                      {c.contract_number} - {c.service_name || c.client_company || ''}
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
+                  <Input placeholder="검색되지 않는 용역명을 직접 기재" />
+                </Form.Item>
+              ) : (
+                <Form.Item
+                  name="contract_id"
+                  label="관련 계약"
+                  rules={[{ required: true, message: '계약을 선택해주세요.' }]}
+                >
+                  <Select
+                    placeholder="계약번호 또는 용역명으로 검색"
+                    showSearch
+                    filterOption={(input, option) => {
+                      const ch: any = option?.children;
+                      const label = Array.isArray(ch) ? ch.join('') : String(ch ?? '');
+                      return label.toLowerCase().includes(input.toLowerCase());
+                    }}
+                  >
+                    {contracts.map((c) => (
+                      <Option key={c.id} value={c.id}>
+                        {c.contract_number} - {c.service_name || c.client_company || ''}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              )}
             </Col>
             <Col span={4}>
               {/* 선택한 계약의 부서 (읽기 전용) */}

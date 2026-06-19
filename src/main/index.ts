@@ -43,6 +43,7 @@ import { registerExpenseRequestHandlers } from './ipc/expenseRequest.ipc';
 import { registerVehicleHandlers } from './ipc/vehicle.ipc';
 import { registerSpaceHandlers } from './ipc/space.ipc';
 import { registerProvisionalPaymentHandlers } from './ipc/provisionalPayment.ipc';
+import { registerMonthlyDepositHandlers } from './ipc/monthlyDeposit.ipc';
 import { registerClientFinancialsHandlers } from './ipc/clientFinancials.ipc';
 import { registerContractMeetingNoteHandlers } from './ipc/contractMeetingNote.ipc';
 import { registerDirectorReportHandlers } from './ipc/directorReport.ipc';
@@ -177,6 +178,7 @@ app.whenReady().then(() => {
   registerVehicleHandlers();
   registerSpaceHandlers();
   registerProvisionalPaymentHandlers();
+  registerMonthlyDepositHandlers();
   registerClientFinancialsHandlers();
   registerContractMeetingNoteHandlers();
   registerDirectorReportHandlers();

@@ -27,6 +27,13 @@ interface ExpenseItem {
   supply_amount?: number;
   expense_date: string;
   category_name: string;
+  vendor_name?: string;             // 사용처
+  summary?: string;                 // 적요
+  vendor_business_number?: string;  // 사용처 사업자등록번호
+  payment_method?: string;          // 결제수단
+  card_number?: string;             // 법인카드 카드번호
+  settle_status?: string;           // 개인카드 지급여부(paid/unpaid)
+  department?: string;              // 경비사용 사업부
 }
 
 interface Expense {
@@ -53,6 +60,24 @@ const STATUS_CONFIG: Record<ExpenseStatus, { label: string; color: string }> = {
 const CATEGORY_OPTIONS = [
   '교통비', '식비', '숙박비', '소모품비', '통신비', '회의비', '접대비', '교육비',
   '택배비', '제본비', '기타',
+];
+
+const PAYMENT_METHOD_OPTIONS = [
+  { value: 'corporate_card', label: '법인카드' },
+  { value: 'auto_debit', label: '자동이체' },
+  { value: 'account_transfer', label: '계좌이체' },
+  { value: 'withdrawal', label: '인출' },
+  { value: 'personal_card', label: '개인카드' },
+];
+
+const SETTLE_STATUS_OPTIONS = [
+  { value: 'unpaid', label: '미지급' },
+  { value: 'paid', label: '지급' },
+];
+
+const DEPARTMENT_OPTIONS = [
+  '건설사업부', '개발사업부', '학술사업부', '인증사업부', '경영관리실',
+  '원장님', '유환태', '외주용역', '기타',
 ];
 
 const ExpenseSettlement: React.FC = () => {
@@ -205,6 +230,13 @@ const ExpenseSettlement: React.FC = () => {
         vat_included: vatIncluded,
         expense_date: it.expense_date?.format('YYYY-MM-DD'),
         category_name: it.category_name,
+        vendor_name: it.vendor_name || null,
+        summary: it.summary || null,
+        vendor_business_number: it.vendor_business_number || null,
+        payment_method: it.payment_method || null,
+        card_number: it.payment_method === 'corporate_card' ? (it.card_number || null) : null,
+        settle_status: it.payment_method === 'personal_card' ? (it.settle_status || null) : null,
+        department: it.department || null,
       };
     });
     const totalAmount = items.reduce((s: number, it: any) => s + (it.amount || 0), 0);
@@ -484,7 +516,7 @@ const ExpenseSettlement: React.FC = () => {
         onCancel={() => setModalOpen(false)}
         footer={null}
         destroyOnClose
-        width={720}
+        width={900}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Row gutter={16}>
@@ -505,48 +537,102 @@ const ExpenseSettlement: React.FC = () => {
             {(fields, { add, remove }) => (
               <>
                 {fields.map(({ key, name, ...restField }) => (
-                  <Row gutter={8} key={key} align="middle" style={{ marginBottom: 8 }}>
-                    <Col span={6}>
-                      <Form.Item {...restField} name={[name, 'description']} rules={[{ required: true, message: '내용 필수' }]} style={{ marginBottom: 0 }}>
-                        <Input placeholder="내용" />
-                      </Form.Item>
-                    </Col>
-                    <Col span={5}>
-                      <Form.Item {...restField} name={[name, 'amount']} rules={[{ required: true, message: '금액 필수' }]} style={{ marginBottom: 0 }}>
-                        <InputNumber
-                          style={{ width: '100%' }}
-                          placeholder="금액"
-                          min={0}
-                          formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                          parser={(v) => v!.replace(/,/g, '') as unknown as number}
-                        />
-                      </Form.Item>
-                    </Col>
-                    <Col span={3} style={{ textAlign: 'center' }}>
-                      <Form.Item {...restField} name={[name, 'vat_included']} valuePropName="checked" style={{ marginBottom: 0 }}>
-                        <Switch checkedChildren="VAT포함" unCheckedChildren="별도/면세" size="small" />
-                      </Form.Item>
-                    </Col>
-                    <Col span={4}>
-                      <Form.Item {...restField} name={[name, 'expense_date']} style={{ marginBottom: 0 }}>
-                        <DatePicker style={{ width: '100%' }} placeholder="지출일" />
-                      </Form.Item>
-                    </Col>
-                    <Col span={4}>
-                      <Form.Item {...restField} name={[name, 'category_name']} style={{ marginBottom: 0 }}>
-                        <Select placeholder="분류">
-                          {CATEGORY_OPTIONS.map((c) => (
-                            <Option key={c} value={c}>{c}</Option>
-                          ))}
-                        </Select>
-                      </Form.Item>
-                    </Col>
-                    <Col span={2} style={{ textAlign: 'center' }}>
-                      {fields.length > 1 && (
-                        <MinusCircleOutlined style={{ color: '#ff4d4f', cursor: 'pointer' }} onClick={() => remove(name)} />
-                      )}
-                    </Col>
-                  </Row>
+                  <div key={key} style={{ border: '1px solid #f0f0f0', borderRadius: 8, padding: 12, marginBottom: 12, position: 'relative', background: '#fafafa' }}>
+                    {fields.length > 1 && (
+                      <MinusCircleOutlined
+                        style={{ color: '#ff4d4f', cursor: 'pointer', position: 'absolute', top: 10, right: 10, fontSize: 16 }}
+                        onClick={() => remove(name)}
+                      />
+                    )}
+                    <Row gutter={8}>
+                      <Col span={5}>
+                        <Form.Item {...restField} name={[name, 'expense_date']} label="지출일" style={{ marginBottom: 8 }}>
+                          <DatePicker style={{ width: '100%' }} placeholder="지출일" />
+                        </Form.Item>
+                      </Col>
+                      <Col span={7}>
+                        <Form.Item {...restField} name={[name, 'vendor_name']} label="사용처" style={{ marginBottom: 8 }}>
+                          <Input placeholder="사용처(거래처/상호)" />
+                        </Form.Item>
+                      </Col>
+                      <Col span={6}>
+                        <Form.Item {...restField} name={[name, 'vendor_business_number']} label="사업자등록번호" style={{ marginBottom: 8 }}>
+                          <Input placeholder="000-00-00000" />
+                        </Form.Item>
+                      </Col>
+                      <Col span={6}>
+                        <Form.Item {...restField} name={[name, 'department']} label="사용 사업부" style={{ marginBottom: 8 }}>
+                          <Select placeholder="사업부" allowClear>
+                            {DEPARTMENT_OPTIONS.map((d) => (<Option key={d} value={d}>{d}</Option>))}
+                          </Select>
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                    <Row gutter={8}>
+                      <Col span={8}>
+                        <Form.Item {...restField} name={[name, 'description']} label="내용" rules={[{ required: true, message: '내용 필수' }]} style={{ marginBottom: 8 }}>
+                          <Input placeholder="내용" />
+                        </Form.Item>
+                      </Col>
+                      <Col span={10}>
+                        <Form.Item {...restField} name={[name, 'summary']} label="적요" style={{ marginBottom: 8 }}>
+                          <Input placeholder="적요(상세 설명)" />
+                        </Form.Item>
+                      </Col>
+                      <Col span={6}>
+                        <Form.Item {...restField} name={[name, 'category_name']} label="분류" style={{ marginBottom: 8 }}>
+                          <Select placeholder="분류">
+                            {CATEGORY_OPTIONS.map((c) => (<Option key={c} value={c}>{c}</Option>))}
+                          </Select>
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                    <Row gutter={8} align="bottom">
+                      <Col span={5}>
+                        <Form.Item {...restField} name={[name, 'payment_method']} label="결제수단" style={{ marginBottom: 0 }}>
+                          <Select placeholder="결제수단" allowClear>
+                            {PAYMENT_METHOD_OPTIONS.map((p) => (<Option key={p.value} value={p.value}>{p.label}</Option>))}
+                          </Select>
+                        </Form.Item>
+                      </Col>
+                      <Col span={6}>
+                        <Form.Item noStyle shouldUpdate={(prev, cur) => prev.items?.[name]?.payment_method !== cur.items?.[name]?.payment_method}>
+                          {() => {
+                            const pm = form.getFieldValue(['items', name, 'payment_method']);
+                            if (pm === 'corporate_card') {
+                              return (
+                                <Form.Item {...restField} name={[name, 'card_number']} label="카드번호" style={{ marginBottom: 0 }}>
+                                  <Input placeholder="법인카드 번호" />
+                                </Form.Item>
+                              );
+                            }
+                            if (pm === 'personal_card') {
+                              return (
+                                <Form.Item {...restField} name={[name, 'settle_status']} label="지급여부" style={{ marginBottom: 0 }}>
+                                  <Select placeholder="미지급/지급">
+                                    {SETTLE_STATUS_OPTIONS.map((s) => (<Option key={s.value} value={s.value}>{s.label}</Option>))}
+                                  </Select>
+                                </Form.Item>
+                              );
+                            }
+                            return <div style={{ height: 1 }} />;
+                          }}
+                        </Form.Item>
+                      </Col>
+                      <Col span={5}>
+                        <Form.Item {...restField} name={[name, 'amount']} label="금액" rules={[{ required: true, message: '금액 필수' }]} style={{ marginBottom: 0 }}>
+                          <InputNumber style={{ width: '100%' }} placeholder="금액" min={0}
+                            formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                            parser={(v) => v!.replace(/,/g, '') as unknown as number} />
+                        </Form.Item>
+                      </Col>
+                      <Col span={8}>
+                        <Form.Item {...restField} name={[name, 'vat_included']} label="부가세" valuePropName="checked" style={{ marginBottom: 0 }}>
+                          <Switch checkedChildren="VAT포함" unCheckedChildren="별도/면세" />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                  </div>
                 ))}
                 <Button type="dashed" onClick={() => add({ description: '', amount: 0, vat_included: false, expense_date: dayjs(), category_name: '기타' })} block icon={<PlusOutlined />} style={{ marginBottom: 16 }}>
                   항목 추가

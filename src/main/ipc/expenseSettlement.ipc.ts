@@ -34,7 +34,7 @@ export function registerExpenseSettlementHandlers(): void {
         );
       }
 
-      return { success: true, settlements };
+      return { success: true, data: settlements, settlements };
     } catch (error: any) {
       return { success: false, error: error.message || '경비정산 조회에 실패했습니다.' };
     }
@@ -86,6 +86,13 @@ export function registerExpenseSettlementHandlers(): void {
             supply_amount: Number(item.supply_amount) || 0,
             vat_amount: Number(item.vat_amount) || 0,
             vat_included: !!item.vat_included,
+            vendor_name: item.vendor_name || null,
+            summary: item.summary || null,
+            vendor_business_number: item.vendor_business_number || null,
+            payment_method: item.payment_method || null,
+            card_number: item.card_number || null,
+            settle_status: item.settle_status || null,
+            department: item.department || null,
             receipt_attached: item.receipt_attached ?? false,
             receipt_path: item.receipt_path || null,
             notes: item.notes || '',
@@ -132,6 +139,13 @@ export function registerExpenseSettlementHandlers(): void {
             supply_amount: Number(item.supply_amount) || 0,
             vat_amount: Number(item.vat_amount) || 0,
             vat_included: !!item.vat_included,
+            vendor_name: item.vendor_name || null,
+            summary: item.summary || null,
+            vendor_business_number: item.vendor_business_number || null,
+            payment_method: item.payment_method || null,
+            card_number: item.card_number || null,
+            settle_status: item.settle_status || null,
+            department: item.department || null,
             receipt_attached: item.receipt_attached ?? false,
             receipt_path: item.receipt_path || null,
             notes: item.notes || '',
@@ -176,7 +190,7 @@ export function registerExpenseSettlementHandlers(): void {
       if (!requester) return { success: false, error: '권한이 없습니다.' };
 
       const items = await db.getExpenseSettlementItems(settlementId);
-      return { success: true, items };
+      return { success: true, data: items, items };
     } catch (error: any) {
       return { success: false, error: error.message || '경비항목 조회에 실패했습니다.' };
     }

@@ -51,6 +51,7 @@ export const MENU_STRUCTURE: MenuItem[] = [
       { key: 'expenses', label: '경비내역', icon: 'FormOutlined', path: '/finance/expenses', roles: ['super_admin', 'company_admin'] },
       { key: 'expense-request', label: '지출결의서', icon: 'FormOutlined', path: '/finance/expense-request', roles: ['super_admin', 'company_admin', 'employee'] },
       { key: 'provisional', label: '가수금관리', icon: 'DollarOutlined', path: '/finance/provisional', roles: ['super_admin', 'company_admin'] },
+      { key: 'monthly-deposits', label: '월별입금현황', icon: 'TransactionOutlined', path: '/finance/monthly-deposits', roles: ['super_admin', 'company_admin'] },
       { key: 'monthly-comparison', label: '월별 비교관리', icon: 'BarChartOutlined', path: '/finance/monthly-comparison', roles: ['super_admin', 'company_admin'] },
     ],
   },
