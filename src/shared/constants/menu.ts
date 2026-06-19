@@ -48,7 +48,7 @@ export const MENU_STRUCTURE: MenuItem[] = [
       { key: 'billing', label: '청구/입금', icon: 'TransactionOutlined', path: '/finance/billing', roles: ['super_admin', 'company_admin'] },
       { key: 'payables', label: '미지급금관리', icon: 'CreditCardOutlined', path: '/finance/payables', roles: ['super_admin', 'company_admin'] },
       { key: 'tax-invoices', label: '세금계산서', icon: 'FileTextOutlined', path: '/finance/tax-invoices', roles: ['super_admin', 'company_admin'] },
-      { key: 'expenses', label: '경비정산', icon: 'FormOutlined', path: '/finance/expenses', roles: ['super_admin', 'company_admin'] },
+      { key: 'expenses', label: '경비내역', icon: 'FormOutlined', path: '/finance/expenses', roles: ['super_admin', 'company_admin'] },
       { key: 'expense-request', label: '지출결의서', icon: 'FormOutlined', path: '/finance/expense-request', roles: ['super_admin', 'company_admin', 'employee'] },
       { key: 'provisional', label: '가수금관리', icon: 'DollarOutlined', path: '/finance/provisional', roles: ['super_admin', 'company_admin'] },
       { key: 'monthly-comparison', label: '월별 비교관리', icon: 'BarChartOutlined', path: '/finance/monthly-comparison', roles: ['super_admin', 'company_admin'] },

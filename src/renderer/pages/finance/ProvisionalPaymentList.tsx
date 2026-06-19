@@ -20,16 +20,16 @@ type ProvisionalStatus = 'unmatched' | 'matched' | 'partial' | 'returned';
 
 interface ProvisionalPayment {
   id: string;
-  payment_number: string;
+  provisional_number: string;
   depositor_name: string;
   amount: number;
-  deposit_date: string;
+  payment_date: string;
   bank_name: string;
   status: ProvisionalStatus;
   matched_info?: string;
   matched_receivable_id?: string;
   matched_billing_id?: string;
-  note?: string;
+  notes?: string;
 }
 
 interface AiSuggestion {
@@ -103,7 +103,7 @@ const ProvisionalPaymentList: React.FC = () => {
       const lower = searchText.toLowerCase();
       list = list.filter(
         (p) =>
-          p.payment_number?.toLowerCase().includes(lower) ||
+          p.provisional_number?.toLowerCase().includes(lower) ||
           p.depositor_name?.toLowerCase().includes(lower) ||
           p.bank_name?.toLowerCase().includes(lower)
       );
@@ -131,10 +131,10 @@ const ProvisionalPaymentList: React.FC = () => {
     if (record) {
       form.setFieldsValue({
         ...record,
-        deposit_date: record.deposit_date ? dayjs(record.deposit_date) : undefined,
+        payment_date: record.payment_date ? dayjs(record.payment_date) : undefined,
       });
     } else {
-      form.setFieldsValue({ deposit_date: dayjs() });
+      form.setFieldsValue({ payment_date: dayjs() });
     }
     setModalOpen(true);
   };
@@ -144,8 +144,12 @@ const ProvisionalPaymentList: React.FC = () => {
     const payload = {
       ...values,
       company_id: companyId,
-      deposit_date: values.deposit_date?.format('YYYY-MM-DD'),
+      payment_date: values.payment_date?.format('YYYY-MM-DD'),
     };
+    if (!editingRecord) {
+      payload.status = 'unmatched';
+      payload.provisional_number = `GS-${dayjs().format('YYYYMMDD')}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    }
 
     try {
       const result = editingRecord
@@ -231,10 +235,10 @@ const ProvisionalPaymentList: React.FC = () => {
     if (!user?.id) return;
     try {
       const exportColumns = [
-        { title: '번호', key: 'payment_number' },
+        { title: '번호', key: 'provisional_number' },
         { title: '입금자', key: 'depositor_name' },
         { title: '금액', key: 'amount' },
-        { title: '입금일', key: 'deposit_date' },
+        { title: '입금일', key: 'payment_date' },
         { title: '은행', key: 'bank_name' },
         { title: '상태', key: 'status' },
         { title: '매칭정보', key: 'matched_info' },
@@ -257,8 +261,8 @@ const ProvisionalPaymentList: React.FC = () => {
   const columns = [
     {
       title: '번호',
-      dataIndex: 'payment_number',
-      key: 'payment_number',
+      dataIndex: 'provisional_number',
+      key: 'provisional_number',
       width: 130,
     },
     {
@@ -277,11 +281,11 @@ const ProvisionalPaymentList: React.FC = () => {
     },
     {
       title: '입금일',
-      dataIndex: 'deposit_date',
-      key: 'deposit_date',
+      dataIndex: 'payment_date',
+      key: 'payment_date',
       width: 110,
       sorter: (a: ProvisionalPayment, b: ProvisionalPayment) =>
-        (a.deposit_date || '').localeCompare(b.deposit_date || ''),
+        (a.payment_date || '').localeCompare(b.payment_date || ''),
       defaultSortOrder: 'descend' as const,
       render: (v: string) => (v ? dayjs(v).format('YYYY-MM-DD') : '-'),
     },
@@ -419,7 +423,7 @@ const ProvisionalPaymentList: React.FC = () => {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="deposit_date" label="입금일" rules={[{ required: true, message: '입금일을 선택해주세요.' }]}>
+              <Form.Item name="payment_date" label="입금일" rules={[{ required: true, message: '입금일을 선택해주세요.' }]}>
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
@@ -433,7 +437,7 @@ const ProvisionalPaymentList: React.FC = () => {
             </Select>
           </Form.Item>
 
-          <Form.Item name="note" label="비고">
+          <Form.Item name="notes" label="비고">
             <Input.TextArea rows={2} placeholder="메모 (선택)" />
           </Form.Item>
 

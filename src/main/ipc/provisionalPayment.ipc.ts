@@ -33,7 +33,7 @@ export function registerProvisionalPaymentHandlers(): void {
         );
       }
 
-      return { success: true, payments };
+      return { success: true, data: payments, payments };
     } catch (error: any) {
       return { success: false, error: error.message || '가수금 조회에 실패했습니다.' };
     }
@@ -54,7 +54,7 @@ export function registerProvisionalPaymentHandlers(): void {
       const payment = {
         id: uuidv4(),
         company_id: companyId,
-        provisional_number: data.provisional_number || '',
+        provisional_number: data.provisional_number || `GS-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${uuidv4().slice(0, 4)}`,
         amount: data.amount || 0,
         payment_date: data.payment_date || new Date().toISOString().split('T')[0],
         depositor_name: data.depositor_name || '',

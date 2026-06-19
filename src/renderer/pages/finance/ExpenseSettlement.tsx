@@ -284,10 +284,10 @@ const ExpenseSettlement: React.FC = () => {
       const exportColumns = [
         { title: '번호', key: 'expense_number' },
         { title: '신청자', key: 'user_name' },
-        { title: '제목', key: 'title' },
+        { title: '계정과목', key: 'title' },
         { title: '카테고리', key: 'categories' },
         { title: '총금액', key: 'total_amount' },
-        { title: '정산일', key: 'settlement_date' },
+        { title: '사용년월일', key: 'settlement_date' },
         { title: '상태', key: 'status' },
       ];
       const exportData = filteredExpenses.map((d) => ({
@@ -295,7 +295,7 @@ const ExpenseSettlement: React.FC = () => {
         categories: Array.from(new Set((d.items || []).map((it: any) => it.category_name || it.category).filter(Boolean))).join(', '),
         status: STATUS_CONFIG[d.status]?.label || d.status,
       }));
-      const result = await window.electronAPI.export.financeGeneric(user.id, '경비정산', exportColumns, exportData);
+      const result = await window.electronAPI.export.financeGeneric(user.id, '경비내역', exportColumns, exportData);
       if (result.success) {
         message.success('엑셀 파일이 저장되었습니다.');
       } else {
@@ -321,7 +321,7 @@ const ExpenseSettlement: React.FC = () => {
       render: (v: string) => v || '-',
     },
     {
-      title: '제목',
+      title: '계정과목',
       dataIndex: 'title',
       key: 'title',
       ellipsis: true,
@@ -335,10 +335,10 @@ const ExpenseSettlement: React.FC = () => {
       render: (v: number) => `${(v || 0).toLocaleString()}원`,
     },
     {
-      title: '정산일',
+      title: '사용년월일',
       dataIndex: 'settlement_date',
       key: 'settlement_date',
-      width: 110,
+      width: 120,
       sorter: (a: Expense, b: Expense) =>
         (a.settlement_date || '').localeCompare(b.settlement_date || ''),
       defaultSortOrder: 'descend' as const,
@@ -382,8 +382,8 @@ const ExpenseSettlement: React.FC = () => {
     <div className="fade-in">
       <div className="page-header" style={{ marginBottom: 24 }}>
         <div>
-          <Title level={4} style={{ margin: 0 }}>경비정산</Title>
-          <span style={{ color: '#888' }}>경비를 입력하고 정산을 관리합니다.</span>
+          <Title level={4} style={{ margin: 0 }}>경비내역</Title>
+          <span style={{ color: '#888' }}>경비를 입력하고 내역을 관리합니다.</span>
         </div>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()}>
           경비 입력
@@ -424,7 +424,7 @@ const ExpenseSettlement: React.FC = () => {
       <Card style={{ marginBottom: 16 }}>
         <Space wrap>
           <Input
-            placeholder="번호, 제목, 신청자 검색"
+            placeholder="번호, 계정과목, 신청자 검색"
             prefix={<SearchOutlined />}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
@@ -479,7 +479,7 @@ const ExpenseSettlement: React.FC = () => {
 
       {/* 등록/수정 모달 */}
       <Modal
-        title={editingRecord ? '경비정산 수정' : '경비 입력'}
+        title={editingRecord ? '경비내역 수정' : '경비 입력'}
         open={modalOpen}
         onCancel={() => setModalOpen(false)}
         footer={null}
@@ -489,12 +489,12 @@ const ExpenseSettlement: React.FC = () => {
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Row gutter={16}>
             <Col span={16}>
-              <Form.Item name="title" label="제목" rules={[{ required: true, message: '제목을 입력해주세요.' }]}>
-                <Input placeholder="경비 정산 제목" />
+              <Form.Item name="title" label="계정과목" rules={[{ required: true, message: '계정과목을 입력해주세요.' }]}>
+                <Input placeholder="계정과목" />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="settlement_date" label="정산일" rules={[{ required: true, message: '정산일을 선택해주세요.' }]}>
+              <Form.Item name="settlement_date" label="사용년월일" rules={[{ required: true, message: '사용년월일을 선택해주세요.' }]}>
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
