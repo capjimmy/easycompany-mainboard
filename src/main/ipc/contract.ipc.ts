@@ -28,10 +28,16 @@ export async function recalculateContractReceivedFromPayments(contractId: string
   const totalAmount = contract?.total_amount || 0;
   const remaining = totalAmount - totalReceived;
 
-  await db.updateContract(contractId, {
+  const updates: any = {
     received_amount: totalReceived,
     remaining_amount: remaining,
-  });
+  };
+  // 수금률 100% 도달 시 자동 완료 (이미 완료/취소면 유지)
+  if (totalAmount > 0 && totalReceived >= totalAmount &&
+      contract?.progress !== 'completed' && contract?.progress !== 'cancelled') {
+    updates.progress = 'completed';
+  }
+  await db.updateContract(contractId, updates);
 
   return { received: totalReceived, remaining };
 }

@@ -159,6 +159,7 @@ const OutsourcingManagement: React.FC = () => {
 
     const outsourcingData = {
       ...values,
+      company_id: selectedCompanyId || user?.company_id,
       start_date: values.start_date?.format('YYYY-MM-DD'),
       end_date: values.end_date?.format('YYYY-MM-DD'),
       vat_amount: vatAmt,
@@ -356,7 +357,23 @@ const OutsourcingManagement: React.FC = () => {
       ellipsis: true,
     },
     {
-      title: '외주금액',
+      title: '공급가액',
+      dataIndex: 'outsourcing_amount',
+      key: 'outsourcing_amount',
+      width: 120,
+      align: 'right' as const,
+      render: (amount: number) => <span>{(amount || 0).toLocaleString()}원</span>,
+    },
+    {
+      title: '부가세',
+      dataIndex: 'vat_amount',
+      key: 'vat_amount',
+      width: 110,
+      align: 'right' as const,
+      render: (amount: number) => <span>{(amount || 0).toLocaleString()}원</span>,
+    },
+    {
+      title: '합계금액',
       dataIndex: 'total_amount',
       key: 'total_amount',
       width: 130,
@@ -365,7 +382,7 @@ const OutsourcingManagement: React.FC = () => {
         const label = record.vat_included === false ? '(VAT 없음)' : '(VAT 포함)';
         return (
           <Tooltip title={label}>
-            <span>{(amount || 0).toLocaleString()}원</span>
+            <span style={{ fontWeight: 600 }}>{(amount || 0).toLocaleString()}원</span>
           </Tooltip>
         );
       },
@@ -565,7 +582,7 @@ const OutsourcingManagement: React.FC = () => {
           }}
           size="middle"
           locale={{ emptyText: '등록된 외주가 없습니다.' }}
-          scroll={{ x: 1600 }}
+          scroll={{ x: 1850 }}
         />
       </Card>
 

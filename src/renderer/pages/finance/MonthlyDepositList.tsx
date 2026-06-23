@@ -41,6 +41,14 @@ const DEPOSIT_TYPE_OPTIONS = [
 
 const DEPARTMENT_OPTIONS = ['건설', '개발', '학술', '인증', '기타'];
 
+// 입금액(합계)에서 공급가액/부가세 분리. 부가세 포함이면 공급=round(합계/1.1), 부가세=합계-공급(합계와 항상 일치).
+function splitVat(d: { amount?: number; vat_included?: boolean }) {
+  const total = Number(d.amount) || 0;
+  if (d.vat_included === false) return { supply: total, vat: 0, total };
+  const supply = Math.round(total / 1.1);
+  return { supply, vat: total - supply, total };
+}
+
 const MonthlyDepositList: React.FC = () => {
   const { user, selectedCompanyId } = useAuthStore();
   const companyId = selectedCompanyId || user?.company_id;
@@ -93,10 +101,14 @@ const MonthlyDepositList: React.FC = () => {
     return list;
   }, [deposits, searchText, monthFilter]);
 
-  const stats = useMemo(() => ({
-    count: filteredDeposits.length,
-    total: filteredDeposits.reduce((s, d) => s + (Number(d.amount) || 0), 0),
-  }), [filteredDeposits]);
+  const stats = useMemo(() => {
+    let supply = 0, vat = 0, total = 0;
+    for (const d of filteredDeposits) {
+      const s = splitVat(d);
+      supply += s.supply; vat += s.vat; total += s.total;
+    }
+    return { count: filteredDeposits.length, supply, vat, total };
+  }, [filteredDeposits]);
 
   const handleOpenModal = (record?: MonthlyDeposit) => {
     setEditingRecord(record || null);
@@ -163,16 +175,23 @@ const MonthlyDepositList: React.FC = () => {
         { title: '입금일', key: 'payment_date' },
         { title: '거래업체', key: 'client_name' },
         { title: '건명', key: 'project_name' },
-        { title: '입금액', key: 'amount' },
-        { title: '부가세', key: 'vat_label' },
+        { title: '공급가액', key: 'supply_amount' },
+        { title: '부가세', key: 'vat_amount' },
+        { title: '합계(입금액)', key: 'amount' },
+        { title: '부가세구분', key: 'vat_label' },
         { title: '사업부', key: 'department' },
         { title: '참고사항', key: 'notes' },
       ];
-      const exportData = filteredDeposits.map((d) => ({
-        ...d,
-        deposit_type_label: DEPOSIT_TYPE_OPTIONS.find((o) => o.value === d.deposit_type)?.label || '',
-        vat_label: d.vat_included ? '포함' : '별도',
-      }));
+      const exportData = filteredDeposits.map((d) => {
+        const s = splitVat(d);
+        return {
+          ...d,
+          supply_amount: s.supply,
+          vat_amount: s.vat,
+          deposit_type_label: DEPOSIT_TYPE_OPTIONS.find((o) => o.value === d.deposit_type)?.label || '',
+          vat_label: d.vat_included ? '포함' : '별도',
+        };
+      });
       const result = await window.electronAPI.export.financeGeneric(user.id, '월별입금현황', exportColumns, exportData);
       if (result.success) {
         message.success('엑셀 파일이 저장되었습니다.');
@@ -206,10 +225,18 @@ const MonthlyDepositList: React.FC = () => {
     { title: '거래업체', dataIndex: 'client_name', key: 'client_name', width: 140, ellipsis: true, render: (v: string) => v || '-' },
     { title: '건명', dataIndex: 'project_name', key: 'project_name', ellipsis: true, render: (v: string) => v || '-' },
     {
-      title: '입금액', dataIndex: 'amount', key: 'amount', width: 130, align: 'right' as const,
+      title: '공급가액', key: 'supply', width: 120, align: 'right' as const,
+      render: (_: any, r: MonthlyDeposit) => `${splitVat(r).supply.toLocaleString()}원`,
+    },
+    {
+      title: '부가세', key: 'vat', width: 110, align: 'right' as const,
+      render: (_: any, r: MonthlyDeposit) => `${splitVat(r).vat.toLocaleString()}원`,
+    },
+    {
+      title: '합계(입금액)', dataIndex: 'amount', key: 'amount', width: 140, align: 'right' as const,
       render: (v: number, r: MonthlyDeposit) => (
         <span>
-          {(v || 0).toLocaleString()}원
+          <b>{(v || 0).toLocaleString()}원</b>
           <Tag style={{ marginLeft: 4 }} color={r.vat_included ? 'orange' : 'default'}>
             {r.vat_included ? 'VAT포함' : '별도'}
           </Tag>
@@ -244,11 +271,17 @@ const MonthlyDepositList: React.FC = () => {
       </div>
 
       <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={8}>
-          <Card><Statistic title={monthFilter ? `${monthFilter.format('YYYY-MM')} 입금 건수` : '전체 입금 건수'} value={stats.count} suffix="건" /></Card>
+        <Col span={6}>
+          <Card><Statistic title={monthFilter ? `${monthFilter.format('YYYY-MM')} 건수` : '전체 건수'} value={stats.count} suffix="건" /></Card>
         </Col>
-        <Col span={16}>
-          <Card><Statistic title={monthFilter ? `${monthFilter.format('YYYY-MM')} 입금 총금액` : '전체 입금 총금액'} value={stats.total} suffix="원" valueStyle={{ color: '#1890ff' }} /></Card>
+        <Col span={6}>
+          <Card><Statistic title="공급가액 합계" value={stats.supply} suffix="원" valueStyle={{ color: '#1890ff' }} /></Card>
+        </Col>
+        <Col span={6}>
+          <Card><Statistic title="부가세 합계" value={stats.vat} suffix="원" valueStyle={{ color: '#faad14' }} /></Card>
+        </Col>
+        <Col span={6}>
+          <Card><Statistic title="입금 합계" value={stats.total} suffix="원" valueStyle={{ color: '#52c41a' }} /></Card>
         </Col>
       </Row>
 
@@ -280,7 +313,7 @@ const MonthlyDepositList: React.FC = () => {
           rowKey="id"
           loading={loading}
           pagination={{ showSizeChanger: true, showTotal: (total) => `총 ${total}건` }}
-          scroll={{ x: 1300 }}
+          scroll={{ x: 1550 }}
           summary={() => (
             <Table.Summary fixed>
               <Table.Summary.Row>
@@ -288,9 +321,15 @@ const MonthlyDepositList: React.FC = () => {
                   <b>합계</b>
                 </Table.Summary.Cell>
                 <Table.Summary.Cell index={6} align="right">
+                  <b>{stats.supply.toLocaleString()}원</b>
+                </Table.Summary.Cell>
+                <Table.Summary.Cell index={7} align="right">
+                  <b>{stats.vat.toLocaleString()}원</b>
+                </Table.Summary.Cell>
+                <Table.Summary.Cell index={8} align="right">
                   <b style={{ color: '#1890ff' }}>{stats.total.toLocaleString()}원</b>
                 </Table.Summary.Cell>
-                <Table.Summary.Cell index={7} colSpan={3} />
+                <Table.Summary.Cell index={9} colSpan={3} />
               </Table.Summary.Row>
             </Table.Summary>
           )}

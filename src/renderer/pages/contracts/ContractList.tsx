@@ -301,12 +301,35 @@ const ContractList: React.FC = () => {
       render: (value: string) => value ? dayjs(value).format('YYYY-MM-DD') : '-',
     },
     {
-      title: '계약금액',
+      title: '공급가액',
+      key: 'supply_amount',
+      width: 120,
+      align: 'right' as const,
+      render: (_: any, record: Contract) => {
+        const total = record.total_amount || 0;
+        const supply = (record as any).contract_amount ?? (total - ((record as any).vat_amount || 0));
+        return `${(supply || 0).toLocaleString()}원`;
+      },
+    },
+    {
+      title: '부가세',
+      key: 'vat_amount',
+      width: 110,
+      align: 'right' as const,
+      render: (_: any, record: Contract) => {
+        const total = record.total_amount || 0;
+        const supply = (record as any).contract_amount ?? (total - ((record as any).vat_amount || 0));
+        const vat = (record as any).vat_amount ?? (total - supply);
+        return `${(vat || 0).toLocaleString()}원`;
+      },
+    },
+    {
+      title: '합계금액',
       dataIndex: 'total_amount',
       key: 'total_amount',
       width: 130,
       align: 'right' as const,
-      render: (value: number) => `${value.toLocaleString()}원`,
+      render: (value: number) => `${(value || 0).toLocaleString()}원`,
     },
     {
       title: '입금액',

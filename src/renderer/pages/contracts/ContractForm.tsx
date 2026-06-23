@@ -259,14 +259,8 @@ const ContractForm: React.FC = () => {
           );
         }
         if (userResult.success && userResult.users) {
-          const companyFilter = user.role === 'super_admin'
-            ? (selectedCompanyId || activeCompanyId)
-            : user.company_id;
-          setUsers(
-            userResult.users.filter((u: any) =>
-              u.is_active && (!companyFilter || u.company_id === companyFilter)
-            )
-          );
+          // 담당자/프로젝트멤버는 회사 무관 전체 표시 (요청사항)
+          setUsers(userResult.users.filter((u: any) => u.is_active));
         }
         if (deptResult.success && deptResult.departments) {
           // 회사별 부서 필터링 (선택된 회사의 부서만)
@@ -1322,8 +1316,14 @@ const ContractForm: React.FC = () => {
                     onChange={(value) => {
                       const newTotal = value || 0;
                       if (vatEnabled) {
-                        const newContractAmount = Math.round(newTotal / 1.1);
-                        form.setFieldValue('contract_amount', newContractAmount);
+                        // 공급가액 + round(공급가액×0.1) === 입력 총액 이 되도록 보정 (반올림 1원 오차 제거)
+                        let supply = Math.round(newTotal / 1.1);
+                        for (let i = 0; i < 3; i++) {
+                          const t = supply + Math.round(supply * 0.1);
+                          if (t === newTotal) break;
+                          supply += t < newTotal ? 1 : -1;
+                        }
+                        form.setFieldValue('contract_amount', supply);
                       } else {
                         form.setFieldValue('contract_amount', newTotal);
                       }
@@ -1336,10 +1336,10 @@ const ContractForm: React.FC = () => {
           </Card>
         )}
 
-        {/* 진행/외주 정보 */}
-        <Card title="진행/외주 정보" style={{ marginBottom: 16 }}>
+        {/* 진행 정보 */}
+        <Card title="진행 정보" style={{ marginBottom: 16 }}>
           <Row gutter={16}>
-            <Col span={6}>
+            <Col span={8}>
               <Form.Item name="progress_rate" label="진행률 (%)">
                 <InputNumber
                   style={{ width: '100%' }}
@@ -1351,7 +1351,7 @@ const ContractForm: React.FC = () => {
                 />
               </Form.Item>
             </Col>
-            <Col span={6}>
+            <Col span={8}>
               <Form.Item name="progress_billing_rate" label="기성 청구율 (%)">
                 <InputNumber
                   style={{ width: '100%' }}
@@ -1363,7 +1363,7 @@ const ContractForm: React.FC = () => {
                 />
               </Form.Item>
             </Col>
-            <Col span={6}>
+            <Col span={8}>
               <Form.Item name="progress_billing_amount" label="기성 청구금액">
                 <InputNumber
                   style={{ width: '100%' }}
@@ -1375,6 +1375,17 @@ const ContractForm: React.FC = () => {
               </Form.Item>
             </Col>
           </Row>
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item name="progress_note" label="진행 메모">
+                <TextArea rows={2} placeholder="진행 상황 메모 (예: 1차 중간보고 완료)" />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Card>
+
+        {/* 외주 정보 */}
+        <Card title="외주 정보" style={{ marginBottom: 16 }}>
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item name="outsource_company" label="외주사/협력사명">
@@ -1390,13 +1401,6 @@ const ContractForm: React.FC = () => {
                   placeholder="외주 금액"
                   min={0}
                 />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={24}>
-              <Form.Item name="progress_note" label="진행 메모">
-                <TextArea rows={2} placeholder="진행 상황 메모 (예: 1차 중간보고 완료)" />
               </Form.Item>
             </Col>
           </Row>

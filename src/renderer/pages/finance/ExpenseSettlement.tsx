@@ -3,7 +3,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import {
   Card, Typography, Button, Table, Space, Tag, Input, Select,
   DatePicker, message, Modal, Form, InputNumber, Popconfirm, Row, Col, Statistic,
-  Switch,
+  Switch, AutoComplete,
 } from 'antd';
 import {
   PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined,
@@ -92,6 +92,7 @@ const ExpenseSettlement: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<ExpenseStatus | undefined>();
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
   const [monthFilter, setMonthFilter] = useState<dayjs.Dayjs | null>(null);
+  const [clients, setClients] = useState<{ value: string; label: string; business_number?: string }[]>([]);
   const [form] = Form.useForm();
 
   const isManager = user?.role === 'super_admin' || user?.role === 'company_admin' || user?.role === 'department_manager';
@@ -116,6 +117,24 @@ const ExpenseSettlement: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, [companyId]);
+
+  // 거래처 목록 로드 (사용처 자동완성 → 사업자등록번호 자동 입력)
+  useEffect(() => {
+    const loadClients = async () => {
+      if (!user?.id) return;
+      try {
+        const res = await window.electronAPI.clients.getAll(user.id);
+        if (res.success && res.clients) {
+          setClients(res.clients.map((c: any) => ({
+            value: c.name,
+            label: c.business_number ? `${c.name} (${c.business_number})` : c.name,
+            business_number: c.business_number || '',
+          })));
+        }
+      } catch { /* ignore */ }
+    };
+    loadClients();
+  }, [user?.id]);
 
   const filteredExpenses = useMemo(() => {
     let list = [...expenses];
@@ -552,7 +571,18 @@ const ExpenseSettlement: React.FC = () => {
                       </Col>
                       <Col span={7}>
                         <Form.Item {...restField} name={[name, 'vendor_name']} label="사용처" style={{ marginBottom: 8 }}>
-                          <Input placeholder="사용처(거래처/상호)" />
+                          <AutoComplete
+                            options={clients}
+                            placeholder="사용처(거래처/상호)"
+                            filterOption={(input, option) =>
+                              (option?.value as string ?? '').toLowerCase().includes(input.toLowerCase())
+                            }
+                            onSelect={(_val, option: any) => {
+                              if (option?.business_number) {
+                                form.setFieldValue(['items', name, 'vendor_business_number'], option.business_number);
+                              }
+                            }}
+                          />
                         </Form.Item>
                       </Col>
                       <Col span={6}>
