@@ -291,6 +291,18 @@ const electronAPI = {
       ipcRenderer.invoke('outsourcings:delete', requesterId, id),
   },
 
+  // 경영진 전용 외주관리
+  executiveOutsourcings: {
+    getAll: (requesterId: string, filters?: any) =>
+      ipcRenderer.invoke('executiveOutsourcings:getAll', requesterId, filters),
+    create: (requesterId: string, data: any) =>
+      ipcRenderer.invoke('executiveOutsourcings:create', requesterId, data),
+    update: (requesterId: string, id: string, data: any) =>
+      ipcRenderer.invoke('executiveOutsourcings:update', requesterId, id, data),
+    delete: (requesterId: string, id: string) =>
+      ipcRenderer.invoke('executiveOutsourcings:delete', requesterId, id),
+  },
+
   // ========================================
   // 거래처 관리 (Clients)
   // ========================================

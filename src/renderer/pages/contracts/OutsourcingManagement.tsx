@@ -46,7 +46,13 @@ interface Outsourcing {
   created_at: string;
 }
 
-const OutsourcingManagement: React.FC = () => {
+interface OutsourcingManagementProps {
+  apiKey?: 'outsourcings' | 'executiveOutsourcings';
+  pageTitle?: string;
+}
+
+const OutsourcingManagement: React.FC<OutsourcingManagementProps> = ({ apiKey = 'outsourcings', pageTitle }) => {
+  const osApi = () => (window.electronAPI as any)[apiKey];
   const navigate = useNavigate();
   const { user, selectedCompanyId } = useAuthStore();
   const [form] = Form.useForm();
@@ -81,7 +87,7 @@ const OutsourcingManagement: React.FC = () => {
       const companyId = user.role === 'super_admin' ? selectedCompanyId : user.company_id;
       const [contractsResult, outsourcingsResult, clientsResult, deptsResult] = await Promise.all([
         window.electronAPI.contracts.getAll(user.id, filters),
-        window.electronAPI.outsourcings.getAll(user.id, filters),
+        osApi().getAll(user.id, filters),
         window.electronAPI.clients.getAll(user.id, filters),
         (window as any).electronAPI.departments.getAll(user.id, companyId || undefined).catch(() => null),
       ]);
@@ -136,7 +142,7 @@ const OutsourcingManagement: React.FC = () => {
   const handleDelete = async (id: string) => {
     if (!user?.id) return;
     try {
-      const result = await window.electronAPI.outsourcings.delete(user.id, id);
+      const result = await osApi().delete(user.id, id);
       if (result.success) {
         message.success('외주 정보가 삭제되었습니다.');
         loadData();
@@ -176,12 +182,12 @@ const OutsourcingManagement: React.FC = () => {
     try {
       let result;
       if (editingId) {
-        result = await window.electronAPI.outsourcings.update(user.id, editingId, outsourcingData);
+        result = await osApi().update(user.id, editingId, outsourcingData);
         if (result.success) {
           message.success('외주 정보가 수정되었습니다.');
         }
       } else {
-        result = await window.electronAPI.outsourcings.create(user.id, outsourcingData);
+        result = await osApi().create(user.id, outsourcingData);
         if (result.success) {
           message.success('외주가 등록되었습니다.');
         }
@@ -480,7 +486,7 @@ const OutsourcingManagement: React.FC = () => {
           <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/contracts')} />
           <div>
             <Title level={4} style={{ margin: 0 }}>
-              <TeamOutlined /> 외주 관리
+              <TeamOutlined /> {pageTitle || '외주 관리'}
             </Title>
             <Text type="secondary" style={{ fontSize: 12 }}>
               계약별 외주 현황을 관리합니다. (1계약 : N외주)

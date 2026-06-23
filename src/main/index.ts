@@ -12,6 +12,7 @@ import { registerContractHandlers } from './ipc/contract.ipc';
 import { registerDocumentTemplateHandlers } from './ipc/documentTemplate.ipc';
 import { registerFileExplorerHandlers } from './ipc/fileExplorer.ipc';
 import { registerOutsourcingHandlers } from './ipc/outsourcing.ipc';
+import { registerExecutiveOutsourcingHandlers } from './ipc/executiveOutsourcing.ipc';
 import { registerSearchHandlers } from './ipc/search.ipc';
 import { registerAISearchHandlers } from './ipc/aiSearch.ipc';
 import { registerClientHandlers } from './ipc/client.ipc';
@@ -147,6 +148,7 @@ app.whenReady().then(() => {
   registerDocumentTemplateHandlers();
   registerFileExplorerHandlers();
   registerOutsourcingHandlers();
+  registerExecutiveOutsourcingHandlers();
   registerSearchHandlers();
   registerAISearchHandlers();
   registerClientHandlers();

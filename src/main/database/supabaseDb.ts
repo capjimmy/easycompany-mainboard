@@ -595,6 +595,32 @@ export const db = {
     await supabase.from('outsourcings').delete().eq('id', id);
   },
 
+  // ========== 경영진 전용 외주 (Executive Outsourcings) ==========
+  getExecutiveOutsourcingsByCompanyId: async (companyId: string) => {
+    const { data } = await supabase.from('executive_outsourcings').select('*').eq('company_id', companyId);
+    return data || [];
+  },
+  getExecutiveOutsourcings: async () => {
+    const { data } = await supabase.from('executive_outsourcings').select('*');
+    return data || [];
+  },
+  getExecutiveOutsourcingById: async (id: string) => {
+    const { data } = await supabase.from('executive_outsourcings').select('*').eq('id', id).single();
+    return data;
+  },
+  addExecutiveOutsourcing: async (row: any) => {
+    const { data, error } = await supabase.from('executive_outsourcings').insert(row).select().single();
+    if (error) throw error;
+    return data;
+  },
+  updateExecutiveOutsourcing: async (id: string, updates: any) => {
+    const { data } = await supabase.from('executive_outsourcings').update(updates).eq('id', id).select().single();
+    return data;
+  },
+  deleteExecutiveOutsourcing: async (id: string) => {
+    await supabase.from('executive_outsourcings').delete().eq('id', id);
+  },
+
   // ========== Client Companies ==========
   getClientCompanies: async () => {
     return await fetchAllPaged('client_companies');

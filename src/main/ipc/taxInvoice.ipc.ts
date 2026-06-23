@@ -29,6 +29,48 @@ async function recomputeContractReceived(contractId: string): Promise<void> {
 }
 
 /**
+ * 발행(매출) 세금계산서가 입금완료(paid 또는 입금일 있음)되면 월별입금현황(monthly_deposits)에 자동 반영.
+ * tax_invoice_id로 중복을 방지(있으면 갱신, 없으면 생성).
+ */
+async function syncTaxInvoiceToMonthlyDeposit(invoice: any): Promise<void> {
+  if (!invoice) return;
+  if (invoice.direction !== 'issued') return; // 매출만
+  const isPaid = invoice.status === 'paid' || !!invoice.payment_date;
+  if (!isPaid) return;
+
+  let projectName = invoice.item_description || '';
+  if (invoice.contract_id) {
+    try {
+      const contract = await db.getContractById(invoice.contract_id);
+      if (contract) projectName = contract.service_name || projectName;
+    } catch { /* noop */ }
+  }
+
+  const amount = Number(invoice.payment_amount) || Number(invoice.total_amount) || 0;
+  const row = {
+    company_id: invoice.company_id,
+    deposit_type: 'b2b',
+    tax_invoice_date: invoice.issue_date || null,
+    payment_date: invoice.payment_date || invoice.issue_date || null,
+    client_name: invoice.buyer_name || '',
+    project_name: projectName,
+    amount,
+    vat_included: true,
+    notes: `세금계산서 ${invoice.invoice_number || ''} 자동연동`.trim(),
+    tax_invoice_id: invoice.id,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data: existing } = await supabase
+    .from('monthly_deposits').select('id').eq('tax_invoice_id', invoice.id).maybeSingle();
+  if (existing) {
+    await supabase.from('monthly_deposits').update(row).eq('id', existing.id);
+  } else {
+    await supabase.from('monthly_deposits').insert({ id: uuidv4(), created_at: new Date().toISOString(), ...row });
+  }
+}
+
+/**
  * 세금계산서가 paid 상태가 되면 대응하는 payment_receipt를 자동 생성
  * - 이미 동일 contract_id + 유사 금액 + 유사 날짜의 receipt가 있으면 스킵
  */
@@ -190,6 +232,7 @@ export function registerTaxInvoiceHandlers(): void {
         buyer_email: data.buyer_email || '',
         issue_date: data.issue_date || new Date().toISOString().split('T')[0],
         payment_date: data.payment_date || null,   // 입금일
+        payment_amount: data.payment_amount ?? null, // 실제 입금액(비우면 합계금액)
         status: data.status || 'draft',
         item_description: data.item_description || '',
         notes: data.notes || '',
@@ -200,6 +243,7 @@ export function registerTaxInvoiceHandlers(): void {
 
       const result = await db.addTaxInvoice(invoice);
       if (invoice.contract_id) { try { await recomputeContractReceived(invoice.contract_id); } catch { /* noop */ } }
+      try { await syncTaxInvoiceToMonthlyDeposit(result || invoice); } catch { /* noop */ }
       return { success: true, invoice: result };
     } catch (error: any) {
       return { success: false, error: error.message || '세금계산서 생성에 실패했습니다.' };
@@ -233,6 +277,8 @@ export function registerTaxInvoiceHandlers(): void {
       // 계약 수금/미수금 재계산 (입금완료 세금계산서 반영)
       const cid = (result && result.contract_id) || existing.contract_id;
       if (cid) { try { await recomputeContractReceived(cid); } catch { /* noop */ } }
+      // 월별입금현황 자동연동
+      try { await syncTaxInvoiceToMonthlyDeposit(result || { ...existing, ...data }); } catch { /* noop */ }
 
       return result ? { success: true, invoice: result } : { success: false, error: '수정에 실패했습니다.' };
     } catch (error: any) {

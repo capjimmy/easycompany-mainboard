@@ -56,6 +56,7 @@ export function registerProvisionalPaymentHandlers(): void {
         company_id: companyId,
         provisional_number: data.provisional_number || `GS-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${uuidv4().slice(0, 4)}`,
         amount: data.amount || 0,
+        withdrawal_amount: Number(data.withdrawal_amount) || 0,
         payment_date: data.payment_date || new Date().toISOString().split('T')[0],
         depositor_name: data.depositor_name || '',
         bank_name: data.bank_name || '',

@@ -294,6 +294,7 @@ export function registerContractHandlers(): void {
       manager_name: contractData.manager_name || requester.name,
       department_id: contractData.department_id || null,
       progress_rate: contractData.progress_rate || 0,
+      is_outsourced: contractData.is_outsourced ?? false,
       outsource_company: contractData.outsource_company || null,
       outsource_amount: contractData.outsource_amount || 0,
 
@@ -475,6 +476,7 @@ export function registerContractHandlers(): void {
       'service_name', 'description', 'contract_start_date', 'contract_end_date', 'contract_date',
       'department_id', 'manager_id', 'manager_name', 'progress_rate', 'progress_note',
       'progress_billing_rate', 'progress_billing_amount', 'outsource_company', 'outsource_amount', 'notes',
+      'is_outsourced',
       // 추가기재 필드
       'has_original_contract', 'contract_seal_shapes', 'statement_submitted', 'statement_submitted_date',
       'contract_deposit_amount', 'contract_deposit_rate', 'guarantee_esubmission', 'defect_guarantee_rate',

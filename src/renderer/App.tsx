@@ -58,6 +58,8 @@ import DirectorReport from './pages/admin/DirectorReport';
 import VehicleLog from './pages/hr/VehicleLog';
 import ProvisionalPaymentList from './pages/finance/ProvisionalPaymentList';
 import MonthlyDepositList from './pages/finance/MonthlyDepositList';
+import ExecutiveOutsourcingManagement from './pages/contracts/ExecutiveOutsourcingManagement';
+import MonthlySalesPurchase from './pages/admin/MonthlySalesPurchase';
 import ClientFinancials from './pages/finance/ClientFinancials';
 import MonthlyComparison from './pages/finance/MonthlyComparison';
 import NotFound from './pages/NotFound';
@@ -271,6 +273,8 @@ const App: React.FC = () => {
               <Route path="hr/vehicle-logs" element={<PermissionGuard menuKey="vehicle-logs"><VehicleLog /></PermissionGuard>} />
               <Route path="finance/provisional" element={<RoleGuard roles={['super_admin', 'company_admin']} menuKey="provisional"><ProvisionalPaymentList /></RoleGuard>} />
               <Route path="finance/monthly-deposits" element={<RoleGuard roles={['super_admin', 'company_admin']} menuKey="monthly-deposits"><MonthlyDepositList /></RoleGuard>} />
+              <Route path="admin/executive-outsourcing" element={<RoleGuard roles={['super_admin']} menuKey="exec-outsourcing"><ExecutiveOutsourcingManagement /></RoleGuard>} />
+              <Route path="admin/monthly-sales-purchase" element={<RoleGuard roles={['super_admin']} menuKey="exec-monthly-sales-purchase"><MonthlySalesPurchase /></RoleGuard>} />
               <Route path="finance/monthly-comparison" element={<RoleGuard roles={['super_admin', 'company_admin']} menuKey="monthly-comparison"><MonthlyComparison /></RoleGuard>} />
               <Route path="finance/client-financials" element={<PermissionGuard menuKey="client-list"><ClientFinancials /></PermissionGuard>} />
               <Route path="project/board" element={<PermissionGuard menuKey="project-board"><ProjectBoard /></PermissionGuard>} />

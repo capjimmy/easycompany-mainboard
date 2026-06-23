@@ -12,6 +12,8 @@ export const MENU_STRUCTURE: MenuItem[] = [
       { key: 'profit-dashboard', label: '순이익 계산', icon: 'DollarOutlined', path: '/dashboard/profit', roles: ['super_admin'] },
       { key: 'director-report', label: '원장님 보고서', icon: 'FileTextOutlined', path: '/admin/director-report', roles: ['super_admin'] },
       { key: 'monthly', label: '월별현황', icon: 'BarChartOutlined', path: '/contracts/monthly', roles: ['super_admin'] },
+      { key: 'exec-monthly-sales-purchase', label: '월별 매출-매입현황', icon: 'BarChartOutlined', path: '/admin/monthly-sales-purchase', roles: ['super_admin'] },
+      { key: 'exec-outsourcing', label: '외주관리(경영진)', icon: 'TeamOutlined', path: '/admin/executive-outsourcing', roles: ['super_admin'] },
       { key: 'salary-table', label: '연봉 테이블', icon: 'IdcardOutlined', path: '/admin/salary-table', roles: ['super_admin'] },
     ],
   },

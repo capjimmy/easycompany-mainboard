@@ -23,6 +23,7 @@ interface ProvisionalPayment {
   provisional_number: string;
   depositor_name: string;
   amount: number;
+  withdrawal_amount?: number;
   payment_date: string;
   bank_name: string;
   status: ProvisionalStatus;
@@ -237,7 +238,9 @@ const ProvisionalPaymentList: React.FC = () => {
       const exportColumns = [
         { title: '번호', key: 'provisional_number' },
         { title: '입금자', key: 'depositor_name' },
-        { title: '금액', key: 'amount' },
+        { title: '입금액', key: 'amount' },
+        { title: '출금액', key: 'withdrawal_amount' },
+        { title: '남은가수금', key: 'remaining' },
         { title: '입금일', key: 'payment_date' },
         { title: '은행', key: 'bank_name' },
         { title: '상태', key: 'status' },
@@ -245,6 +248,7 @@ const ProvisionalPaymentList: React.FC = () => {
       ];
       const exportData = filteredPayments.map((d) => ({
         ...d,
+        remaining: (Number(d.amount) || 0) - (Number(d.withdrawal_amount) || 0),
         status: STATUS_CONFIG[d.status]?.label || d.status,
       }));
       const result = await window.electronAPI.export.financeGeneric(user.id, '가수금관리', exportColumns, exportData);
@@ -272,12 +276,30 @@ const ProvisionalPaymentList: React.FC = () => {
       width: 120,
     },
     {
-      title: '금액',
+      title: '입금액',
       dataIndex: 'amount',
       key: 'amount',
-      width: 130,
+      width: 120,
       align: 'right' as const,
       render: (v: number) => `${(v || 0).toLocaleString()}원`,
+    },
+    {
+      title: '출금액',
+      dataIndex: 'withdrawal_amount',
+      key: 'withdrawal_amount',
+      width: 120,
+      align: 'right' as const,
+      render: (v: number) => (v ? `${v.toLocaleString()}원` : '-'),
+    },
+    {
+      title: '남은가수금',
+      key: 'remaining',
+      width: 130,
+      align: 'right' as const,
+      render: (_: number, r: ProvisionalPayment) => {
+        const rem = (Number(r.amount) || 0) - (Number(r.withdrawal_amount) || 0);
+        return <span style={{ fontWeight: 600, color: rem > 0 ? '#1890ff' : '#999' }}>{rem.toLocaleString()}원</span>;
+      },
     },
     {
       title: '입금일',
@@ -394,7 +416,7 @@ const ProvisionalPaymentList: React.FC = () => {
           rowKey="id"
           loading={loading}
           pagination={{ showSizeChanger: true, showTotal: (total) => `총 ${total}건` }}
-          scroll={{ x: 1100 }}
+          scroll={{ x: 1380 }}
         />
       </Card>
 
@@ -412,8 +434,8 @@ const ProvisionalPaymentList: React.FC = () => {
           </Form.Item>
 
           <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="amount" label="금액" rules={[{ required: true, message: '금액을 입력해주세요.' }]}>
+            <Col span={8}>
+              <Form.Item name="amount" label="입금액" rules={[{ required: true, message: '입금액을 입력해주세요.' }]}>
                 <InputNumber
                   style={{ width: '100%' }}
                   formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
@@ -422,7 +444,18 @@ const ProvisionalPaymentList: React.FC = () => {
                 />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={8}>
+              <Form.Item name="withdrawal_amount" label="출금액">
+                <InputNumber
+                  style={{ width: '100%' }}
+                  formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={(v) => v!.replace(/,/g, '') as unknown as number}
+                  min={0}
+                  placeholder="0"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
               <Form.Item name="payment_date" label="입금일" rules={[{ required: true, message: '입금일을 선택해주세요.' }]}>
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>

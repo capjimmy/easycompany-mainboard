@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Card, Typography, Button, Form, Input, InputNumber, DatePicker, Select,
   Space, Divider, message, Spin, Row, Col, List, Empty, Tag, Badge, AutoComplete,
-  Timeline, Table, Collapse, Modal, Switch, Upload
+  Timeline, Table, Collapse, Modal, Switch, Upload, Checkbox
 } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined, FileAddOutlined, BulbOutlined, PaperClipOutlined, FolderOpenOutlined, CalendarOutlined, PlusOutlined, DeleteOutlined, HistoryOutlined, ScanOutlined, LinkOutlined, DisconnectOutlined, SearchOutlined, FilePdfOutlined, MailOutlined, EyeOutlined, TeamOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -343,6 +343,7 @@ const ContractForm: React.FC = () => {
         manager_name: currentContract.manager_name,
         manager_id: currentContract.manager_id,
         department_id: currentContract.department_id,
+        is_outsourced: currentContract.is_outsourced ?? false,
         outsource_company: currentContract.outsource_company,
         outsource_amount: currentContract.outsource_amount,
         notes: currentContract.notes,
@@ -1237,6 +1238,11 @@ const ContractForm: React.FC = () => {
                     <Option key={d.id} value={d.id}>{d.name}</Option>
                   ))}
                 </Select>
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="is_outsourced" valuePropName="checked" label="외주 여부">
+                <Checkbox>외주 진행 계약</Checkbox>
               </Form.Item>
             </Col>
           </Row>

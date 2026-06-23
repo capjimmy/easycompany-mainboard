@@ -332,6 +332,14 @@ const ContractList: React.FC = () => {
       render: (value: number) => `${(value || 0).toLocaleString()}원`,
     },
     {
+      title: '외주',
+      dataIndex: 'is_outsourced',
+      key: 'is_outsourced',
+      width: 70,
+      align: 'center' as const,
+      render: (v: boolean) => (v ? <Tag color="purple">외주</Tag> : ''),
+    },
+    {
       title: '입금액',
       dataIndex: 'received_amount',
       key: 'received_amount',
