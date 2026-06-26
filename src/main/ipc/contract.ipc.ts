@@ -17,23 +17,31 @@ async function hasCompanyAccess(userId: string, userCompanyId: string | null, ta
 }
 
 /**
- * 계약의 received_amount를 contract_payments 합계로 재계산 (단일 소스)
- * - contract_payments가 실제 입금 기록의 유일한 소스
- * - tax_invoices, payment_conditions 등에서 중복 집계하지 않음
+ * 계약의 received_amount 재계산 = 직접수금(contract_payments) + 입금완료된 발행 세금계산서.
+ * ※ taxInvoice.ipc.ts의 recomputeContractReceived와 동일 공식으로 통일(불일치로 인한 연체 오표시 방지).
  */
 export async function recalculateContractReceivedFromPayments(contractId: string): Promise<{ received: number; remaining: number }> {
   const payments = await db.getContractPaymentsByContractId(contractId);
-  const totalReceived = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+  const payTotal = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+  // 입금완료(paid 또는 입금일 있음)된 발행(매출) 세금계산서 합산
+  const { data: tis } = await supabase.from('tax_invoices')
+    .select('total_amount, status, payment_date, direction').eq('contract_id', contractId).eq('direction', 'issued');
+  const tiPaid = (tis || [])
+    .filter((t: any) => t.status === 'paid' || t.payment_date)
+    .reduce((s: number, t: any) => s + (Number(t.total_amount) || 0), 0);
+  const totalReceived = payTotal + tiPaid;
   const contract = await db.getContractById(contractId);
   const totalAmount = contract?.total_amount || 0;
-  const remaining = totalAmount - totalReceived;
+  // 부가세 반올림 등으로 ±10원 이내 차이는 0으로 정리(미수금 1원 잔존 방지)
+  let remaining = totalAmount - totalReceived;
+  if (totalReceived > 0 && Math.abs(remaining) <= 10) remaining = 0;
 
   const updates: any = {
     received_amount: totalReceived,
     remaining_amount: remaining,
   };
   // 수금률 100% 도달 시 자동 완료 (이미 완료/취소면 유지)
-  if (totalAmount > 0 && totalReceived >= totalAmount &&
+  if (totalAmount > 0 && remaining <= 0 && totalReceived > 0 &&
       contract?.progress !== 'completed' && contract?.progress !== 'cancelled') {
     updates.progress = 'completed';
   }

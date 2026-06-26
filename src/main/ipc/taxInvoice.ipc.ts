@@ -20,9 +20,12 @@ async function recomputeContractReceived(contractId: string): Promise<void> {
     .reduce((s: number, t: any) => s + (Number(t.total_amount) || 0), 0);
   const received = payTotal + tiPaid;
   const total = Number(contract.total_amount) || 0;
-  const updates: any = { received_amount: received, remaining_amount: total - received };
+  // 부가세 반올림 등 ±10원 이내 차이는 0으로 정리(미수금 1원 잔존 방지)
+  let remaining = total - received;
+  if (received > 0 && Math.abs(remaining) <= 10) remaining = 0;
+  const updates: any = { received_amount: received, remaining_amount: remaining };
   // 수금률 100% 도달 시 자동 완료 (이미 완료/취소면 유지)
-  if (total > 0 && received >= total && contract.progress !== 'completed' && contract.progress !== 'cancelled') {
+  if (total > 0 && remaining <= 0 && received > 0 && contract.progress !== 'completed' && contract.progress !== 'cancelled') {
     updates.progress = 'completed';
   }
   await db.updateContract(contractId, updates);

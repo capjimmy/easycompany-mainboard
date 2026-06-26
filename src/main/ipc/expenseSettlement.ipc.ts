@@ -95,7 +95,6 @@ export function registerExpenseSettlementHandlers(): void {
             department: item.department || null,
             receipt_attached: item.receipt_attached ?? false,
             receipt_path: item.receipt_path || null,
-            notes: item.notes || '',
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           });
@@ -148,7 +147,6 @@ export function registerExpenseSettlementHandlers(): void {
             department: item.department || null,
             receipt_attached: item.receipt_attached ?? false,
             receipt_path: item.receipt_path || null,
-            notes: item.notes || '',
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           });
