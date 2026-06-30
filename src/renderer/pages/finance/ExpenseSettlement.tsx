@@ -59,7 +59,10 @@ const STATUS_CONFIG: Record<ExpenseStatus, { label: string; color: string }> = {
 
 const CATEGORY_OPTIONS = [
   '교통비', '식비', '숙박비', '소모품비', '통신비', '회의비', '접대비', '교육비',
-  '택배비', '제본비', '기타',
+  '택배비', '제본비',
+  '지급수수료', 'ADT월정료', '공기청정기렌탈료', '정수기렌탈료', '법인차량렌트료',
+  '커피머신렌탈료', '관리비', '관리비_1319호', '복사기임대료', '급여',
+  '기타',
 ];
 
 const PAYMENT_METHOD_OPTIONS = [
@@ -77,7 +80,7 @@ const SETTLE_STATUS_OPTIONS = [
 
 const DEPARTMENT_OPTIONS = [
   '건설사업부', '개발사업부', '학술사업부', '인증사업부', '경영관리실',
-  '원장님', '유환태', '외주용역', '기타',
+  '임철희', '유환태', '외주용역', '기타',
 ];
 
 const ExpenseSettlement: React.FC = () => {

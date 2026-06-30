@@ -269,6 +269,9 @@ export function registerContractHandlers(): void {
       // 계약 기본 정보
       contract_type: contractData.contract_type || 'service',
       service_category: contractData.service_category || null,
+      service_division: contractData.service_division || null,
+      service_type_1: contractData.service_type_1 || null,
+      service_type_2: contractData.service_type_2 || [],
       service_name: contractData.service_name || '',
       description: contractData.description || null,
 
@@ -482,6 +485,7 @@ export function registerContractHandlers(): void {
       'contract_code', 'client_business_number', 'client_company', 'client_contact_name',
       'client_contact_phone', 'client_contact_email', 'contract_type', 'service_category',
       'service_name', 'description', 'contract_start_date', 'contract_end_date', 'contract_date',
+      'service_division', 'service_type_1', 'service_type_2',
       'department_id', 'manager_id', 'manager_name', 'progress_rate', 'progress_note',
       'progress_billing_rate', 'progress_billing_amount', 'outsource_company', 'outsource_amount', 'notes',
       'is_outsourced',

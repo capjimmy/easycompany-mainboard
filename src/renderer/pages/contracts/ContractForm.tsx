@@ -63,6 +63,31 @@ const CONTRACT_TYPES = [
   { value: 'other', label: '기타' },
 ];
 
+// 사업부별 용역종류 (1차 단일선택 / 2차 다중선택)
+const DIVISION_SERVICE_TYPES: Record<string, { primary: string[]; secondary: string[] }> = {
+  '건설사업부': {
+    primary: ['검토용역', '산정용역', '법원/중재 감정'],
+    secondary: ['물가변동', '설계변경', '공기연장(간접비)', '공기단축(돌관)', '공정분석', '계약관리', '원가계산', '기타'],
+  },
+  '학술사업부': {
+    primary: ['분석 및 검토', '투자 및 사업관리', '계획 및 전략 수립'],
+    secondary: ['사업성 및 타당성', '출자타당성', '사업화 방안', '마케팅', '수요조사', '기타'],
+  },
+  '개발사업부': {
+    primary: ['산정용역', '검토용역'],
+    secondary: ['분양가상한제', '개발부담금', '물가변동', '공사비 검증', '도시 및 주거환경정비사업', '원가검토', '공기연장(간접비)', '마케팅', '기타'],
+  },
+  '외주용역': {
+    primary: ['검토용역', '산정용역', '법원/중재 감정', '조사용역'],
+    secondary: ['물가변동', '설계변경', '공기연장(간접비)', '공기단축(돌관)', '공정분석', '계약관리', '원가계산', '타당성조사', '수요조사', '기타'],
+  },
+  '인증사업부': {
+    primary: ['친환경컨설팅'],
+    secondary: ['공모', '교육환경', '사업승인', '예비인증', '본인증', '환경분석'],
+  },
+};
+const DIVISION_OPTIONS = Object.keys(DIVISION_SERVICE_TYPES);
+
 const SERVICE_CATEGORIES = [
   { value: 'apartment', label: '공동주택' },
   { value: 'public_housing', label: '공공주택' },
@@ -141,6 +166,7 @@ const ContractForm: React.FC = () => {
 
   // 계약유형 감시 (용역계약일 때 용역종류 표시)
   const watchedContractType = Form.useWatch('contract_type', form);
+  const watchedDivision = Form.useWatch('service_division', form);
 
   // 회의록/기타자료 상태
   const [meetingNotes, setMeetingNotes] = useState<any[]>([]);
@@ -329,6 +355,9 @@ const ContractForm: React.FC = () => {
         client_contact_email: currentContract.client_contact_email,
         contract_type: currentContract.contract_type,
         service_category: currentContract.service_category,
+        service_division: currentContract.service_division,
+        service_type_1: currentContract.service_type_1,
+        service_type_2: currentContract.service_type_2 || [],
         service_name: currentContract.service_name,
         description: currentContract.description,
         contract_code: currentContract.contract_code,
@@ -1175,6 +1204,43 @@ const ContractForm: React.FC = () => {
                 <Input placeholder="내부 관리 코드" />
               </Form.Item>
             </Col>
+          </Row>
+
+          {/* 사업부별 용역종류 (1차 단일 / 2차 다중) */}
+          <Row gutter={16}>
+            <Col span={6}>
+              <Form.Item name="service_division" label="용역 사업부">
+                <Select
+                  placeholder="사업부 선택"
+                  allowClear
+                  onChange={() => form.setFieldsValue({ service_type_1: undefined, service_type_2: [] })}
+                >
+                  {DIVISION_OPTIONS.map((d) => (<Option key={d} value={d}>{d}</Option>))}
+                </Select>
+              </Form.Item>
+            </Col>
+            {watchedDivision && DIVISION_SERVICE_TYPES[watchedDivision] && (
+              <>
+                <Col span={6}>
+                  <Form.Item name="service_type_1" label="용역종류 (1차)">
+                    <Select placeholder="1차 선택" allowClear>
+                      {DIVISION_SERVICE_TYPES[watchedDivision].primary.map((s) => (
+                        <Option key={s} value={s}>{s}</Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item name="service_type_2" label="용역종류 (2차, 다중선택)">
+                    <Select mode="multiple" placeholder="2차 다중선택" allowClear>
+                      {DIVISION_SERVICE_TYPES[watchedDivision].secondary.map((s) => (
+                        <Option key={s} value={s}>{s}</Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+              </>
+            )}
           </Row>
 
           <Row gutter={16}>
