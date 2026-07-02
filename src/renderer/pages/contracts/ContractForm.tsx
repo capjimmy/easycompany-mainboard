@@ -1465,6 +1465,22 @@ const ContractForm: React.FC = () => {
               </Form.Item>
             </Col>
             <Col span={8}>
+              <Form.Item label="외주비율 (%)" tooltip="입력 시 공급가액 기준으로 외주비가 자동 계산됩니다 (수기 입력도 가능)">
+                <InputNumber
+                  style={{ width: '100%' }}
+                  min={0}
+                  max={100}
+                  placeholder="예: 85"
+                  formatter={(value) => `${value}%`}
+                  parser={(value) => value!.replace('%', '') as unknown as number}
+                  onChange={(value) => {
+                    const pct = Number(value) || 0;
+                    form.setFieldValue('outsource_amount', Math.round((contractAmount || 0) * pct / 100));
+                  }}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
               <Form.Item name="outsource_amount" label="외주비">
                 <InputNumber
                   style={{ width: '100%' }}

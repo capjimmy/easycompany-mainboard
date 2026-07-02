@@ -35,7 +35,7 @@ async function recomputeContractReceived(contractId: string): Promise<void> {
  * 발행(매출) 세금계산서가 입금완료(paid 또는 입금일 있음)되면 월별입금현황(monthly_deposits)에 자동 반영.
  * tax_invoice_id로 중복을 방지(있으면 갱신, 없으면 생성).
  */
-async function syncTaxInvoiceToMonthlyDeposit(invoice: any): Promise<void> {
+async function syncTaxInvoiceToMonthlyDeposit(invoice: any, allowCreate = true): Promise<void> {
   if (!invoice) return;
   if (invoice.direction !== 'issued') return; // 매출만
   const isPaid = invoice.status === 'paid' || !!invoice.payment_date;
@@ -68,7 +68,8 @@ async function syncTaxInvoiceToMonthlyDeposit(invoice: any): Promise<void> {
     .from('monthly_deposits').select('id').eq('tax_invoice_id', invoice.id).maybeSingle();
   if (existing) {
     await supabase.from('monthly_deposits').update(row).eq('id', existing.id);
-  } else {
+  } else if (allowCreate) {
+    // 최초 입금완료 시에만 생성. 사용자가 삭제한 뒤 세금계산서 재수정해도 되살아나지 않음.
     await supabase.from('monthly_deposits').insert({ id: uuidv4(), created_at: new Date().toISOString(), ...row });
   }
 }
@@ -280,8 +281,11 @@ export function registerTaxInvoiceHandlers(): void {
       // 계약 수금/미수금 재계산 (입금완료 세금계산서 반영)
       const cid = (result && result.contract_id) || existing.contract_id;
       if (cid) { try { await recomputeContractReceived(cid); } catch { /* noop */ } }
-      // 월별입금현황 자동연동
-      try { await syncTaxInvoiceToMonthlyDeposit(result || { ...existing, ...data }); } catch { /* noop */ }
+      // 월별입금현황 자동연동 (최초 입금완료 전환 시에만 생성, 이후엔 기존 건만 갱신)
+      const wasPaid = existing.status === 'paid' || !!existing.payment_date;
+      const merged = result || { ...existing, ...data };
+      const nowPaid = merged.status === 'paid' || !!merged.payment_date;
+      try { await syncTaxInvoiceToMonthlyDeposit(merged, !wasPaid && nowPaid); } catch { /* noop */ }
 
       return result ? { success: true, invoice: result } : { success: false, error: '수정에 실패했습니다.' };
     } catch (error: any) {

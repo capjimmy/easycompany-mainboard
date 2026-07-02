@@ -59,7 +59,10 @@ export function registerExecutiveOutsourcingHandlers(): void {
     let contractNumber = '';
     if (data.contract_id) {
       const contract = await db.getContractById(data.contract_id);
-      if (contract) contractNumber = contract.contract_number;
+      if (contract) {
+        contractNumber = contract.contract_number;
+        if (contract.company_id) companyId = contract.company_id;
+      }
     }
 
     const row = {

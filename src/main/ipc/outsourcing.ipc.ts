@@ -84,11 +84,14 @@ export function registerOutsourcingHandlers(): void {
       if (companies.length > 0) companyId = companies[0].id;
     }
 
-    // Get contract info for contract_number
+    // Get contract info for contract_number (+ 회사 격리: 외주 소속을 연결된 계약의 회사로 맞춤)
     let contractNumber = '';
     if (data.contract_id) {
       const contract = await db.getContractById(data.contract_id);
-      if (contract) contractNumber = contract.contract_number;
+      if (contract) {
+        contractNumber = contract.contract_number;
+        if (contract.company_id) companyId = contract.company_id;
+      }
     }
 
     const outsourcing = {

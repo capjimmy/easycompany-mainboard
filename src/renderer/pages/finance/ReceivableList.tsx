@@ -14,6 +14,13 @@ import { useAuthStore } from '../../store/authStore';
 
 const { Title } = Typography;
 const { TextArea } = Input;
+const { RangePicker } = DatePicker;
+
+// 미수 합계(=합계금액)에서 공급가액/부가세 분리 (VAT 포함 가정, 부가세=합계-공급가액)
+const splitVat = (total: number) => {
+  const supply = Math.round((total || 0) / 1.1);
+  return { supply, vat: (total || 0) - supply };
+};
 
 interface ManualReceivable {
   id: string;
@@ -50,6 +57,7 @@ const ReceivableList: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState('');
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
 
   useEffect(() => {
     if (user?.id) loadData();
@@ -109,27 +117,45 @@ const ReceivableList: React.FC = () => {
     }
   };
 
-  const filteredAuto = autoList.filter((r) => {
-    if (!searchText) return true;
-    const s = searchText.toLowerCase();
-    return (
-      r.contract_number?.toLowerCase().includes(s) ||
-      r.client_company?.toLowerCase().includes(s) ||
-      r.service_name?.toLowerCase().includes(s)
-    );
-  });
+  const inRange = (dateStr?: string) => {
+    if (!dateRange) return true;
+    if (!dateStr) return false;
+    const d = dayjs(dateStr);
+    return d.isAfter(dateRange[0].startOf('day').subtract(1, 'ms')) && d.isBefore(dateRange[1].endOf('day').add(1, 'ms'));
+  };
 
-  const filteredManual = manualList.filter((r) => {
-    if (!searchText) return true;
-    const s = searchText.toLowerCase();
-    return (
-      r.description?.toLowerCase().includes(s) ||
-      r.client_company_name?.toLowerCase().includes(s)
-    );
-  });
+  const filteredAuto = autoList
+    .filter((r) => inRange(r.contract_end_date))
+    .filter((r) => {
+      if (!searchText) return true;
+      const s = searchText.toLowerCase();
+      return (
+        r.contract_number?.toLowerCase().includes(s) ||
+        r.client_company?.toLowerCase().includes(s) ||
+        r.service_name?.toLowerCase().includes(s)
+      );
+    })
+    .sort((a, b) => (b.contract_end_date || '').localeCompare(a.contract_end_date || '')); // 최신순
+
+  const filteredManual = manualList
+    .filter((r) => inRange(r.issue_date))
+    .filter((r) => {
+      if (!searchText) return true;
+      const s = searchText.toLowerCase();
+      return (
+        r.description?.toLowerCase().includes(s) ||
+        r.client_company_name?.toLowerCase().includes(s)
+      );
+    })
+    .sort((a, b) => (b.issue_date || '').localeCompare(a.issue_date || '')); // 최신순
 
   const totalAuto = autoList.reduce((sum, r) => sum + r.outstanding, 0);
   const totalManual = manualList.reduce((sum, r) => sum + (r.outstanding_amount || 0), 0);
+
+  // 조회(기간·검색) 기준 미수 합계 → 공급가액/부가세/합계
+  const periodTotal = (activeTab === 'auto' ? filteredAuto.map(r => r.outstanding) : filteredManual.map(r => r.outstanding_amount || 0))
+    .reduce((s, v) => s + (v || 0), 0);
+  const periodSplit = splitVat(periodTotal);
 
   const handleAdd = () => {
     setEditingId(null);
@@ -351,8 +377,13 @@ const ReceivableList: React.FC = () => {
             prefix={<SearchOutlined />}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            style={{ width: 280 }}
+            style={{ width: 240 }}
             allowClear
+          />
+          <RangePicker
+            value={dateRange as any}
+            onChange={(v) => setDateRange(v as any)}
+            placeholder={['시작일', '종료일'] as any}
           />
           {activeTab === 'manual' && (
             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
@@ -363,6 +394,18 @@ const ReceivableList: React.FC = () => {
             엑셀 다운로드
           </Button>
         </Space>
+
+        <Row gutter={16} style={{ marginBottom: 16 }}>
+          <Col span={8}>
+            <Card size="small"><Statistic title={`${dateRange ? '기간' : '전체'} 공급가액 (미수, ${activeTab === 'auto' ? '자동' : '수동'})`} value={periodSplit.supply} suffix="원" valueStyle={{ color: '#1890ff', fontSize: 18 }} formatter={(v) => Number(v).toLocaleString()} /></Card>
+          </Col>
+          <Col span={8}>
+            <Card size="small"><Statistic title="부가세" value={periodSplit.vat} suffix="원" valueStyle={{ color: '#fa8c16', fontSize: 18 }} formatter={(v) => Number(v).toLocaleString()} /></Card>
+          </Col>
+          <Col span={8}>
+            <Card size="small"><Statistic title="합계 (미수 총액)" value={periodTotal} suffix="원" valueStyle={{ color: '#cf1322', fontSize: 18 }} formatter={(v) => Number(v).toLocaleString()} /></Card>
+          </Col>
+        </Row>
 
         <Tabs
           activeKey={activeTab}

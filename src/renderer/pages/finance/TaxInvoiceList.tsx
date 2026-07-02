@@ -606,7 +606,24 @@ const TaxInvoiceList: React.FC = () => {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="buyer_name" label="공급받는자명">
-                <Input placeholder="공급받는자 상호" />
+                <AutoComplete
+                  options={clientOptions}
+                  placeholder="상호 입력 시 사업자번호 자동완성"
+                  filterOption={(inputValue, option) =>
+                    (option?.value as string ?? '').toLowerCase().includes(inputValue.toLowerCase())
+                  }
+                  onSelect={(value) => {
+                    const cl = clientMap[value];
+                    if (cl) {
+                      form.setFieldsValue({
+                        buyer_business_number: cl.business_number || '',
+                        buyer_representative: cl.ceo_name || '',
+                        buyer_email: cl.email || '',
+                      });
+                    }
+                  }}
+                  allowClear
+                />
               </Form.Item>
             </Col>
             <Col span={12}>

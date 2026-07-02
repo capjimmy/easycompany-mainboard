@@ -125,6 +125,19 @@ const ContractList: React.FC = () => {
     return contracts.filter((c) => (c as any).department_id === departmentFilter);
   }, [contracts, departmentFilter]);
 
+  // 조회(기간/부서/검색) 기준 총공급가액·부가세·합계
+  const periodTotals = React.useMemo(() => {
+    let supply = 0, vat = 0, total = 0;
+    for (const c of filteredContracts as any[]) {
+      const t = Number(c.total_amount) || 0;
+      const s = c.contract_amount != null ? Number(c.contract_amount)
+        : (c.vat_amount != null ? t - Number(c.vat_amount) : Math.round(t / 1.1));
+      const v = c.vat_amount != null ? Number(c.vat_amount) : (t - s);
+      supply += s; vat += v; total += t;
+    }
+    return { supply, vat, total };
+  }, [filteredContracts]);
+
   const handleDelete = async (contractId: string) => {
     if (!user?.id) return;
 
@@ -497,6 +510,19 @@ const ContractList: React.FC = () => {
           <Button onClick={handleReset}>초기화</Button>
         </Space>
       </Card>
+
+      {/* 조회 기준 합계 */}
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col span={8}>
+          <Card size="small"><Statistic title={`조회 총공급가액 (${filteredContracts.length}건)`} value={periodTotals.supply} suffix="원" valueStyle={{ color: '#1890ff', fontSize: 18 }} formatter={(v) => Number(v).toLocaleString()} /></Card>
+        </Col>
+        <Col span={8}>
+          <Card size="small"><Statistic title="조회 총부가세" value={periodTotals.vat} suffix="원" valueStyle={{ color: '#fa8c16', fontSize: 18 }} formatter={(v) => Number(v).toLocaleString()} /></Card>
+        </Col>
+        <Col span={8}>
+          <Card size="small"><Statistic title="조회 총합계" value={periodTotals.total} suffix="원" valueStyle={{ color: '#52c41a', fontSize: 18 }} formatter={(v) => Number(v).toLocaleString()} /></Card>
+        </Col>
+      </Row>
 
       {/* 목록 */}
       <Card>
